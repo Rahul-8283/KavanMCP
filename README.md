@@ -65,4 +65,108 @@ flowchart LR
     Server <--> DB[("SQLite<br/>Audit DB")]
 ```
 
+---
 
+## Folder Structure
+
+```text
+KavanMCP/
+│
+├── mcp-server/                          # V1: FastMCP Server
+│   ├── config/
+│   │   ├── __init__.py
+│   │   ├── settings.py                  # Load config.json, env vars
+│   │   └── whitelist.py                 # Tier 1 critical processes
+│   │
+│   ├── tools/                           # MCP Tool Definitions
+│   │   ├── __init__.py
+│   │   ├── analyze_system.py
+│   │   ├── list_processes.py
+│   │   ├── explain_process.py
+│   │   ├── confirm_termination.py
+│   │   └── execute_termination.py
+│   │
+│   ├── handlers/                        # Tool Implementation Logic
+│   │   ├── __init__.py
+│   │   ├── process_handler.py
+│   │   ├── classification_handler.py
+│   │   ├── termination_handler.py
+│   │   └── alert_handler.py
+│   │
+│   ├── utils/
+│   │   ├── __init__.py
+│   │   ├── formatters.py
+│   │   ├── logger.py
+│   │   └── validators.py
+│   │
+│   ├── resources/                       # Static Data
+│   │   ├── __init__.py
+│   │   ├── tier_1_processes.json
+│   │   └── alert_templates.json
+│   │
+│   ├── database/
+│   │   ├── __init__.py
+│   │   ├── db.py                        # SQLite CRUD
+│   │   └── models.py                    # Schema
+│   │
+│   ├── integrations/
+│   │   ├── __init__.py
+│   │   ├── windows.py                   # pywin32 wrappers
+│   │   └── monitor.py                   # psutil wrappers
+│   │
+│   ├── data/                            # Runtime (git-ignored)
+│   │   ├── process.db
+│   │   ├── config.json
+│   │   └── whitelist.json
+│   │
+│   ├── logs/                            # Logs (git-ignored)
+│   │   └── audit_trail.log
+│   │
+│   ├── tests/
+│   │   ├── __init__.py
+│   │   ├── conftest.py
+│   │   ├── test_tools.py
+│   │   ├── test_handlers.py
+│   │   └── fixtures.py
+│   │
+│   ├── docs/
+│   │   ├── SETUP.md
+│   │   ├── ARCHITECTURE.md
+│   │   └── API.md
+│   │
+│   ├── scripts/
+│   │   ├── install_deps.bat
+│   │   ├── run_server.bat
+│   │   └── check_admin.bat
+│   │
+│   ├── __init__.py
+│   ├── main.py                          # CLI entry point
+│   ├── server.py                        # FastMCP server setup
+│   ├── requirements.txt
+│   ├── setup.py
+│   ├── .env
+│   ├── .gitignore
+│   └── README.md
+│
+├── desktop/                             # V2: Tauri Desktop App (later)
+│   ├── src-tauri/
+│   │   ├── main.rs
+│   │   ├── Cargo.toml
+│   │   └── src/
+│   ├── src/
+│   │   ├── components/
+│   │   ├── hooks/
+│   │   └── App.tsx
+│   ├── package.json
+│   ├── tauri.conf.json
+│   └── README.md
+│
+├── docs/                                # Project-level docs
+│   ├── PROJECT_OVERVIEW.md
+│   ├── ROADMAP.md
+│   └── CONTRIBUTING.md
+│
+├── .gitignore
+├── README.md                            # Root README
+└── VERSION.md
+```
