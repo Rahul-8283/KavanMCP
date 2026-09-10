@@ -30,6 +30,20 @@ KavanMCP acts as an intelligent bridge between the LLM and your Operating System
 
 ## End-to-End Tech Stack
 
+<div align="center">
+  <img src="https://img.shields.io/badge/Python_3.11+-3776AB?style=for-the-badge&logo=python&logoColor=white" alt="Python" />
+  <img src="https://img.shields.io/badge/FastMCP-8A2BE2?style=for-the-badge" alt="FastMCP" />
+  <img src="https://img.shields.io/badge/SQLite-003B57?style=for-the-badge&logo=sqlite&logoColor=white" alt="SQLite" />
+  <img src="https://img.shields.io/badge/Pydantic_v2-E92063?style=for-the-badge&logo=pydantic&logoColor=white" alt="Pydantic" />
+  <img src="https://img.shields.io/badge/psutil-2C2D72?style=for-the-badge&logo=linux&logoColor=white" alt="psutil" />
+  <img src="https://img.shields.io/badge/pywin32-0078D6?style=for-the-badge&logo=windows&logoColor=white" alt="pywin32" />
+  <img src="https://img.shields.io/badge/Tauri_2.0-FFC131?style=for-the-badge&logo=tauri&logoColor=white" alt="Tauri" />
+  <img src="https://img.shields.io/badge/Rust-000000?style=for-the-badge&logo=rust&logoColor=white" alt="Rust" />
+  <img src="https://img.shields.io/badge/React-20232A?style=for-the-badge&logo=react&logoColor=61DAFB" alt="React" />
+</div>
+
+<br/>
+
 Built for speed, low overhead, and cross-platform compatibility.
 
 | Layer | Technology | Purpose |
