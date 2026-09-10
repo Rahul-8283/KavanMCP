@@ -57,12 +57,67 @@ Built for speed, low overhead, and cross-platform compatibility.
 
 ## Project Architecture
 
+### Basic Data Flow
+
 ```mermaid
 flowchart LR
     Claude["LLM Client<br/>(Claude/ChatGPT)"] <-->|FastMCP Protocol| Server["FastMCP Server<br/>(Tools & Handlers)"]
     Server <--> Security["Security Engine<br/>(Tiers 1-4)"]
     Security <--> OS["OS Hooks<br/>(psutil/Win32)"]
     Server <--> DB[("SQLite<br/>Audit DB")]
+```
+
+### End-to-End Architecture
+
+```mermaid
+flowchart TB
+    subgraph Clients ["Client Interface Layer"]
+        Claude["Claude Desktop / ChatGPT"]
+        TauriUI["Tauri GUI Dashboard (V2)"]
+    end
+
+    subgraph FastMCPServer ["FastMCP Server Core (Python)"]
+        ServerEntryPoint["Server Entry (server.py)"]
+        
+        subgraph ToolSet ["Exposed MCP Tools"]
+            Tools["analyze_system, explain_process, etc"]
+        end
+
+        subgraph Handlers ["Logic & Security"]
+            Process["Process Handler"]
+            Security["Tier 1-4 Classification Engine"]
+            Approval["Dual Confirmation Manager"]
+        end
+    end
+
+    subgraph DataLayer ["Persistence"]
+        SQLiteDB[(SQLite Audit DB)]
+        JSONConfig["User Configs & Whitelist"]
+    end
+
+    subgraph OSLayer ["System Level"]
+        PSUtil["psutil (Metrics)"]
+        Win32API["pywin32 (Deep Inspection)"]
+        TaskKill["Process Termination"]
+    end
+
+    Claude <-->|"MCP Protocol (stdio/SSE)"| ServerEntryPoint
+    TauriUI <-->|"IPC / HTTP"| ServerEntryPoint
+    
+    ServerEntryPoint --> ToolSet
+    ToolSet --> Handlers
+    
+    Handlers --> Security
+    Security --> JSONConfig
+    Security --> Approval
+    
+    Handlers --> Process
+    Process --> PSUtil
+    Process --> Win32API
+    
+    Approval --> TaskKill
+    TaskKill --> SQLiteDB
+    Handlers --> SQLiteDB
 ```
 
 ---
