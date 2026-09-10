@@ -1,0 +1,42 @@
+# Byte-compiled / optimized / DLL files
+__pycache__/
+*.py[cod]
+*$py.class
+
+# Virtual Environments
+venv/
+env/
+.venv/
+ENV/
+
+# Database / Storage
+*.db
+*.sqlite
+*.sqlite3
+data/
+mcp-server/data/
+
+# Logs
+*.log
+logs/
+mcp-server/logs/
+
+# Environment Variables
+.env
+.env.local
+
+# IDEs and Editors
+.vscode/
+.idea/
+*.swp
+*.swo
+
+# OS Generated Files
+.DS_Store
+Thumbs.db
+
+# Tauri / Frontend (For future V2)
+node_modules/
+dist/
+build/
+target/
