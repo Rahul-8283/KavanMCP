@@ -22,7 +22,8 @@ def print_banner():
           AI-Powered System Optimization Engine
     =================================================
     """
-    print(banner)
+    import sys
+    print(banner, file=sys.stderr)
 
 def main():
     # 1 & 3. Initialize logger and display banner
