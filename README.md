@@ -122,6 +122,18 @@ flowchart TB
 
 ---
 
+## Running the Server
+
+To give KavanMCP the necessary permissions to deeply inspect background processes and system resources, it **must** be run with Administrator privileges.
+
+From your terminal (inside the `mcp-server` directory), use the following PowerShell command to launch the server in a new elevated window:
+
+```powershell
+Start-Process -FilePath ".\scripts\run_server.bat" -Verb RunAs
+```
+
+---
+
 ## Folder Structure
 
 ```text
