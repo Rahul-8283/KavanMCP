@@ -1,6 +1,8 @@
 import json
 from integrations.monitor import get_global_metrics, get_all_processes
 from utils.schemas import SystemReportSchema
+from handlers.classification_handler import classify_process
+from handlers.alert_handler import evaluate_anomalies
 
 def analyze_system_logic() -> str:
     """
@@ -13,6 +15,18 @@ def analyze_system_logic() -> str:
     
     # 2. Fetch all running processes
     all_processes = get_all_processes()
+    
+    # 2a. Classify every process and inject the Tier
+    for proc in all_processes:
+        proc['tier'] = classify_process(
+            process_name=proc.get('name', ''), 
+            cpu_percent=proc.get('cpu_percent', 0.0), 
+            memory_mb=proc.get('memory_mb', 0.0), 
+            is_headless=proc.get('is_headless', True)
+        )
+        
+    # 2b. Evaluate for Anomalies
+    all_processes = evaluate_anomalies(all_processes)
     
     # 3. Sort to find top 5 CPU hogs (descending)
     top_cpu_hogs = sorted(all_processes, key=lambda x: x.get('cpu_percent', 0.0), reverse=True)[:5]
