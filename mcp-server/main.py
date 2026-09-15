@@ -1,8 +1,10 @@
 import ctypes
 import sys
+import asyncio
 
 from utils.logger import logger
 from server import mcp
+from database.db import init_db
 
 def is_admin() -> bool:
     """
@@ -37,6 +39,10 @@ def main():
         logger.warning("WARNING: Server is NOT running as Administrator.")
         logger.warning("KavanMCP is operating in degraded mode. You may encounter 'Access Denied' errors when inspecting or terminating background services.")
         logger.warning("To fix this, restart your terminal or command prompt as Administrator.")
+
+    # Initialize SQLite database before starting server
+    logger.info("Initializing SQLite database...")
+    asyncio.run(init_db())
 
     # 4. Launch the FastMCP server using stdio
     logger.info("Starting FastMCP stdio transport... Ready for LLM connection.")
