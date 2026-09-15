@@ -1,5 +1,7 @@
 import os
+import uuid
 import aiosqlite
+from typing import List, Dict
 from database.models import CREATE_AUDIT_LOG_TABLE, CREATE_SYSTEM_BASELINES_TABLE
 from utils.logger import logger
 
@@ -26,3 +28,28 @@ async def init_db():
     except Exception as e:
         logger.critical(f"FATAL: Failed to initialize SQLite database: {e}")
         raise
+
+async def log_termination(process_name: str, pid: int, path: str, mem_mb: float, cpu_pct: float, reasoning: str) -> None:
+    """Logs a process termination event into the audit database."""
+    try:
+        async with aiosqlite.connect(DB_PATH) as db:
+            await db.execute(
+                "INSERT INTO audit_log (id, process_name, pid, executable_path, action_type, memory_freed_mb, cpu_freed_pct, llm_reasoning, user_approved) VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?)",
+                (str(uuid.uuid4()), process_name, pid, path, 'TERMINATED', mem_mb, cpu_pct, reasoning, True)
+            )
+            await db.commit()
+    except Exception as e:
+        logger.error(f"Failed to log termination for {process_name}: {e}")
+
+async def get_recent_logs(limit: int = 50) -> List[Dict]:
+    """Retrieves the most recent audit logs as a list of dictionaries."""
+    logs = []
+    try:
+        async with aiosqlite.connect(DB_PATH) as db:
+            db.row_factory = aiosqlite.Row
+            async with db.execute("SELECT * FROM audit_log ORDER BY timestamp DESC LIMIT ?", (limit,)) as cursor:
+                async for row in cursor:
+                    logs.append(dict(row))
+    except Exception as e:
+        logger.error(f"Failed to fetch recent logs: {e}")
+    return logs
