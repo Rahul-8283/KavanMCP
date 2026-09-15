@@ -41,6 +41,18 @@ async def log_termination(process_name: str, pid: int, path: str, mem_mb: float,
     except Exception as e:
         logger.error(f"Failed to log termination for {process_name}: {e}")
 
+async def log_blocked_action(process_name: str, pid: int, reasoning: str) -> None:
+    """Logs a blocked action event (e.g., trying to kill Tier 1 apps)."""
+    try:
+        async with aiosqlite.connect(DB_PATH) as db:
+            await db.execute(
+                "INSERT INTO audit_log (id, process_name, pid, action_type, llm_reasoning, user_approved) VALUES (?, ?, ?, ?, ?, ?)",
+                (str(uuid.uuid4()), process_name, pid, 'BLOCKED', reasoning, False)
+            )
+            await db.commit()
+    except Exception as e:
+        logger.error(f"Failed to log blocked action for {process_name}: {e}")
+
 async def get_recent_logs(limit: int = 50) -> List[Dict]:
     """Retrieves the most recent audit logs as a list of dictionaries."""
     logs = []
