@@ -7,6 +7,8 @@ class ProcessSchema(BaseModel):
     cpu_percent: float
     memory_mb: float
     status: str
+    tier: int = 3
+    anomaly_flags: List[str] = []
 
 class SystemReportSchema(BaseModel):
     total_cpu_percent: float
