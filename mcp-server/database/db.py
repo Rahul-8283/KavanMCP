@@ -29,6 +29,7 @@ async def init_db():
         logger.critical(f"FATAL: Failed to initialize SQLite database: {e}")
         raise
 
+# when a process is successfully killed
 async def log_termination(process_name: str, pid: int, path: str, mem_mb: float, cpu_pct: float, reasoning: str) -> None:
     """Logs a process termination event into the audit database."""
     try:
@@ -41,6 +42,7 @@ async def log_termination(process_name: str, pid: int, path: str, mem_mb: float,
     except Exception as e:
         logger.error(f"Failed to log termination for {process_name}: {e}")
 
+# when LLM makes a mistakes to kill a high level Tier 1 running process
 async def log_blocked_action(process_name: str, pid: int, reasoning: str) -> None:
     """Logs a blocked action event (e.g., trying to kill Tier 1 apps)."""
     try:

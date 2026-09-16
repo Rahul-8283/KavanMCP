@@ -44,6 +44,12 @@ def main():
     logger.info("Initializing SQLite database...")
     asyncio.run(init_db())
 
+    # Start the TTL sweeper background task safely outside the FastMCP event loop
+    import threading
+    from handlers.approval_handler import ttl_sweeper
+    threading.Thread(target=lambda: asyncio.run(ttl_sweeper()), daemon=True).start()
+    logger.info("Started background TTL garbage collector.")
+
     # 4. Launch the FastMCP server using stdio
     logger.info("Starting FastMCP stdio transport... Ready for LLM connection.")
     try:

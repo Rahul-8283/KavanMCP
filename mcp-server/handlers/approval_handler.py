@@ -1,5 +1,6 @@
 import time
 import psutil
+import asyncio
 from typing import Dict, List
 from handlers.classification_handler import classify_process
 from database.db import log_blocked_action
@@ -78,4 +79,18 @@ async def handle_confirmation_request(pids: List[int]) -> str:
         except Exception as e:
             results.append(f"Could not access PID {pid}: {e}")
             
-    return "\\n".join(results)
+    return "\n".join(results)
+
+async def ttl_sweeper():
+    """
+    Background asyncio task that periodically cleans up expired approvals.
+    Prevents the PENDING_APPROVALS dictionary from growing infinitely.
+    """
+    while True:
+        await asyncio.sleep(60)
+        current_time = time.time()
+        # Cast to list to avoid 'dictionary changed size during iteration' error
+        for pid in list(PENDING_APPROVALS.keys()):
+            if pid in PENDING_APPROVALS:
+                if current_time - PENDING_APPROVALS[pid]["timestamp"] > APPROVAL_TIMEOUT_SECONDS:
+                    del PENDING_APPROVALS[pid]
