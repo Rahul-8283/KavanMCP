@@ -1,6 +1,8 @@
 import json
+
 from handlers.termination_handler import rollback_process
 from utils.logger import logger
+
 
 async def rollback_last_action_logic(process_identifier: str) -> str:
     """

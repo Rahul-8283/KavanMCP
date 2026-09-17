@@ -1,11 +1,12 @@
-import sys
-import os
 import asyncio
+import os
+import sys
 
 # Add mcp-server to path to import db
 sys.path.insert(0, os.path.dirname(os.path.dirname(os.path.abspath(__file__))))
 
-from database.db import init_db, log_termination, get_recent_logs, DB_PATH
+from database.db import DB_PATH, get_recent_logs, init_db, log_termination
+
 
 async def run_tests():
     print("==========================================")
@@ -19,7 +20,6 @@ async def run_tests():
             print(f"Deleted existing database at {DB_PATH}")
         except PermissionError:
             print(f"WARNING: Could not delete {DB_PATH}, it might be in use by Claude Desktop. Proceeding anyway.")
-            pass
     
     await init_db()
     

@@ -1,5 +1,6 @@
 import psutil
 
+
 def get_global_metrics() -> dict:
     """
     Fetches the global CPU and RAM utilization of the system.

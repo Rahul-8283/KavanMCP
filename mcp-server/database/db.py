@@ -1,7 +1,8 @@
 import os
 import uuid
+
 import aiosqlite
-from typing import List, Dict
+
 from database.models import CREATE_AUDIT_LOG_TABLE, CREATE_SYSTEM_BASELINES_TABLE
 from utils.logger import logger
 
@@ -55,7 +56,7 @@ async def log_blocked_action(process_name: str, pid: int, reasoning: str) -> Non
     except Exception as e:
         logger.error(f"Failed to log blocked action for {process_name}: {e}")
 
-async def get_last_terminated_process(pid_or_name: str) -> Dict:
+async def get_last_terminated_process(pid_or_name: str) -> dict:
     """Finds the most recent terminated process matching a PID or name."""
     try:
         async with aiosqlite.connect(DB_PATH) as db:
@@ -88,7 +89,7 @@ async def log_rollback(process_name: str, executable_path: str) -> None:
     except Exception as e:
         logger.error(f"Failed to log rollback for {process_name}: {e}")
 
-async def get_recent_logs(limit: int = 50) -> List[Dict]:
+async def get_recent_logs(limit: int = 50) -> list[dict]:
     """Retrieves the most recent audit logs as a list of dictionaries."""
     logs = []
     try:
