@@ -1,7 +1,9 @@
 import functools
 import json
 import traceback
+
 from utils.logger import logger
+
 
 def safe_mcp_tool(func):
     """
@@ -14,7 +16,7 @@ def safe_mcp_tool(func):
             return await func(*args, **kwargs)
         except Exception as e:
             # Log the raw stack trace for the developer
-            logger.error(f"Error in MCP tool '{func.__name__}': {str(e)}")
+            logger.error(f"Error in MCP tool '{func.__name__}': {e!s}")
             logger.error(traceback.format_exc())
             
             # Determine specific error types

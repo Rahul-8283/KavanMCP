@@ -2,6 +2,7 @@ import logging
 import os
 from logging.handlers import RotatingFileHandler
 
+
 def setup_logger(name: str = "KavanMCP") -> logging.Logger:
     """
     Sets up the global logger for the FastMCP server.

@@ -1,13 +1,14 @@
-import time
-import psutil
 import asyncio
-from typing import Dict, List
-from handlers.classification_handler import classify_process
+import time
+
+import psutil
+
 from database.db import log_blocked_action
+from handlers.classification_handler import classify_process
 
 # Global state dictionary
 # Format: { pid: {"name": str, "tier": int, "timestamp": float} }
-PENDING_APPROVALS: Dict[int, Dict] = {}
+PENDING_APPROVALS: dict[int, dict] = {}
 
 APPROVAL_TIMEOUT_SECONDS = 300 # 5 minutes
 
@@ -36,7 +37,7 @@ def is_approved(pid: int) -> bool:
         
     return True
 
-async def handle_confirmation_request(pids: List[int]) -> str:
+async def handle_confirmation_request(pids: list[int]) -> str:
     """
     Validates requested PIDs against the Classification Engine.
     Instantly blocks Tier 1. Requests approval for Tiers 2-4.

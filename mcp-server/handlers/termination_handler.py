@@ -1,8 +1,11 @@
 import os
-import psutil
 import subprocess
-from database.db import log_termination, get_last_terminated_process, log_rollback
+
+import psutil
+
+from database.db import get_last_terminated_process, log_rollback, log_termination
 from utils.logger import logger
+
 
 async def terminate_process(pid: int, reasoning: str) -> dict:
     try:

@@ -1,10 +1,11 @@
+import asyncio
 import ctypes
 import sys
-import asyncio
 
-from utils.logger import logger
-from server import mcp
 from database.db import init_db
+from server import mcp
+from utils.logger import logger
+
 
 def is_admin() -> bool:
     """
@@ -46,6 +47,7 @@ def main():
 
     # Start the TTL sweeper background task safely outside the FastMCP event loop
     import threading
+
     from handlers.approval_handler import ttl_sweeper
     threading.Thread(target=lambda: asyncio.run(ttl_sweeper()), daemon=True).start()
     logger.info("Started background TTL garbage collector.")

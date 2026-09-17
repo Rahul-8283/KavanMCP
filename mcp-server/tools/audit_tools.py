@@ -1,7 +1,9 @@
-import json
 import datetime
+import json
+
 from database.db import get_recent_logs
 from utils.logger import logger
+
 
 async def view_audit_log_logic(hours_back: int = 24) -> str:
     """

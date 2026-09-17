@@ -1,10 +1,11 @@
-from typing import List
 import json
-from handlers.approval_handler import is_approved, PENDING_APPROVALS
+
+from handlers.approval_handler import PENDING_APPROVALS, is_approved
 from handlers.termination_handler import terminate_process
 from utils.logger import logger
 
-async def execute_termination_logic(pids: List[int], reasoning: str = "User confirmed termination") -> str:
+
+async def execute_termination_logic(pids: list[int], reasoning: str = "User confirmed termination") -> str:
     """
     Core logic for the execute_termination MCP tool.
     Enforces Phase 5 safety gates before calling the OS kill switch.

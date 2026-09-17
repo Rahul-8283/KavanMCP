@@ -1,8 +1,9 @@
-import win32api
-import win32process
-import win32con
-import win32com.client
 import pywintypes
+import win32api
+import win32com.client
+import win32con
+import win32process
+
 
 def get_deep_process_info(pid: int) -> dict:
     """

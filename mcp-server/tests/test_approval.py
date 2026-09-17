@@ -1,13 +1,15 @@
-import sys
-import os
 import json
-import pytest
+import os
+import sys
 from unittest.mock import patch
+
+import pytest
 
 sys.path.append(os.path.dirname(os.path.dirname(os.path.abspath(__file__))))
 
-from handlers.approval_handler import request_approval, is_approved, PENDING_APPROVALS
+from handlers.approval_handler import PENDING_APPROVALS, is_approved, request_approval
 from tools.execute_termination import execute_termination_logic
+
 
 @pytest.fixture(autouse=True)
 def clean_pending_approvals():

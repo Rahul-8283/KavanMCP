@@ -1,9 +1,10 @@
-import sys
 import os
+import sys
+
 sys.path.append(os.path.dirname(os.path.dirname(os.path.abspath(__file__))))
 
-import pytest
 from handlers.classification_handler import classify_process
+
 
 def test_tier_1_classification_lowercase():
     """Test that a critical OS component is classified as Tier 1."""
