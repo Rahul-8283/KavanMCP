@@ -1,11 +1,12 @@
 import json
-from typing import Optional
+
+from handlers.alert_handler import evaluate_anomalies
+from handlers.classification_handler import classify_process
 from integrations.monitor import get_all_processes
 from utils.schemas import ProcessSchema
-from handlers.classification_handler import classify_process
-from handlers.alert_handler import evaluate_anomalies
 
-def list_processes_logic(filter_name: Optional[str] = None) -> str:
+
+def list_processes_logic(filter_name: str | None = None) -> str:
     """
     Core logic for the list_processes MCP tool.
     Returns a JSON string of active processes, optionally filtered by name.

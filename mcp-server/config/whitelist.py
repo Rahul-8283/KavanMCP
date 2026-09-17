@@ -1,6 +1,8 @@
-import os
 import json
+import os
+
 from utils.logger import logger
+
 
 def load_tier_1_whitelist() -> set:
     """

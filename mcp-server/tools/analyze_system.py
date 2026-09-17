@@ -1,8 +1,8 @@
-import json
-from integrations.monitor import get_global_metrics, get_all_processes
-from utils.schemas import SystemReportSchema
-from handlers.classification_handler import classify_process
 from handlers.alert_handler import evaluate_anomalies
+from handlers.classification_handler import classify_process
+from integrations.monitor import get_all_processes, get_global_metrics
+from utils.schemas import SystemReportSchema
+
 
 def analyze_system_logic() -> str:
     """
