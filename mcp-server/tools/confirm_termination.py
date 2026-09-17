@@ -1,8 +1,9 @@
-from typing import List
+
 from handlers.approval_handler import handle_confirmation_request
 from utils.logger import logger
 
-async def confirm_termination_logic(pids: List[int]) -> str:
+
+async def confirm_termination_logic(pids: list[int]) -> str:
     """
     Core logic for the confirm_termination MCP tool.
     Submits PIDs for safety validation and requests user confirmation.
