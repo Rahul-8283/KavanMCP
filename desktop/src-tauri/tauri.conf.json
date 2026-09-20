@@ -12,9 +12,13 @@
   "app": {
     "windows": [
       {
-        "title": "kavan",
-        "width": 800,
-        "height": 600
+        "title": "Kavan",
+        "width": 1024,
+        "height": 768,
+        "resizable": true,
+        "fullscreen": false,
+        "decorations": true,
+        "visible": true
       }
     ],
     "security": {
