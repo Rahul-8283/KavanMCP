@@ -1,1 +1,30 @@
 @import "tailwindcss";
+
+@theme {
+  --color-bg-primary: var(--bg-primary);
+  --color-bg-secondary: var(--bg-secondary);
+  --color-text-primary: var(--text-primary);
+  --color-text-secondary: var(--text-secondary);
+  --color-accent: var(--accent);
+  --color-accent-hover: var(--accent-hover);
+  --color-border: var(--border-color);
+}
+
+@layer base {
+  :root {
+    /* Deep black macOS-inspired aesthetic */
+    --bg-primary: #050505; 
+    --bg-secondary: #111111; 
+    --text-primary: #f3f4f6; 
+    --text-secondary: #9ca3af; 
+    --accent: #2563eb; 
+    --accent-hover: #3b82f6; 
+    --border-color: rgba(255, 255, 255, 0.07); 
+  }
+
+  body {
+    background-color: var(--bg-primary);
+    color: var(--text-primary);
+    font-family: 'Inter', system-ui, sans-serif;
+  }
+}
