@@ -1,4 +1,4 @@
-import { ReactNode } from 'react';
+import { ReactNode, memo } from 'react';
 import { PieChart, Pie, Cell, ResponsiveContainer } from 'recharts';
 
 interface GaugeCardProps {
@@ -6,19 +6,21 @@ interface GaugeCardProps {
   value: number; // 0 to 100
   icon?: ReactNode;
   suffix?: string;
+  isOffline?: boolean;
 }
 
-export function GaugeCard({ title, value, icon, suffix = '%' }: GaugeCardProps) {
+export const GaugeCard = memo(function GaugeCard({ title, value, icon, suffix = '%', isOffline = false }: GaugeCardProps) {
   // Clamp value between 0 and 100
   const clampedValue = Math.min(Math.max(value || 0, 0), 100);
   
   // Calculate remainder for the background of the pie
   const data = [
-    { name: 'Value', value: clampedValue },
-    { name: 'Remainder', value: 100 - clampedValue }
+    { name: 'Value', value: isOffline ? 0 : clampedValue },
+    { name: 'Remainder', value: isOffline ? 100 : 100 - clampedValue }
   ];
 
   const getColor = (val: number) => {
+    if (isOffline) return 'rgba(255,255,255,0.1)'; // Grayed out state
     if (val < 70) return '#10b981'; // emerald-500
     if (val < 90) return '#f59e0b'; // amber-500
     return '#f43f5e'; // rose-500
@@ -28,7 +30,7 @@ export function GaugeCard({ title, value, icon, suffix = '%' }: GaugeCardProps) 
   const inactiveColor = 'rgba(255,255,255,0.05)';
 
   return (
-    <div className="bg-bg-secondary border border-border p-6 rounded-lg flex flex-col justify-between relative overflow-hidden h-48">
+    <div className={`bg-bg-secondary border border-border p-6 rounded-lg flex flex-col justify-between relative overflow-hidden h-48 transition-opacity duration-500 ${isOffline ? 'opacity-60' : 'opacity-100'}`}>
       <div className="flex items-center justify-between z-10 relative">
         <span className="text-xs font-medium text-text-secondary uppercase tracking-widest">{title}</span>
         {icon && <div className="text-text-secondary opacity-50">{icon}</div>}
@@ -63,11 +65,13 @@ export function GaugeCard({ title, value, icon, suffix = '%' }: GaugeCardProps) 
         {/* Value Overlay */}
         <div className="absolute bottom-0 left-0 right-0 flex flex-col items-center z-10">
           <div className="flex items-baseline space-x-1">
-            <span className="text-4xl font-light text-text-primary tracking-tight">{clampedValue.toFixed(1)}</span>
+            <span className="text-4xl font-light text-text-primary tracking-tight">
+              {isOffline ? '--' : clampedValue.toFixed(1)}
+            </span>
             <span className="text-sm text-text-secondary font-medium">{suffix}</span>
           </div>
         </div>
       </div>
     </div>
   );
-}
+});
