@@ -5,7 +5,9 @@ export interface Process {
   name: string;
   cpu_percent: number;
   memory_mb: number;
-  status: string;
+  status?: string;
+  tier: number;
+  create_time?: number;
 }
 
 interface ProcessContextType {
