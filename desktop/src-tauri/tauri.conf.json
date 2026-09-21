@@ -13,8 +13,8 @@
     "windows": [
       {
         "title": "Kavan",
-        "width": 1024,
-        "height": 768,
+        "width": 1280,
+        "height": 720,
         "resizable": true,
         "fullscreen": false,
         "decorations": true,

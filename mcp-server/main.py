@@ -52,6 +52,11 @@ def main():
     threading.Thread(target=lambda: asyncio.run(ttl_sweeper()), daemon=True).start()
     logger.info("Started background TTL garbage collector.")
 
+    # Start the WebSocket server in a separate daemon thread
+    from ws_server import run_ws_server
+    threading.Thread(target=run_ws_server, daemon=True).start()
+    logger.info("Started FastAPI WebSocket server on port 8000.")
+
     # 4. Launch the FastMCP server using stdio
     logger.info("Starting FastMCP stdio transport... Ready for LLM connection.")
     try:
