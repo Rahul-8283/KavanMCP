@@ -7,7 +7,9 @@ import { Cpu, Activity, HardDrive } from "lucide-react";
 
 function App() {
   useWebSocketConnection(); // Start the WebSocket pipeline globally
-  const { metrics } = useMetrics();
+  const { metrics, status } = useMetrics();
+  
+  const isOffline = status !== 'CONNECTED';
 
   useEffect(() => {
     // Clear any lingering CSS zoom property from previous HMR states
@@ -46,23 +48,33 @@ function App() {
           <p className="text-text-secondary mt-1">Real-time telemetry and process intelligence.</p>
         </div>
 
-        {/* Live Metrics Grid */}
-        <div className="grid grid-cols-1 md:grid-cols-3 gap-6">
-          <GaugeCard 
-            title="CPU Usage" 
-            value={metrics.cpu} 
-            icon={<Cpu size={16} />} 
-          />
-          <GaugeCard 
-            title="Memory Usage" 
-            value={metrics.ram} 
-            icon={<Activity size={16} />} 
-          />
-          <GaugeCard 
-            title="Disk Usage" 
-            value={metrics.disk} 
-            icon={<HardDrive size={16} />} 
-          />
+        <div>
+          {/* Live Metrics Grid */}
+          <div className="grid grid-cols-1 md:grid-cols-3 gap-6">
+            <GaugeCard 
+              title="CPU Usage" 
+              value={metrics.cpu} 
+              icon={<Cpu size={16} />} 
+              isOffline={isOffline}
+            />
+            <GaugeCard 
+              title="Memory Usage" 
+              value={metrics.ram} 
+              icon={<Activity size={16} />} 
+              isOffline={isOffline}
+            />
+            <GaugeCard 
+              title="Disk Usage" 
+              value={metrics.disk} 
+              icon={<HardDrive size={16} />} 
+              isOffline={isOffline}
+            />
+          </div>
+          {metrics.lastUpdated && (
+            <div className="text-right text-xs text-text-secondary opacity-50 mt-3 tracking-wide">
+              Last updated: {new Date(metrics.lastUpdated).toLocaleTimeString()}
+            </div>
+          )}
         </div>
 
         {/* Process Table Mock */}
