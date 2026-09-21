@@ -2,8 +2,8 @@ import { createContext, useContext, useState, ReactNode } from 'react';
 
 interface ConfigState {
   theme: 'dark' | 'light';
-  cpuAlertThreshold: number;
-  ramAlertThreshold: number;
+  cpuThreshold: number;
+  ramThreshold: number;
 }
 
 interface ConfigContextType {
@@ -16,8 +16,8 @@ const ConfigContext = createContext<ConfigContextType | undefined>(undefined);
 export function ConfigProvider({ children }: { children: ReactNode }) {
   const [config, setConfig] = useState<ConfigState>({
     theme: 'dark', 
-    cpuAlertThreshold: 90,
-    ramAlertThreshold: 90,
+    cpuThreshold: 90,
+    ramThreshold: 90,
   });
 
   const updateConfig = (newConfig: Partial<ConfigState>) => {

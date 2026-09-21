@@ -1,14 +1,12 @@
-import { useState, useCallback } from 'react';
+import { useCallback } from 'react';
 import { SystemAPI } from '../services/api';
 import { useProcess, Process } from '../context/ProcessContext';
 
 export function useProcessManager() {
-  const { processes, setProcesses } = useProcess();
-  const [loading, setLoading] = useState(false);
-  const [error, setError] = useState<string | null>(null);
+  const { processes, setProcesses, isLoading, setIsLoading, error, setError } = useProcess();
 
   const refreshProcesses = useCallback(async () => {
-    setLoading(true);
+    setIsLoading(true);
     setError(null);
     try {
       const response = await SystemAPI.fetchProcesses();
@@ -20,9 +18,9 @@ export function useProcessManager() {
       setError(err.message || 'Failed to fetch processes');
       console.error(err);
     } finally {
-      setLoading(false);
+      setIsLoading(false);
     }
-  }, [setProcesses]);
+  }, [setProcesses, setIsLoading, setError]);
 
   const terminateProcess = useCallback(async (pid: number) => {
     try {
@@ -43,7 +41,7 @@ export function useProcessManager() {
 
   return {
     processes,
-    loading,
+    loading: isLoading,
     error,
     refreshProcesses,
     terminateProcess
