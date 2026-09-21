@@ -1,7 +1,10 @@
 import { useEffect } from "react";
 import { MainLayout } from "./components/layout/MainLayout";
+import { useWebSocketConnection } from "./hooks/useWebSocketConnection";
 
 function App() {
+  useWebSocketConnection(); // Start the WebSocket pipeline globally
+
   useEffect(() => {
     // Clear any lingering CSS zoom property from previous HMR states
     (document.body.style as any).zoom = '';
