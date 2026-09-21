@@ -29,6 +29,14 @@ export function useWebSocketConnection() {
         console.log('[WebSocket] Connected to metrics server');
         setStatus(ConnectionStatus.CONNECTED);
         backoffRef.current = 1000; // Reset backoff on successful connection
+
+        // Start client-side ping to keep connection alive and prevent 60s drop
+        const pingInterval = setInterval(() => {
+          if (ws.readyState === WebSocket.OPEN) {
+            ws.send(JSON.stringify({ type: 'ping' }));
+          }
+        }, 30000);
+        (ws as any).pingInterval = pingInterval;
       };
 
       ws.onmessage = (event) => {
@@ -50,6 +58,7 @@ export function useWebSocketConnection() {
 
       ws.onclose = () => {
         if (!isMounted) return;
+        if ((ws as any).pingInterval) clearInterval((ws as any).pingInterval);
         console.log(`[WebSocket] Disconnected. Reconnecting in ${backoffRef.current}ms...`);
         setStatus(ConnectionStatus.DISCONNECTED);
         
@@ -73,6 +82,12 @@ export function useWebSocketConnection() {
         clearTimeout(reconnectTimeoutRef.current);
       }
       if (wsRef.current) {
+        // Clear interval if it exists on unmount to prevent ghost pings
+        if ((wsRef.current as any).pingInterval) {
+          clearInterval((wsRef.current as any).pingInterval);
+        }
+        // Remove onclose listener so it doesn't trigger state updates/reconnects during unmount
+        wsRef.current.onclose = null;
         wsRef.current.close();
       }
     };
