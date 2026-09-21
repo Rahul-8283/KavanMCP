@@ -42,8 +42,8 @@ export function useWebSocketConnection() {
         window.dispatchEvent(new CustomEvent('backend-offline'));
         
         reconnectTimeoutRef.current = setTimeout(() => {
-          // Exponential backoff up to 30 seconds max
-          backoffRef.current = Math.min(backoffRef.current * 2, 30000);
+          // Exponential backoff up to 10 seconds max
+          backoffRef.current = Math.min(backoffRef.current * 2, 10000);
           connect();
         }, backoffRef.current);
       };

@@ -4,6 +4,7 @@ interface MetricsState {
   cpu: number;
   ram: number;
   disk: number;
+  lastUpdated: string;
 }
 
 interface MetricsContextType {
@@ -14,10 +15,10 @@ interface MetricsContextType {
 const MetricsContext = createContext<MetricsContextType | undefined>(undefined);
 
 export function MetricsProvider({ children }: { children: ReactNode }) {
-  const [metrics, setMetrics] = useState<MetricsState>({ cpu: 0, ram: 0, disk: 0 });
+  const [metrics, setMetrics] = useState<MetricsState>({ cpu: 0, ram: 0, disk: 0, lastUpdated: new Date().toISOString() });
 
   const updateMetrics = (newMetrics: Partial<MetricsState>) => {
-    setMetrics(prev => ({ ...prev, ...newMetrics }));
+    setMetrics(prev => ({ ...prev, ...newMetrics, lastUpdated: new Date().toISOString() }));
   };
 
   return (
