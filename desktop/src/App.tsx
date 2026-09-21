@@ -3,13 +3,21 @@ import { MainLayout } from "./components/layout/MainLayout";
 import { useWebSocketConnection } from "./hooks/useWebSocketConnection";
 import { useMetrics } from "./context/MetricsContext";
 import { GaugeCard } from "./components/dashboard/GaugeCard";
-import { Cpu, Activity, HardDrive } from "lucide-react";
+import { Cpu, Activity, HardDrive, RefreshCw } from "lucide-react";
+import { useProcessManager } from "./hooks/useProcessManager";
+import { ProcessTable } from "./components/dashboard/ProcessTable";
 
 function App() {
   useWebSocketConnection(); // Start the WebSocket pipeline globally
   const { metrics, status } = useMetrics();
+  const { fetchProcesses, isLoading } = useProcessManager();
   
   const isOffline = status !== 'CONNECTED';
+
+  // Initial fetch of processes
+  useEffect(() => {
+    fetchProcesses();
+  }, [fetchProcesses]);
 
   useEffect(() => {
     // Clear any lingering CSS zoom property from previous HMR states
@@ -77,63 +85,21 @@ function App() {
           )}
         </div>
 
-        {/* Process Table Mock */}
+        {/* Process Table Section */}
         <div className="flex-1 bg-bg-secondary border border-border rounded-lg overflow-hidden flex flex-col min-h-0">
-          <div className="px-6 py-5 border-b border-border bg-bg-secondary/50">
+          <div className="px-6 py-5 border-b border-border bg-bg-secondary/50 flex justify-between items-center">
             <h2 className="text-sm font-medium text-text-primary tracking-wide uppercase">Monitored Processes</h2>
+            <button 
+              onClick={fetchProcesses}
+              disabled={isLoading}
+              className="p-1.5 rounded-md hover:bg-white/10 text-text-secondary hover:text-text-primary transition-colors disabled:opacity-50"
+              title="Refresh Processes"
+            >
+              <RefreshCw size={16} className={isLoading ? "animate-spin" : ""} />
+            </button>
           </div>
           
-          <div className="flex-1 overflow-auto">
-            <table className="w-full text-left border-collapse whitespace-nowrap">
-              <thead>
-                <tr className="border-b border-border/50 text-xs uppercase tracking-widest text-text-secondary bg-black/20">
-                  <th className="px-6 py-4 font-medium">Process Name</th>
-                  <th className="px-6 py-4 font-medium">PID</th>
-                  <th className="px-6 py-4 font-medium">CPU (%)</th>
-                  <th className="px-6 py-4 font-medium">Memory (MB)</th>
-                  <th className="px-6 py-4 font-medium text-right">Status</th>
-                </tr>
-              </thead>
-              <tbody className="text-sm divide-y divide-border/50">
-                <tr className="hover:bg-white/[0.02] transition-colors">
-                  <td className="px-6 py-4 font-medium text-text-primary">Code.exe</td>
-                  <td className="px-6 py-4 text-text-secondary font-mono text-xs">14208</td>
-                  <td className="px-6 py-4 text-text-primary">12.4</td>
-                  <td className="px-6 py-4 text-text-primary">450.2</td>
-                  <td className="px-6 py-4 text-right">
-                    <span className="inline-flex items-center px-2.5 py-1 rounded-sm text-[10px] font-medium tracking-widest uppercase bg-green-500/10 text-green-400 border border-green-500/20">Running</span>
-                  </td>
-                </tr>
-                <tr className="hover:bg-white/[0.02] transition-colors">
-                  <td className="px-6 py-4 font-medium text-text-primary">chrome.exe</td>
-                  <td className="px-6 py-4 text-text-secondary font-mono text-xs">9844</td>
-                  <td className="px-6 py-4 text-text-primary">8.1</td>
-                  <td className="px-6 py-4 text-text-primary">1024.5</td>
-                  <td className="px-6 py-4 text-right">
-                    <span className="inline-flex items-center px-2.5 py-1 rounded-sm text-[10px] font-medium tracking-widest uppercase bg-green-500/10 text-green-400 border border-green-500/20">Running</span>
-                  </td>
-                </tr>
-                <tr className="hover:bg-white/[0.02] transition-colors">
-                  <td className="px-6 py-4 font-medium text-text-primary">python.exe</td>
-                  <td className="px-6 py-4 text-text-secondary font-mono text-xs">3392</td>
-                  <td className="px-6 py-4 text-text-primary">0.5</td>
-                  <td className="px-6 py-4 text-text-primary">64.0</td>
-                  <td className="px-6 py-4 text-right">
-                    <span className="inline-flex items-center px-2.5 py-1 rounded-sm text-[10px] font-medium tracking-widest uppercase bg-yellow-500/10 text-yellow-400 border border-yellow-500/20">Sleeping</span>
-                  </td>
-                </tr>
-                <tr className="hover:bg-white/[0.02] transition-colors">
-                  <td className="px-6 py-4 font-medium text-text-primary">docker-desktop.exe</td>
-                  <td className="px-6 py-4 text-text-secondary font-mono text-xs">11204</td>
-                  <td className="px-6 py-4 text-text-primary">3.2</td>
-                  <td className="px-6 py-4 text-text-primary">2048.8</td>
-                  <td className="px-6 py-4 text-right">
-                    <span className="inline-flex items-center px-2.5 py-1 rounded-sm text-[10px] font-medium tracking-widest uppercase bg-green-500/10 text-green-400 border border-green-500/20">Running</span>
-                  </td>
-                </tr>
-              </tbody>
-            </table>
-          </div>
+          <ProcessTable />
         </div>
       </div>
     </MainLayout>
