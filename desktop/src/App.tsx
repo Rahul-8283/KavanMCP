@@ -1,9 +1,13 @@
 import { useEffect } from "react";
 import { MainLayout } from "./components/layout/MainLayout";
 import { useWebSocketConnection } from "./hooks/useWebSocketConnection";
+import { useMetrics } from "./context/MetricsContext";
+import { GaugeCard } from "./components/dashboard/GaugeCard";
+import { Cpu, Activity, HardDrive } from "lucide-react";
 
 function App() {
   useWebSocketConnection(); // Start the WebSocket pipeline globally
+  const { metrics } = useMetrics();
 
   useEffect(() => {
     // Clear any lingering CSS zoom property from previous HMR states
@@ -42,42 +46,23 @@ function App() {
           <p className="text-text-secondary mt-1">Real-time telemetry and process intelligence.</p>
         </div>
 
-        {/* Top Metrics Grid (Mock Data) */}
+        {/* Live Metrics Grid */}
         <div className="grid grid-cols-1 md:grid-cols-3 gap-6">
-          
-          <div className="bg-bg-secondary border border-border p-6 rounded-lg flex flex-col justify-between">
-            <span className="text-xs font-medium text-text-secondary uppercase tracking-widest">CPU Usage</span>
-            <div className="mt-4 flex items-baseline space-x-2">
-              <span className="text-4xl font-light text-text-primary tracking-tight">24.5</span>
-              <span className="text-sm text-text-secondary">%</span>
-            </div>
-            <div className="w-full bg-black/50 h-1 mt-5 rounded-full overflow-hidden">
-              <div className="bg-accent h-full w-[24.5%]"></div>
-            </div>
-          </div>
-
-          <div className="bg-bg-secondary border border-border p-6 rounded-lg flex flex-col justify-between">
-            <span className="text-xs font-medium text-text-secondary uppercase tracking-widest">Memory Allocation</span>
-            <div className="mt-4 flex items-baseline space-x-2">
-              <span className="text-4xl font-light text-text-primary tracking-tight">12.8</span>
-              <span className="text-sm text-text-secondary">GB / 32 GB</span>
-            </div>
-            <div className="w-full bg-black/50 h-1 mt-5 rounded-full overflow-hidden">
-              <div className="bg-accent h-full w-[40%]"></div>
-            </div>
-          </div>
-
-          <div className="bg-bg-secondary border border-border p-6 rounded-lg flex flex-col justify-between">
-            <span className="text-xs font-medium text-text-secondary uppercase tracking-widest">Active Processes</span>
-            <div className="mt-4 flex items-baseline space-x-2">
-              <span className="text-4xl font-light text-text-primary tracking-tight">184</span>
-              <span className="text-sm text-text-secondary">Total</span>
-            </div>
-            <div className="w-full bg-black/50 h-1 mt-5 rounded-full overflow-hidden">
-              <div className="bg-white/10 h-full w-full"></div>
-            </div>
-          </div>
-
+          <GaugeCard 
+            title="CPU Usage" 
+            value={metrics.cpu} 
+            icon={<Cpu size={16} />} 
+          />
+          <GaugeCard 
+            title="Memory Usage" 
+            value={metrics.ram} 
+            icon={<Activity size={16} />} 
+          />
+          <GaugeCard 
+            title="Disk Usage" 
+            value={metrics.disk} 
+            icon={<HardDrive size={16} />} 
+          />
         </div>
 
         {/* Process Table Mock */}
