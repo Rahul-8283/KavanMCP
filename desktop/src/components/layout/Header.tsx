@@ -1,10 +1,7 @@
-import { Shield } from "lucide-react";
-
 export function Header() {
   return (
     <header className="h-16 border-b border-border bg-bg-primary flex items-center justify-between px-6 shrink-0 z-10 relative">
       <div className="flex items-center space-x-4">
-        <Shield className="w-5 h-5 text-text-secondary" />
         <h2 className="text-sm font-medium text-text-secondary tracking-wide">SYSTEM INTELLIGENCE</h2>
       </div>
       
