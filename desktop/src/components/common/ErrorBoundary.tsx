@@ -33,19 +33,19 @@ export class ErrorBoundary extends Component<Props, State> {
               <AlertTriangle className="w-12 h-12 text-red-500" />
             </div>
             
-            <h1 className="text-2xl font-bold tracking-tight text-white">Application Crashed</h1>
+            <h1 className="text-2xl font-bold tracking-tight text-text-primary">Application Crashed</h1>
             
             <p className="text-text-secondary text-base">
               A critical error occurred in the React rendering tree. Our global boundary intercepted the crash to prevent the window from freezing.
             </p>
             
-            <div className="w-full text-left bg-[#111111] p-4 rounded-md border border-white/10 overflow-auto max-h-48 text-sm font-mono text-red-400">
+            <div className="w-full text-left bg-input-bg p-4 rounded-md border border-border overflow-auto max-h-48 text-sm font-mono text-red-500">
               {this.state.error?.toString()}
             </div>
             
             <button
               onClick={() => window.location.reload()}
-              className="flex items-center space-x-2 bg-white/10 hover:bg-white/20 text-white px-6 py-3 rounded-md transition-colors border border-white/10 mt-4 cursor-pointer"
+              className="flex items-center space-x-2 bg-accent hover:bg-accent-hover text-white px-6 py-3 rounded-md transition-colors border border-transparent mt-4 cursor-pointer"
             >
               <RefreshCw className="w-4 h-4" />
               <span>Reload Application</span>

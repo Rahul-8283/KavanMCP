@@ -25,7 +25,7 @@ export function TierBadge({ tier }: TierBadgeProps) {
       break;
     case 4:
     default:
-      uiClass = 'bg-transparent border border-red-500 text-red-500';
+      uiClass = 'bg-red-500/10 border border-red-500/30 text-red-600 dark:text-red-400';
       text = 'UNVERIFIED';
       tooltip = 'Unknown or suspicious process. Proceed with caution.';
       break;

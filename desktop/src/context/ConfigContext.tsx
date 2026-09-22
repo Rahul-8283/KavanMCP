@@ -12,7 +12,8 @@ interface Config {
 interface ConfigContextType {
   config: Config | null;
   isLoadingConfig: boolean;
-  updateThreshold: (key: keyof Config, value: number) => Promise<void>;
+  updateThreshold: (key: keyof Config, value: any) => Promise<void>;
+  resetThresholds: () => Promise<void>;
 }
 
 const ConfigContext = createContext<ConfigContextType | undefined>(undefined);
@@ -48,8 +49,26 @@ export function ConfigProvider({ children }: { children: React.ReactNode }) {
     }
   };
 
+  // Phase 5 Section 6.2: Visual Reset
+  const resetThresholds = async () => {
+    const defaults = {
+      cpu_threshold: 90,
+      ram_threshold: 90,
+      disk_threshold: 95
+    };
+    
+    // Optimistic bulk update
+    setConfig(prev => prev ? { ...prev, ...defaults } : null);
+
+    try {
+      await SystemAPI.updateThresholds(defaults);
+    } catch (err) {
+      console.error("Failed to reset thresholds on server", err);
+    }
+  };
+
   return (
-    <ConfigContext.Provider value={{ config, isLoadingConfig, updateThreshold }}>
+    <ConfigContext.Provider value={{ config, isLoadingConfig, updateThreshold, resetThresholds }}>
       {children}
     </ConfigContext.Provider>
   );

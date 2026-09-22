@@ -10,7 +10,7 @@ export enum ConnectionStatus {
 export function useWebSocketConnection() {
   const { updateMetrics, setStatus } = useMetrics();
   const wsRef = useRef<WebSocket | null>(null);
-  const reconnectTimeoutRef = useRef<NodeJS.Timeout | null>(null);
+  const reconnectTimeoutRef = useRef<ReturnType<typeof setTimeout> | null>(null);
   const backoffRef = useRef(1000); // Start with 1 second backoff
 
   useEffect(() => {

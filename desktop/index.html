@@ -5,6 +5,12 @@
     <link rel="icon" type="image/svg+xml" href="/kavan_logo.svg" />
     <meta name="viewport" content="width=device-width, initial-scale=1.0" />
     <title>Kavan</title>
+    <!-- Inject theme synchronously before React boots to prevent white flash (Section 5.1 & Criteria 5) -->
+    <script>
+      if (localStorage.getItem('theme') !== 'light') {
+        document.documentElement.classList.add('dark');
+      }
+    </script>
   </head>
 
   <body>
