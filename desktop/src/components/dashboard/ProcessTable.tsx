@@ -1,12 +1,25 @@
 import { useProcess, Process } from '../../context/ProcessContext';
-import { Loader2 } from 'lucide-react';
+import { Loader2, ChevronUp, ChevronDown } from 'lucide-react';
 import { TierBadge } from './TierBadge';
 import { useVirtualizer } from '@tanstack/react-virtual';
 import { useRef, useMemo } from 'react';
 
 export function ProcessTable() {
-  const { processes, isLoading, filterTier, sortConfig, searchQuery } = useProcess();
+  const { processes, isLoading, filterTier, setFilterTier, sortConfig, setSortConfig, searchQuery, setSearchQuery } = useProcess();
   const parentRef = useRef<HTMLDivElement>(null);
+
+  const handleSort = (key: string) => {
+    if (sortConfig?.key === key) {
+      setSortConfig({ key, direction: sortConfig.direction === 'asc' ? 'desc' : 'asc' });
+    } else {
+      setSortConfig({ key, direction: 'desc' });
+    }
+  };
+
+  const renderSortIcon = (key: string) => {
+    if (sortConfig?.key !== key) return null;
+    return sortConfig.direction === 'asc' ? <ChevronUp size={14} className="ml-1" /> : <ChevronDown size={14} className="ml-1" />;
+  };
 
   const processedData = useMemo(() => {
     let data = [...processes];
@@ -77,7 +90,16 @@ export function ProcessTable() {
   if (processedData.length === 0) {
     return (
       <div className="flex-1 flex flex-col items-center justify-center text-text-secondary opacity-50 p-12">
-        <p className="text-sm tracking-wide">No processes match your filter.</p>
+        <p className="text-sm tracking-wide mb-4">No processes found in this Tier.</p>
+        <button 
+          onClick={() => {
+            setFilterTier('ALL');
+            setSearchQuery('');
+          }}
+          className="px-4 py-2 bg-white/5 hover:bg-white/10 rounded-md border border-border/50 text-text-primary text-xs transition-colors"
+        >
+          Clear Filters
+        </button>
       </div>
     );
   }
@@ -86,11 +108,21 @@ export function ProcessTable() {
     <div className="flex-1 flex flex-col min-h-0">
       {/* Table Header (Fixed) */}
       <div className="flex text-xs uppercase tracking-widest text-text-secondary bg-black/20 border-b border-border/50 pr-3">
-        <div className="px-6 py-4 font-medium w-[30%]">Process Name</div>
-        <div className="px-6 py-4 font-medium w-[15%]">PID</div>
-        <div className="px-6 py-4 font-medium w-[15%]">CPU (%)</div>
-        <div className="px-6 py-4 font-medium w-[20%]">Memory (MB)</div>
-        <div className="px-6 py-4 font-medium text-right w-[20%]">Security Tier</div>
+        <button onClick={() => handleSort('name')} className="px-6 py-4 font-medium w-[30%] text-left hover:text-text-primary transition-colors flex items-center select-none group">
+          Process Name <span className="opacity-50 group-hover:opacity-100">{renderSortIcon('name')}</span>
+        </button>
+        <button onClick={() => handleSort('pid')} className="px-6 py-4 font-medium w-[15%] text-left hover:text-text-primary transition-colors flex items-center select-none group">
+          PID <span className="opacity-50 group-hover:opacity-100">{renderSortIcon('pid')}</span>
+        </button>
+        <button onClick={() => handleSort('cpu_percent')} className="px-6 py-4 font-medium w-[15%] text-left hover:text-text-primary transition-colors flex items-center select-none group">
+          CPU (%) <span className="opacity-50 group-hover:opacity-100">{renderSortIcon('cpu_percent')}</span>
+        </button>
+        <button onClick={() => handleSort('memory_mb')} className="px-6 py-4 font-medium w-[20%] text-left hover:text-text-primary transition-colors flex items-center select-none group">
+          Memory (MB) <span className="opacity-50 group-hover:opacity-100">{renderSortIcon('memory_mb')}</span>
+        </button>
+        <button onClick={() => handleSort('tier')} className="px-6 py-4 font-medium w-[20%] justify-end hover:text-text-primary transition-colors flex items-center select-none group">
+          Security Tier <span className="opacity-50 group-hover:opacity-100">{renderSortIcon('tier')}</span>
+        </button>
       </div>
 
       {/* Table Body (Virtualized) */}
