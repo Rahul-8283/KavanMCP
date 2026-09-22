@@ -3,13 +3,23 @@ import { MainLayout } from "./components/layout/MainLayout";
 import { useWebSocketConnection } from "./hooks/useWebSocketConnection";
 import { useMetrics } from "./context/MetricsContext";
 import { GaugeCard } from "./components/dashboard/GaugeCard";
-import { Cpu, Activity, HardDrive } from "lucide-react";
+import { Cpu, Activity, HardDrive, RefreshCw, Search, X } from "lucide-react";
+import { useProcessManager } from "./hooks/useProcessManager";
+import { useProcess } from "./context/ProcessContext";
+import { ProcessTable } from "./components/dashboard/ProcessTable";
 
 function App() {
   useWebSocketConnection(); // Start the WebSocket pipeline globally
   const { metrics, status } = useMetrics();
+  const { fetchProcesses, isLoading } = useProcessManager();
+  const { filterTier, setFilterTier, searchQuery, setSearchQuery } = useProcess();
   
   const isOffline = status !== 'CONNECTED';
+
+  // Initial fetch of processes
+  useEffect(() => {
+    fetchProcesses();
+  }, [fetchProcesses]);
 
   useEffect(() => {
     // Clear any lingering CSS zoom property from previous HMR states
@@ -77,63 +87,62 @@ function App() {
           )}
         </div>
 
-        {/* Process Table Mock */}
+        {/* Process Table Section */}
         <div className="flex-1 bg-bg-secondary border border-border rounded-lg overflow-hidden flex flex-col min-h-0">
-          <div className="px-6 py-5 border-b border-border bg-bg-secondary/50">
-            <h2 className="text-sm font-medium text-text-primary tracking-wide uppercase">Monitored Processes</h2>
+          <div className="px-6 py-5 border-b border-border bg-bg-secondary/50 flex flex-col md:flex-row justify-between items-start md:items-center gap-4">
+            <h2 className="text-sm font-medium text-text-primary tracking-wide uppercase shrink-0">Monitored Processes</h2>
+            
+            <div className="flex items-center gap-3 w-full md:w-auto">
+              <div className="relative flex-1 md:w-56">
+                <Search size={14} className="absolute left-3 top-1/2 -translate-y-1/2 text-text-secondary" />
+                <input 
+                  type="text" 
+                  placeholder="Search processes..." 
+                  className="w-full bg-black/20 border border-border/50 rounded-md py-1.5 pl-9 pr-3 text-sm text-text-primary placeholder:text-text-secondary/50 focus:outline-none focus:border-white/20 transition-colors"
+                  value={searchQuery}
+                  onChange={(e) => setSearchQuery(e.target.value)}
+                />
+              </div>
+
+              <select 
+                className="bg-black/20 border border-border/50 rounded-md py-1.5 px-3 text-sm text-text-primary focus:outline-none focus:border-white/20 transition-colors cursor-pointer"
+                value={filterTier}
+                onChange={(e) => setFilterTier(e.target.value === 'ALL' ? 'ALL' : Number(e.target.value))}
+              >
+                <option value="ALL" className="bg-bg-secondary text-text-primary">All Tiers</option>
+                <option value={1} className="bg-bg-secondary text-text-primary">Tier 1 (Critical)</option>
+                <option value={2} className="bg-bg-secondary text-text-primary">Tier 2 (Essential)</option>
+                <option value={3} className="bg-bg-secondary text-text-primary">Tier 3 (Optional)</option>
+                <option value={4} className="bg-bg-secondary text-text-primary">Tier 4 (Suspicious)</option>
+              </select>
+
+              {(filterTier !== 'ALL' || searchQuery !== '') && (
+                <button
+                  onClick={() => {
+                    setFilterTier('ALL');
+                    setSearchQuery('');
+                  }}
+                  className="p-1.5 rounded-md hover:bg-white/10 text-red-400 hover:text-red-300 transition-colors"
+                  title="Clear Filters"
+                >
+                  <X size={16} />
+                </button>
+              )}
+
+              <div className="w-px h-5 bg-border mx-1 hidden md:block"></div>
+
+              <button 
+                onClick={fetchProcesses}
+                disabled={isLoading}
+                className="p-1.5 rounded-md hover:bg-white/10 text-text-secondary hover:text-text-primary transition-colors disabled:opacity-50 shrink-0"
+                title="Refresh Processes"
+              >
+                <RefreshCw size={16} className={isLoading ? "animate-spin" : ""} />
+              </button>
+            </div>
           </div>
           
-          <div className="flex-1 overflow-auto">
-            <table className="w-full text-left border-collapse whitespace-nowrap">
-              <thead>
-                <tr className="border-b border-border/50 text-xs uppercase tracking-widest text-text-secondary bg-black/20">
-                  <th className="px-6 py-4 font-medium">Process Name</th>
-                  <th className="px-6 py-4 font-medium">PID</th>
-                  <th className="px-6 py-4 font-medium">CPU (%)</th>
-                  <th className="px-6 py-4 font-medium">Memory (MB)</th>
-                  <th className="px-6 py-4 font-medium text-right">Status</th>
-                </tr>
-              </thead>
-              <tbody className="text-sm divide-y divide-border/50">
-                <tr className="hover:bg-white/[0.02] transition-colors">
-                  <td className="px-6 py-4 font-medium text-text-primary">Code.exe</td>
-                  <td className="px-6 py-4 text-text-secondary font-mono text-xs">14208</td>
-                  <td className="px-6 py-4 text-text-primary">12.4</td>
-                  <td className="px-6 py-4 text-text-primary">450.2</td>
-                  <td className="px-6 py-4 text-right">
-                    <span className="inline-flex items-center px-2.5 py-1 rounded-sm text-[10px] font-medium tracking-widest uppercase bg-green-500/10 text-green-400 border border-green-500/20">Running</span>
-                  </td>
-                </tr>
-                <tr className="hover:bg-white/[0.02] transition-colors">
-                  <td className="px-6 py-4 font-medium text-text-primary">chrome.exe</td>
-                  <td className="px-6 py-4 text-text-secondary font-mono text-xs">9844</td>
-                  <td className="px-6 py-4 text-text-primary">8.1</td>
-                  <td className="px-6 py-4 text-text-primary">1024.5</td>
-                  <td className="px-6 py-4 text-right">
-                    <span className="inline-flex items-center px-2.5 py-1 rounded-sm text-[10px] font-medium tracking-widest uppercase bg-green-500/10 text-green-400 border border-green-500/20">Running</span>
-                  </td>
-                </tr>
-                <tr className="hover:bg-white/[0.02] transition-colors">
-                  <td className="px-6 py-4 font-medium text-text-primary">python.exe</td>
-                  <td className="px-6 py-4 text-text-secondary font-mono text-xs">3392</td>
-                  <td className="px-6 py-4 text-text-primary">0.5</td>
-                  <td className="px-6 py-4 text-text-primary">64.0</td>
-                  <td className="px-6 py-4 text-right">
-                    <span className="inline-flex items-center px-2.5 py-1 rounded-sm text-[10px] font-medium tracking-widest uppercase bg-yellow-500/10 text-yellow-400 border border-yellow-500/20">Sleeping</span>
-                  </td>
-                </tr>
-                <tr className="hover:bg-white/[0.02] transition-colors">
-                  <td className="px-6 py-4 font-medium text-text-primary">docker-desktop.exe</td>
-                  <td className="px-6 py-4 text-text-secondary font-mono text-xs">11204</td>
-                  <td className="px-6 py-4 text-text-primary">3.2</td>
-                  <td className="px-6 py-4 text-text-primary">2048.8</td>
-                  <td className="px-6 py-4 text-right">
-                    <span className="inline-flex items-center px-2.5 py-1 rounded-sm text-[10px] font-medium tracking-widest uppercase bg-green-500/10 text-green-400 border border-green-500/20">Running</span>
-                  </td>
-                </tr>
-              </tbody>
-            </table>
-          </div>
+          <ProcessTable />
         </div>
       </div>
     </MainLayout>
