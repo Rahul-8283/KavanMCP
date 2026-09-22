@@ -6,8 +6,11 @@ import psutil
 from fastapi import FastAPI, WebSocket, WebSocketDisconnect, Response
 from fastapi.middleware.cors import CORSMiddleware
 import uvicorn
+from pydantic import BaseModel, Field
+from typing import Optional
 from utils.logger import logger
 from tools.list_processes import list_processes_logic
+from config.settings_manager import load_config, update_config
 
 app = FastAPI(title="KavanMCP WebSocket Server")
 
@@ -65,6 +68,30 @@ async def get_processes():
     """Phase 3 REST Endpoint: Returns all running processes and their assigned security tiers."""
     json_str = list_processes_logic()
     return Response(content=json_str, media_type="application/json")
+
+@app.get("/api/get_config")
+async def get_config():
+    """Phase 5 REST Endpoint: Returns the current alert thresholds and UI preferences."""
+    config_data = load_config()
+    return config_data
+
+class ConfigUpdate(BaseModel):
+    cpu_threshold: Optional[int] = Field(None, ge=0, le=100)
+    ram_threshold: Optional[int] = Field(None, ge=0, le=100)
+    disk_threshold: Optional[int] = Field(None, ge=0, le=100)
+    theme: Optional[str] = None
+    sound_alerts: Optional[bool] = None
+
+@app.post("/api/update_thresholds")
+async def update_thresholds(payload: ConfigUpdate):
+    """Phase 5 REST Endpoint: Partially updates the active config and persists it."""
+    # Exclude unset fields so we only merge what was sent
+    update_data = payload.dict(exclude_unset=True)
+    if not update_data:
+        return {"status": "ignored", "message": "No valid data provided."}
+        
+    new_config = update_config(update_data)
+    return {"status": "success", "config": new_config}
 
 async def metrics_broadcaster():
     """Background task to poll psutil and broadcast to WS clients."""
