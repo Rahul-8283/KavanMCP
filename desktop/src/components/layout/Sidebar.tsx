@@ -1,7 +1,12 @@
 import { useState } from "react";
 import { ChevronLeft, ChevronRight } from "lucide-react";
 
-export function Sidebar() {
+interface SidebarProps {
+  activeView: 'dashboard' | 'settings';
+  setActiveView: (view: 'dashboard' | 'settings') => void;
+}
+
+export function Sidebar({ activeView, setActiveView }: SidebarProps) {
   const [isCollapsed, setIsCollapsed] = useState(false);
 
   return (
@@ -22,18 +27,29 @@ export function Sidebar() {
       </div>
       
       <nav className="flex-1 px-4 space-y-2 flex flex-col items-center w-full">
-        <a href="#" className={`flex items-center ${isCollapsed ? 'justify-center w-12 h-12' : 'w-full px-3 py-2'} rounded-md bg-white/5 text-text-primary border border-white/5 transition-all duration-200`} title="Dashboard">
+        <button 
+          onClick={() => setActiveView('dashboard')}
+          className={`flex items-center ${isCollapsed ? 'justify-center w-12 h-12' : 'w-full px-3 py-2'} rounded-md border transition-all duration-200 cursor-pointer ${activeView === 'dashboard' ? 'bg-white/5 text-text-primary border-white/5' : 'text-text-secondary hover:bg-white/5 hover:text-text-primary border-transparent'}`} 
+          title="Dashboard"
+        >
           <span className="font-medium whitespace-nowrap overflow-hidden">{isCollapsed ? 'D' : 'Dashboard'}</span>
-        </a>
-        <a href="#" className={`flex items-center ${isCollapsed ? 'justify-center w-12 h-12' : 'w-full px-3 py-2'} rounded-md text-text-secondary hover:bg-white/5 hover:text-text-primary transition-all duration-200`} title="Alerts">
+        </button>
+        <button 
+          className={`flex items-center ${isCollapsed ? 'justify-center w-12 h-12' : 'w-full px-3 py-2'} rounded-md text-text-secondary hover:bg-white/5 hover:text-text-primary border border-transparent transition-all duration-200 cursor-pointer`} 
+          title="Alerts"
+        >
           <span className="font-medium whitespace-nowrap overflow-hidden">{isCollapsed ? 'A' : 'Alerts'}</span>
-        </a>
+        </button>
       </nav>
 
       <div className="p-4 flex flex-col items-center w-full">
-        <a href="#" className={`flex items-center ${isCollapsed ? 'justify-center w-12 h-12' : 'w-full px-3 py-2'} rounded-md text-text-secondary hover:bg-white/5 hover:text-text-primary transition-all duration-200`} title="Settings">
+        <button 
+          onClick={() => setActiveView('settings')}
+          className={`flex items-center ${isCollapsed ? 'justify-center w-12 h-12' : 'w-full px-3 py-2'} rounded-md border transition-all duration-200 cursor-pointer ${activeView === 'settings' ? 'bg-white/5 text-text-primary border-white/5' : 'text-text-secondary hover:bg-white/5 hover:text-text-primary border-transparent'}`} 
+          title="Settings"
+        >
           <span className="font-medium whitespace-nowrap overflow-hidden">{isCollapsed ? 'S' : 'Settings'}</span>
-        </a>
+        </button>
       </div>
     </aside>
   );
