@@ -1,16 +1,57 @@
-import { useProcess } from '../../context/ProcessContext';
+import { useProcess, Process } from '../../context/ProcessContext';
 import { Loader2 } from 'lucide-react';
 import { TierBadge } from './TierBadge';
 import { useVirtualizer } from '@tanstack/react-virtual';
-import { useRef } from 'react';
+import { useRef, useMemo } from 'react';
 
 export function ProcessTable() {
-  const { processes, isLoading } = useProcess();
+  const { processes, isLoading, filterTier, sortConfig, searchQuery } = useProcess();
   const parentRef = useRef<HTMLDivElement>(null);
+
+  const processedData = useMemo(() => {
+    let data = [...processes];
+
+    // 1. Search Query Filter
+    if (searchQuery.trim()) {
+      const q = searchQuery.toLowerCase();
+      data = data.filter(p => p.name.toLowerCase().includes(q));
+    }
+
+    // 2. Tier Filter
+    if (filterTier !== 'ALL') {
+      data = data.filter(p => p.tier === filterTier);
+    }
+
+    // 3. Sorting
+    if (sortConfig) {
+      data.sort((a: Process, b: Process) => {
+        const key = sortConfig.key as keyof Process;
+        const valA = a[key];
+        const valB = b[key];
+        
+        let comparison = 0;
+        
+        if (typeof valA === 'string' && typeof valB === 'string') {
+          comparison = valA.localeCompare(valB);
+        } else if (typeof valA === 'number' && typeof valB === 'number') {
+          comparison = valA - valB;
+        }
+
+        // Tie-breaker: If values match perfectly (e.g. 0.0 CPU), fallback to alphabetical sorting
+        if (comparison === 0 && sortConfig.key !== 'name') {
+           comparison = a.name.localeCompare(b.name);
+        }
+
+        return sortConfig.direction === 'asc' ? comparison : -comparison;
+      });
+    }
+
+    return data;
+  }, [processes, filterTier, sortConfig, searchQuery]);
 
   // Initialize the Row Virtualizer to guarantee 60 FPS scrolling even with 10,000+ processes
   const rowVirtualizer = useVirtualizer({
-    count: processes.length,
+    count: processedData.length,
     getScrollElement: () => parentRef.current,
     estimateSize: () => 53, // Approximate pixel height of one row
     overscan: 10, // Render 10 rows outside the visible viewport to prevent flickering when scrolling fast
@@ -33,6 +74,14 @@ export function ProcessTable() {
     );
   }
 
+  if (processedData.length === 0) {
+    return (
+      <div className="flex-1 flex flex-col items-center justify-center text-text-secondary opacity-50 p-12">
+        <p className="text-sm tracking-wide">No processes match your filter.</p>
+      </div>
+    );
+  }
+
   return (
     <div className="flex-1 flex flex-col min-h-0">
       {/* Table Header (Fixed) */}
@@ -51,7 +100,7 @@ export function ProcessTable() {
           style={{ height: `${rowVirtualizer.getTotalSize()}px` }}
         >
           {rowVirtualizer.getVirtualItems().map((virtualRow) => {
-            const proc = processes[virtualRow.index];
+            const proc = processedData[virtualRow.index];
             return (
               <div
                 key={`${proc.pid}-${proc.name}`}
