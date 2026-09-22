@@ -1,10 +1,39 @@
-import { useState } from 'react';
+import { useState, useEffect } from 'react';
+import { useConfig } from '../context/ConfigContext';
+import { Loader2 } from 'lucide-react';
 
 export function Settings() {
-  // Local state for sliders (skipping Section 4/5 network and local storage integration)
+  const { config, isLoadingConfig, updateThreshold } = useConfig();
+
+  // Local state for buttery smooth slider dragging
   const [cpuThreshold, setCpuThreshold] = useState(90);
   const [ramThreshold, setRamThreshold] = useState(90);
   const [diskThreshold, setDiskThreshold] = useState(95);
+
+  // Sync local state when config is fetched from the backend on boot
+  useEffect(() => {
+    if (config) {
+      setCpuThreshold(config.cpu_threshold);
+      setRamThreshold(config.ram_threshold);
+      setDiskThreshold(config.disk_threshold);
+    }
+  }, [config]);
+
+  // Network call triggered ONLY when dragging stops
+  const handleMouseUp = (key: 'cpu_threshold' | 'ram_threshold' | 'disk_threshold', val: number) => {
+    if (config && config[key] !== val) {
+      updateThreshold(key, val);
+    }
+  };
+
+  if (isLoadingConfig) {
+    return (
+      <div className="flex-1 flex flex-col items-center justify-center text-text-secondary opacity-50 p-12">
+        <Loader2 className="w-8 h-8 animate-spin mb-4" />
+        <p className="text-sm tracking-wide">Loading configuration...</p>
+      </div>
+    );
+  }
 
   return (
     <div className="flex flex-col space-y-8 max-w-4xl w-full h-full pb-8">
@@ -33,6 +62,8 @@ export function Settings() {
                 min="0" max="100" 
                 value={cpuThreshold}
                 onChange={(e) => setCpuThreshold(Number(e.target.value))}
+                onMouseUp={() => handleMouseUp('cpu_threshold', cpuThreshold)}
+                onTouchEnd={() => handleMouseUp('cpu_threshold', cpuThreshold)}
                 className="w-full accent-white"
               />
             </div>
@@ -48,6 +79,8 @@ export function Settings() {
                 min="0" max="100" 
                 value={ramThreshold}
                 onChange={(e) => setRamThreshold(Number(e.target.value))}
+                onMouseUp={() => handleMouseUp('ram_threshold', ramThreshold)}
+                onTouchEnd={() => handleMouseUp('ram_threshold', ramThreshold)}
                 className="w-full accent-white"
               />
             </div>
@@ -63,6 +96,8 @@ export function Settings() {
                 min="0" max="100" 
                 value={diskThreshold}
                 onChange={(e) => setDiskThreshold(Number(e.target.value))}
+                onMouseUp={() => handleMouseUp('disk_threshold', diskThreshold)}
+                onTouchEnd={() => handleMouseUp('disk_threshold', diskThreshold)}
                 className="w-full accent-white"
               />
             </div>
