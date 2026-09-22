@@ -3,11 +3,22 @@ import json
 from datetime import datetime, timezone
 
 import psutil
-from fastapi import FastAPI, WebSocket, WebSocketDisconnect
+from fastapi import FastAPI, WebSocket, WebSocketDisconnect, Response
+from fastapi.middleware.cors import CORSMiddleware
 import uvicorn
 from utils.logger import logger
+from tools.list_processes import list_processes_logic
 
 app = FastAPI(title="KavanMCP WebSocket Server")
+
+# Allow the Tauri React frontend to query this API
+app.add_middleware(
+    CORSMiddleware,
+    allow_origins=["*"],
+    allow_credentials=True,
+    allow_methods=["*"],
+    allow_headers=["*"],
+)
 
 class ConnectionManager:
     def __init__(self):
@@ -48,6 +59,12 @@ async def websocket_endpoint(websocket: WebSocket):
         manager.disconnect(websocket)
     except Exception:
         manager.disconnect(websocket)
+
+@app.get("/api/list_processes")
+async def get_processes():
+    """Phase 3 REST Endpoint: Returns all running processes and their assigned security tiers."""
+    json_str = list_processes_logic()
+    return Response(content=json_str, media_type="application/json")
 
 async def metrics_broadcaster():
     """Background task to poll psutil and broadcast to WS clients."""

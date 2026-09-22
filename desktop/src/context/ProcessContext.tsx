@@ -5,7 +5,9 @@ export interface Process {
   name: string;
   cpu_percent: number;
   memory_mb: number;
-  status: string;
+  status?: string;
+  tier: number;
+  create_time?: number;
 }
 
 interface ProcessContextType {
@@ -15,8 +17,10 @@ interface ProcessContextType {
   setIsLoading: (loading: boolean) => void;
   error: string | null;
   setError: (error: string | null) => void;
-  sortConfig: { key: keyof Process; direction: 'asc' | 'desc' };
-  setSortConfig: (config: { key: keyof Process; direction: 'asc' | 'desc' }) => void;
+  sortConfig: { key: string; direction: 'asc' | 'desc' } | null;
+  setSortConfig: (config: { key: string; direction: 'asc' | 'desc' } | null) => void;
+  filterTier: number | 'ALL';
+  setFilterTier: (tier: number | 'ALL') => void;
   searchQuery: string;
   setSearchQuery: (query: string) => void;
 }
@@ -27,7 +31,8 @@ export function ProcessProvider({ children }: { children: ReactNode }) {
   const [processes, setProcesses] = useState<Process[]>([]);
   const [isLoading, setIsLoading] = useState(false);
   const [error, setError] = useState<string | null>(null);
-  const [sortConfig, setSortConfig] = useState<{ key: keyof Process; direction: 'asc' | 'desc' }>({ key: 'cpu_percent', direction: 'desc' });
+  const [sortConfig, setSortConfig] = useState<{ key: string; direction: 'asc' | 'desc' } | null>(null);
+  const [filterTier, setFilterTier] = useState<number | 'ALL'>('ALL');
   const [searchQuery, setSearchQuery] = useState('');
 
   return (
@@ -36,6 +41,7 @@ export function ProcessProvider({ children }: { children: ReactNode }) {
       isLoading, setIsLoading,
       error, setError,
       sortConfig, setSortConfig,
+      filterTier, setFilterTier,
       searchQuery, setSearchQuery 
     }}>
       {children}
