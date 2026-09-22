@@ -55,8 +55,8 @@ export function Dashboard() {
       </div>
 
       {/* Process Table Section */}
-      <div className="flex-1 bg-bg-secondary border border-border rounded-lg overflow-hidden flex flex-col min-h-0">
-        <div className="px-6 py-5 border-b border-border bg-bg-secondary/50 flex flex-col md:flex-row justify-between items-start md:items-center gap-4">
+      <div className="flex-1 bg-bg-secondary border border-border rounded-lg overflow-hidden flex flex-col min-h-0 shadow-xs">
+        <div className="px-6 py-5 border-b border-border bg-bg-tertiary/40 flex flex-col md:flex-row justify-between items-start md:items-center gap-4">
           <h2 className="text-sm font-medium text-text-primary tracking-wide uppercase shrink-0">Monitored Processes</h2>
           
           <div className="flex items-center gap-3 w-full md:w-auto">
@@ -65,14 +65,14 @@ export function Dashboard() {
               <input 
                 type="text" 
                 placeholder="Search processes..." 
-                className="w-full bg-black/20 border border-border/50 rounded-md py-1.5 pl-9 pr-3 text-sm text-text-primary placeholder:text-text-secondary/50 focus:outline-none focus:border-white/20 transition-colors"
+                className="w-full bg-input-bg border border-border rounded-md py-1.5 pl-9 pr-3 text-sm text-text-primary placeholder:text-text-secondary/60 focus:outline-none focus:border-accent transition-colors"
                 value={searchQuery}
                 onChange={(e) => setSearchQuery(e.target.value)}
               />
             </div>
 
             <select 
-              className="bg-black/20 border border-border/50 rounded-md py-1.5 px-3 text-sm text-text-primary focus:outline-none focus:border-white/20 transition-colors cursor-pointer"
+              className="bg-input-bg border border-border rounded-md py-1.5 px-3 text-sm text-text-primary focus:outline-none focus:border-accent transition-colors cursor-pointer"
               value={filterTier}
               onChange={(e) => setFilterTier(e.target.value === 'ALL' ? 'ALL' : Number(e.target.value))}
             >
@@ -89,7 +89,7 @@ export function Dashboard() {
                   setFilterTier('ALL');
                   setSearchQuery('');
                 }}
-                className="p-1.5 rounded-md hover:bg-white/10 text-red-400 hover:text-red-300 transition-colors"
+                className="p-1.5 rounded-md hover:bg-hover-bg text-red-500 hover:text-red-600 transition-colors cursor-pointer"
                 title="Clear Filters"
               >
                 <X size={16} />
@@ -101,7 +101,7 @@ export function Dashboard() {
             <button 
               onClick={fetchProcesses}
               disabled={isLoading}
-              className="p-1.5 rounded-md hover:bg-white/10 text-text-secondary hover:text-text-primary transition-colors disabled:opacity-50 shrink-0"
+              className="p-1.5 rounded-md hover:bg-hover-bg text-text-secondary hover:text-text-primary transition-colors disabled:opacity-50 shrink-0 cursor-pointer"
               title="Refresh Processes"
             >
               <RefreshCw size={16} className={isLoading ? "animate-spin" : ""} />

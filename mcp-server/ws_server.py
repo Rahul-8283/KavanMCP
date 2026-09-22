@@ -11,8 +11,14 @@ from typing import Optional
 from utils.logger import logger
 from tools.list_processes import list_processes_logic
 from config.settings_manager import load_config, update_config
+from fastapi.exceptions import RequestValidationError
+from fastapi.responses import JSONResponse
 
 app = FastAPI(title="KavanMCP WebSocket Server")
+
+@app.exception_handler(RequestValidationError)
+async def validation_exception_handler(request, exc):
+    return JSONResponse(status_code=400, content={"detail": exc.errors()})
 
 # Allow the Tauri React frontend to query this API
 app.add_middleware(

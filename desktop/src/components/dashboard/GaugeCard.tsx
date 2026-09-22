@@ -20,17 +20,17 @@ export const GaugeCard = memo(function GaugeCard({ title, value, icon, suffix = 
   ];
 
   const getColor = (val: number) => {
-    if (isOffline) return 'rgba(255,255,255,0.1)'; // Grayed out state
+    if (isOffline) return 'var(--gauge-offline)'; // Grayed out state
     if (val < 70) return '#10b981'; // emerald-500
     if (val < 90) return '#f59e0b'; // amber-500
     return '#f43f5e'; // rose-500
   };
 
   const activeColor = getColor(clampedValue);
-  const inactiveColor = 'rgba(255,255,255,0.05)';
+  const inactiveColor = 'var(--gauge-track)';
 
   return (
-    <div className={`bg-bg-secondary border border-border p-6 rounded-lg flex flex-col justify-between relative overflow-hidden h-48 transition-opacity duration-500 ${isOffline ? 'opacity-60' : 'opacity-100'}`}>
+    <div className={`bg-bg-secondary border border-border p-6 rounded-lg flex flex-col justify-between relative overflow-hidden h-48 transition-opacity duration-500 shadow-xs ${isOffline ? 'opacity-60' : 'opacity-100'}`}>
       <div className="flex items-center justify-between z-10 relative">
         <span className="text-xs font-medium text-text-secondary uppercase tracking-widest">{title}</span>
         {icon && <div className="text-text-secondary opacity-50">{icon}</div>}
