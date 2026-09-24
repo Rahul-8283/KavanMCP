@@ -19,6 +19,7 @@ The UI only displays alerts; the Python FastMCP server must actively calculate t
 ### 2.1 The Evaluation Loop
 In the background `asyncio` task established in Phase 2, the Python server must evaluate the live `psutil` metrics against the user's `config.json` thresholds before broadcasting.
 - If `current_cpu > config.cpu_threshold`, generate an Alert Payload.
+- **Backend Throttling:** Implement a lightweight 3-second cooldown on the backend per metric (CPU/RAM/Disk) to prevent the frontend from receiving hundreds of alerts per second if resources remain critically high.
 
 ### 2.2 Alert WebSocket Payload
 Instead of a standard `metrics_update`, the server pushes a specific alert message over the existing WebSocket channel.
@@ -89,7 +90,7 @@ async function triggerNativeAlert(title: string, body: string) {
 }
 ```
 ### 5.2 Sound Alerts
-If the user enabled "Sound Alerts" in Phase 5, the trigger logic should also play a subtle, non-intrusive `.wav` or `.mp3` file (e.g., a short beep) utilizing the native HTML5 `<audio>` API.
+If the user enabled "Sound Alerts" in Phase 5, the trigger logic should also play a subtle, non-intrusive "beep" utilizing the browser's native Web Audio API (`AudioContext`). This synthesizes a clean beep instantly, requiring zero external files and avoiding unnecessary bundle bulk.
 
 ---
 

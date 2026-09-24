@@ -1,6 +1,7 @@
 import asyncio
 import json
 from datetime import datetime, timezone
+import time
 
 import psutil
 from fastapi import FastAPI, WebSocket, WebSocketDisconnect, Response
@@ -10,7 +11,7 @@ from pydantic import BaseModel, Field
 from typing import Optional
 from utils.logger import logger
 from tools.list_processes import list_processes_logic
-from config.settings_manager import load_config, update_config
+from config.settings_manager import load_config, update_config, ACTIVE_CONFIG
 from fastapi.exceptions import RequestValidationError
 from fastapi.responses import JSONResponse
 
@@ -102,6 +103,14 @@ async def update_thresholds(payload: ConfigUpdate):
 async def metrics_broadcaster():
     """Background task to poll psutil and broadcast to WS clients."""
     logger.info("Metrics broadcaster background task started.")
+    
+    last_alert_time = {
+        "cpu": 0,
+        "ram": 0,
+        "disk": 0
+    }
+    ALERT_COOLDOWN = 3.0  # seconds
+
     while True:
         try:
             if manager.active_connections:
@@ -112,16 +121,45 @@ async def metrics_broadcaster():
                 disk = psutil.disk_usage('/')
                 disk_percent = disk.percent
                 
-                payload = {
-                    "type": "metrics_update",
-                    "data": {
-                        "cpu_percent": cpu_percent,
-                        "ram_percent": ram_percent,
-                        "disk_percent": disk_percent,
-                        "timestamp": datetime.now(timezone.utc).isoformat()
+                # Phase 6: Alert Evaluation
+                current_time = time.time()
+                
+                def get_alert_payload(metric_name, current_val, threshold_val, metric_label):
+                    if threshold_val is not None and current_val > threshold_val:
+                        if current_time - last_alert_time[metric_name] >= ALERT_COOLDOWN:
+                            last_alert_time[metric_name] = current_time
+                            level = "critical" if current_val >= 95 else "warning"
+                            return {
+                                "type": "threshold_alert",
+                                "level": level,
+                                "message": f"{metric_label} exceeded {threshold_val}% threshold. Current: {current_val}%.",
+                                "timestamp": int(current_time)
+                            }
+                    return None
+
+                cpu_alert = get_alert_payload("cpu", cpu_percent, ACTIVE_CONFIG.get("cpu_threshold"), "CPU")
+                ram_alert = get_alert_payload("ram", ram_percent, ACTIVE_CONFIG.get("ram_threshold"), "Memory")
+                disk_alert = get_alert_payload("disk", disk_percent, ACTIVE_CONFIG.get("disk_threshold"), "Disk")
+
+                alerts = [a for a in (cpu_alert, ram_alert, disk_alert) if a]
+
+                if alerts:
+                    # Instead of a standard metrics_update, the server pushes a specific alert message
+                    for alert_payload in alerts:
+                        await manager.broadcast(alert_payload)
+                else:
+                    # Standard metrics broadcast only if no alerts triggered this cycle
+                    payload = {
+                        "type": "metrics_update",
+                        "data": {
+                            "cpu_percent": cpu_percent,
+                            "ram_percent": ram_percent,
+                            "disk_percent": disk_percent,
+                            "timestamp": datetime.now(timezone.utc).isoformat()
+                        }
                     }
-                }
-                await manager.broadcast(payload)
+                    await manager.broadcast(payload)
+
         except Exception as e:
             logger.error(f"Error in metrics broadcaster: {e}")
         
