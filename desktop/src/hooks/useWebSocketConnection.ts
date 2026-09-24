@@ -1,5 +1,8 @@
 import { useEffect, useRef } from 'react';
 import { useMetrics } from '../context/MetricsContext';
+import { useToast } from '../context/ToastContext';
+import { useConfig } from '../context/ConfigContext';
+import { isPermissionGranted, requestPermission, sendNotification } from '@tauri-apps/plugin-notification';
 
 export enum ConnectionStatus {
   CONNECTING = 'CONNECTING',
@@ -7,10 +10,51 @@ export enum ConnectionStatus {
   DISCONNECTED = 'DISCONNECTED'
 }
 
+async function triggerNativeAlert(title: string, body: string) {
+  try {
+    let permissionGranted = await isPermissionGranted();
+    if (!permissionGranted) {
+      const permission = await requestPermission();
+      permissionGranted = permission === 'granted';
+    }
+    if (permissionGranted) {
+      sendNotification({ title, body });
+    }
+  } catch (err) {
+    console.error("Failed to send native notification", err);
+  }
+}
+
+function playBeep() {
+  try {
+    const AudioContext = window.AudioContext || (window as any).webkitAudioContext;
+    if (!AudioContext) return;
+    const audioCtx = new AudioContext();
+    const oscillator = audioCtx.createOscillator();
+    const gainNode = audioCtx.createGain();
+    
+    oscillator.type = 'sine';
+    oscillator.frequency.setValueAtTime(880, audioCtx.currentTime); // A5 frequency
+    
+    gainNode.gain.setValueAtTime(0.1, audioCtx.currentTime); // 10% volume
+    gainNode.gain.exponentialRampToValueAtTime(0.001, audioCtx.currentTime + 0.5);
+    
+    oscillator.connect(gainNode);
+    gainNode.connect(audioCtx.destination);
+    
+    oscillator.start();
+    oscillator.stop(audioCtx.currentTime + 0.5);
+  } catch (e) {
+    console.error('Failed to play beep', e);
+  }
+}
+
 export function useWebSocketConnection() {
   const { updateMetrics, setStatus } = useMetrics();
+  const { addToast } = useToast();
+  const { config } = useConfig();
   const wsRef = useRef<WebSocket | null>(null);
-  const reconnectTimeoutRef = useRef<NodeJS.Timeout | null>(null);
+  const reconnectTimeoutRef = useRef<ReturnType<typeof setTimeout> | null>(null);
   const backoffRef = useRef(1000); // Start with 1 second backoff
 
   useEffect(() => {
@@ -50,6 +94,19 @@ export function useWebSocketConnection() {
               disk: payload.data.disk_percent,
               lastUpdated: payload.data.timestamp
             });
+          } else if (payload.type === 'threshold_alert') {
+            // Render React Toast
+            addToast(payload.message, payload.level);
+            
+            // 5.1 Native OS Integration
+            if (payload.level === 'critical') {
+              triggerNativeAlert('Kavan Alert', payload.message);
+            }
+            
+            // 5.2 Sound Alerts
+            if (config?.sound_alerts !== false) {
+              playBeep();
+            }
           }
         } catch (error) {
           console.error('[WebSocket] Error parsing message:', error);

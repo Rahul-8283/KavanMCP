@@ -96,7 +96,7 @@ export function ProcessTable() {
             setFilterTier('ALL');
             setSearchQuery('');
           }}
-          className="px-4 py-2 bg-white/5 hover:bg-white/10 rounded-md border border-border/50 text-text-primary text-xs transition-colors"
+          className="px-4 py-2 bg-input-bg hover:bg-hover-bg rounded-md border border-border text-text-primary text-xs transition-colors cursor-pointer"
         >
           Clear Filters
         </button>
@@ -107,20 +107,20 @@ export function ProcessTable() {
   return (
     <div className="flex-1 flex flex-col min-h-0">
       {/* Table Header (Fixed) */}
-      <div className="flex text-xs uppercase tracking-widest text-text-secondary bg-black/20 border-b border-border/50 pr-3">
-        <button onClick={() => handleSort('name')} className="px-6 py-4 font-medium w-[30%] text-left hover:text-text-primary transition-colors flex items-center select-none group">
+      <div className="flex text-xs uppercase tracking-widest text-text-secondary bg-input-bg border-b border-border pr-3">
+        <button onClick={() => handleSort('name')} className="px-6 py-4 font-medium w-[30%] text-left hover:text-text-primary transition-colors flex items-center select-none group cursor-pointer">
           Process Name <span className="opacity-50 group-hover:opacity-100">{renderSortIcon('name')}</span>
         </button>
-        <button onClick={() => handleSort('pid')} className="px-6 py-4 font-medium w-[15%] text-left hover:text-text-primary transition-colors flex items-center select-none group">
+        <button onClick={() => handleSort('pid')} className="px-6 py-4 font-medium w-[15%] text-left hover:text-text-primary transition-colors flex items-center select-none group cursor-pointer">
           PID <span className="opacity-50 group-hover:opacity-100">{renderSortIcon('pid')}</span>
         </button>
-        <button onClick={() => handleSort('cpu_percent')} className="px-6 py-4 font-medium w-[15%] text-left hover:text-text-primary transition-colors flex items-center select-none group">
+        <button onClick={() => handleSort('cpu_percent')} className="px-6 py-4 font-medium w-[15%] text-left hover:text-text-primary transition-colors flex items-center select-none group cursor-pointer">
           CPU (%) <span className="opacity-50 group-hover:opacity-100">{renderSortIcon('cpu_percent')}</span>
         </button>
-        <button onClick={() => handleSort('memory_mb')} className="px-6 py-4 font-medium w-[20%] text-left hover:text-text-primary transition-colors flex items-center select-none group">
+        <button onClick={() => handleSort('memory_mb')} className="px-6 py-4 font-medium w-[20%] text-left hover:text-text-primary transition-colors flex items-center select-none group cursor-pointer">
           Memory (MB) <span className="opacity-50 group-hover:opacity-100">{renderSortIcon('memory_mb')}</span>
         </button>
-        <button onClick={() => handleSort('tier')} className="px-6 py-4 font-medium w-[20%] justify-end hover:text-text-primary transition-colors flex items-center select-none group">
+        <button onClick={() => handleSort('tier')} className="px-6 py-4 font-medium w-[20%] justify-end hover:text-text-primary transition-colors flex items-center select-none group cursor-pointer">
           Security Tier <span className="opacity-50 group-hover:opacity-100">{renderSortIcon('tier')}</span>
         </button>
       </div>
@@ -136,7 +136,7 @@ export function ProcessTable() {
             return (
               <div
                 key={`${proc.pid}-${proc.name}`}
-                className="absolute top-0 left-0 w-full flex items-center text-sm border-b border-border/20 hover:bg-white/[0.02] transition-colors"
+                className="absolute top-0 left-0 w-full flex items-center text-sm border-b border-border-subtle hover:bg-hover-bg transition-colors"
                 style={{
                   height: `${virtualRow.size}px`,
                   transform: `translateY(${virtualRow.start}px)`,

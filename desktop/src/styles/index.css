@@ -4,51 +4,108 @@
 @theme {
   --color-bg-primary: var(--bg-primary);
   --color-bg-secondary: var(--bg-secondary);
+  --color-bg-tertiary: var(--bg-tertiary);
   --color-text-primary: var(--text-primary);
   --color-text-secondary: var(--text-secondary);
   --color-accent: var(--accent);
   --color-accent-hover: var(--accent-hover);
   --color-border: var(--border-color);
+  --color-border-subtle: var(--border-subtle);
+  --color-input-bg: var(--input-bg);
+  --color-hover-bg: var(--hover-bg);
+  --color-active-bg: var(--active-bg);
+  --color-switch-off: var(--switch-off);
 }
 
 @layer base {
   :root {
-    /* Deep black macOS-inspired aesthetic */
-    --bg-primary: #050505; 
-    --bg-secondary: #111111; 
-    --text-primary: #f3f4f6; 
-    --text-secondary: #9ca3af; 
-    --accent: #2563eb; 
-    --accent-hover: #3b82f6; 
-    --border-color: rgba(255, 255, 255, 0.07); 
+    /* macOS-inspired Clean Light Theme */
+    --bg-primary: #f5f6f8;
+    --bg-secondary: #ffffff;
+    --bg-tertiary: #f0f2f5;
+    --text-primary: #111827;
+    --text-secondary: #6b7280;
+    --accent: #2563eb;
+    --accent-hover: #1d4ed8;
+    --border-color: rgba(0, 0, 0, 0.09);
+    --border-subtle: rgba(0, 0, 0, 0.04);
+    --input-bg: rgba(0, 0, 0, 0.04);
+    --hover-bg: rgba(0, 0, 0, 0.05);
+    --active-bg: rgba(0, 0, 0, 0.08);
+    --gauge-track: #e5e7eb;
+    --gauge-offline: #d1d5db;
+    --scrollbar-thumb: rgba(0, 0, 0, 0.16);
+    --scrollbar-thumb-hover: rgba(0, 0, 0, 0.28);
+    --switch-off: #d1d5db;
+    color-scheme: light;
+  }
+
+  :root.dark, html.dark {
+    /* Deep black macOS-inspired Dark Theme */
+    --bg-primary: #050505;
+    --bg-secondary: #111114;
+    --bg-tertiary: #19191e;
+    --text-primary: #f3f4f6;
+    --text-secondary: #9ca3af;
+    --accent: #3b82f6;
+    --accent-hover: #60a5fa;
+    --border-color: rgba(255, 255, 255, 0.08);
+    --border-subtle: rgba(255, 255, 255, 0.04);
+    --input-bg: rgba(255, 255, 255, 0.04);
+    --hover-bg: rgba(255, 255, 255, 0.05);
+    --active-bg: rgba(255, 255, 255, 0.1);
+    --gauge-track: rgba(255, 255, 255, 0.06);
+    --gauge-offline: rgba(255, 255, 255, 0.12);
+    --scrollbar-thumb: rgba(255, 255, 255, 0.15);
+    --scrollbar-thumb-hover: rgba(255, 255, 255, 0.25);
+    --switch-off: rgba(255, 255, 255, 0.15);
+    color-scheme: dark;
   }
 
   body {
     background-color: var(--bg-primary);
     color: var(--text-primary);
     font-family: 'Ubuntu', system-ui, sans-serif;
+    transition: background-color 0.2s ease, color 0.2s ease;
   }
 
-  /* Custom Scrollbar for Webkit (Chrome/Edge/Safari) */
+  /* Custom Scrollbar */
   ::-webkit-scrollbar {
     width: 8px;
     height: 8px;
   }
   ::-webkit-scrollbar-track {
-    background: transparent; 
+    background: transparent;
   }
   ::-webkit-scrollbar-thumb {
-    background: rgba(255, 255, 255, 0.15); 
+    background: var(--scrollbar-thumb);
     border-radius: 10px;
     border: 2px solid var(--bg-primary);
   }
   ::-webkit-scrollbar-thumb:hover {
-    background: rgba(255, 255, 255, 0.25); 
+    background: var(--scrollbar-thumb-hover);
   }
   
   /* Firefox Scrollbar */
   * {
     scrollbar-width: thin;
-    scrollbar-color: rgba(255, 255, 255, 0.15) transparent;
+    scrollbar-color: var(--scrollbar-thumb) transparent;
+  }
+}
+
+@layer utilities {
+  .animate-slide-in-right {
+    animation: slideInRight 0.3s cubic-bezier(0.16, 1, 0.3, 1) forwards;
+  }
+}
+
+@keyframes slideInRight {
+  from {
+    opacity: 0;
+    transform: translateX(100%);
+  }
+  to {
+    opacity: 1;
+    transform: translateX(0);
   }
 }

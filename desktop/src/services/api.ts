@@ -44,5 +44,7 @@ apiClient.interceptors.response.use(
 export const SystemAPI = {
   fetchProcesses: () => apiClient.get('/api/list_processes'),
   confirmKill: (pid: number) => apiClient.post('/api/confirm_termination', { pid }),
-  executeKill: (pid: number) => apiClient.post('/api/execute_termination', { pid })
+  executeKill: (pid: number) => apiClient.post('/api/execute_termination', { pid }),
+  fetchConfig: () => apiClient.get('/api/get_config'),
+  updateThresholds: (payload: Record<string, any>) => apiClient.post('/api/update_thresholds', payload)
 };
