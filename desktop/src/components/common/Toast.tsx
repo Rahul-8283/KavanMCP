@@ -1,3 +1,4 @@
+import { useEffect } from 'react';
 import { X, Info, AlertTriangle, XOctagon } from 'lucide-react';
 import { useToast, Toast as ToastType } from '../../context/ToastContext';
 
@@ -7,6 +8,14 @@ interface ToastProps {
 
 export function Toast({ toast }: ToastProps) {
   const { removeToast } = useToast();
+
+  useEffect(() => {
+    const timer = setTimeout(() => {
+      removeToast(toast.id);
+    }, 5000);
+    
+    return () => clearTimeout(timer);
+  }, [toast.id, removeToast]);
 
   const colorMap = {
     info: {

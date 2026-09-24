@@ -21,7 +21,10 @@ export function ToastProvider({ children }: { children: ReactNode }) {
 
   const addToast = useCallback((message: string, level: ToastLevel) => {
     const id = Math.random().toString(36).substring(2, 9);
-    setToasts((prev) => [...prev, { id, message, level }]);
+    setToasts((prev) => {
+      const newToasts = [...prev, { id, message, level }];
+      return newToasts.slice(-3);
+    });
   }, []);
 
   const removeToast = useCallback((id: string) => {
