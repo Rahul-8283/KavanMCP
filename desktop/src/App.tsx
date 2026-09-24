@@ -2,6 +2,8 @@ import { useState, useEffect } from "react";
 import { MainLayout } from "./components/layout/MainLayout";
 import { useWebSocketConnection } from "./hooks/useWebSocketConnection";
 import { ConfigProvider } from "./context/ConfigContext";
+import { ToastProvider } from "./context/ToastContext";
+import { ToastContainer } from "./components/common/ToastContainer";
 import { Dashboard } from "./pages/Dashboard";
 import { Settings } from "./pages/Settings";
 
@@ -41,9 +43,12 @@ function App() {
   }, []);
   return (
     <ConfigProvider>
-      <MainLayout activeView={activeView} setActiveView={setActiveView}>
-        {activeView === 'dashboard' ? <Dashboard /> : <Settings />}
-      </MainLayout>
+      <ToastProvider>
+        <MainLayout activeView={activeView} setActiveView={setActiveView}>
+          {activeView === 'dashboard' ? <Dashboard /> : <Settings />}
+        </MainLayout>
+        <ToastContainer />
+      </ToastProvider>
     </ConfigProvider>
   );
 }
