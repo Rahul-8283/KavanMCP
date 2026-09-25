@@ -2,6 +2,7 @@ import { useEffect, useRef } from 'react';
 import { TrayIcon } from '@tauri-apps/api/tray';
 import { Menu, MenuItem, PredefinedMenuItem } from '@tauri-apps/api/menu';
 import { getCurrentWindow } from '@tauri-apps/api/window';
+import { resolveResource } from '@tauri-apps/api/path';
 import { useMetrics } from '../context/MetricsContext';
 import { useConfig } from '../context/ConfigContext';
 
@@ -43,16 +44,19 @@ export function useTrayIntegration() {
         let tray = await TrayIcon.getById('main');
         
         if (!tray) {
+          const defaultIconPath = await resolveResource('icons/tray-green.ico');
           tray = await TrayIcon.new({
             id: 'main',
             tooltip: 'KavanMCP',
-            icon: 'icons/tray-green.ico', 
+            icon: defaultIconPath, 
             menu: menu,
-            action: async () => {
-               // Basic click handler
-               const appWindow = getCurrentWindow();
-               await appWindow.show();
-               await appWindow.setFocus();
+            action: async (event) => {
+               // Only unhide if it's a left click. Ignore hover (Enter/Move) events!
+               if (event.type === 'Click') {
+                 const appWindow = getCurrentWindow();
+                 await appWindow.show();
+                 await appWindow.setFocus();
+               }
             }
           });
         }
@@ -98,7 +102,8 @@ export function useTrayIntegration() {
        if (trayRef.current) {
          // Only dispatch IPC command if the icon actually changed
          if (currentIconRef.current !== newIcon) {
-           await trayRef.current.setIcon(newIcon).catch(console.error);
+           const absoluteIconPath = await resolveResource(newIcon);
+           await trayRef.current.setIcon(absoluteIconPath).catch(console.error);
            currentIconRef.current = newIcon;
          }
          
