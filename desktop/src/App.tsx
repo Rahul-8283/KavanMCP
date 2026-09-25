@@ -2,6 +2,7 @@ import { useState, useEffect } from "react";
 import { MainLayout } from "./components/layout/MainLayout";
 import { useWebSocketConnection } from "./hooks/useWebSocketConnection";
 import { useTrayIntegration } from "./hooks/useTrayIntegration";
+import { useWindowLifecycle } from "./hooks/useWindowLifecycle";
 import { ToastContainer } from "./components/common/ToastContainer";
 import { Dashboard } from "./pages/Dashboard";
 import { Settings } from "./pages/Settings";
@@ -9,6 +10,7 @@ import { Settings } from "./pages/Settings";
 function App() {
   useWebSocketConnection(); // Start the WebSocket pipeline globally
   useTrayIntegration(); // Start the System Tray & IPC integrations
+  useWindowLifecycle(); // Intercept window close to hide instead of kill
 
   const [activeView, setActiveView] = useState<'dashboard' | 'settings'>('dashboard');
 

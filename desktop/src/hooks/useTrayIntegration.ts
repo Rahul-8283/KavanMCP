@@ -1,6 +1,6 @@
 import { useEffect, useRef } from 'react';
 import { TrayIcon } from '@tauri-apps/api/tray';
-import { Menu, MenuItem } from '@tauri-apps/api/menu';
+import { Menu, MenuItem, PredefinedMenuItem } from '@tauri-apps/api/menu';
 import { getCurrentWindow } from '@tauri-apps/api/window';
 import { useMetrics } from '../context/MetricsContext';
 import { useConfig } from '../context/ConfigContext';
@@ -25,15 +25,19 @@ export function useTrayIntegration() {
           }
         });
         
+        const separator = await PredefinedMenuItem.new({ item: 'Separator' });
+        
         const quitItem = await MenuItem.new({ 
           text: 'Quit', 
           action: async () => {
             const appWindow = getCurrentWindow();
-            await appWindow.close(); 
+            // We MUST use destroy() instead of close().
+            // close() gets intercepted by our "Hide, Don't Kill" hook and just hides the app!
+            await appWindow.destroy(); 
           }
         });
         
-        const menu = await Menu.new({ items: [openItem, quitItem] });
+        const menu = await Menu.new({ items: [openItem, separator, quitItem] });
 
         // Check if tray already exists (helps with React StrictMode / HMR)
         let tray = await TrayIcon.getById('main');
