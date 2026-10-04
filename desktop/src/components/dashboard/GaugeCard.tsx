@@ -1,77 +1,68 @@
 import { ReactNode, memo } from 'react';
-import { PieChart, Pie, Cell, ResponsiveContainer } from 'recharts';
 
 interface GaugeCardProps {
   title: string;
   value: number; // 0 to 100
+  threshold: number; // The user's alert threshold, drawn as the red zone of the dial
   icon?: ReactNode;
-  suffix?: string;
   isOffline?: boolean;
 }
 
-export const GaugeCard = memo(function GaugeCard({ title, value, icon, suffix = '%', isOffline = false }: GaugeCardProps) {
-  // Clamp value between 0 and 100
+const RING_RADIUS = 43;
+
+export const GaugeCard = memo(function GaugeCard({ title, value, threshold, icon, isOffline = false }: GaugeCardProps) {
   const clampedValue = Math.min(Math.max(value || 0, 0), 100);
-  
-  // Calculate remainder for the background of the pie
-  const data = [
-    { name: 'Value', value: isOffline ? 0 : clampedValue },
-    { name: 'Remainder', value: isOffline ? 100 : 100 - clampedValue }
-  ];
+  const redZoneStart = Math.min(Math.max(threshold, 0), 100);
+  // Same comparison the backend uses to raise an alert
+  const isOver = !isOffline && clampedValue > redZoneStart;
+  const arcLength = isOffline ? 0 : clampedValue;
 
-  const getColor = (val: number) => {
-    if (isOffline) return 'var(--gauge-offline)'; // Grayed out state
-    if (val < 70) return '#10b981'; // emerald-500
-    if (val < 90) return '#f59e0b'; // amber-500
-    return '#f43f5e'; // rose-500
-  };
-
-  const activeColor = getColor(clampedValue);
-  const inactiveColor = 'var(--gauge-track)';
+  let caption = `Alerts above ${redZoneStart}%`;
+  if (isOffline) caption = 'No signal';
+  else if (isOver) caption = `Over the ${redZoneStart}% limit`;
 
   return (
-    <div className={`bg-bg-secondary border border-border p-6 rounded-lg flex flex-col justify-between relative overflow-hidden h-48 transition-opacity duration-500 shadow-xs ${isOffline ? 'opacity-60' : 'opacity-100'}`}>
-      <div className="flex items-center justify-between z-10 relative">
-        <span className="text-xs font-medium text-text-secondary uppercase tracking-widest">{title}</span>
-        {icon && <div className="text-text-secondary opacity-50">{icon}</div>}
+    <section className={`panel @container flex items-center justify-between gap-4 px-5 py-4 transition-opacity duration-500 ${isOffline ? 'opacity-60' : ''}`}>
+      <div className="min-w-0">
+        <h2 className="caps">{title}</h2>
+        <p className="mt-2 flex items-baseline gap-1 font-display">
+          <span className={`tnum text-[2.375rem] font-light leading-none tracking-[-0.02em] transition-colors duration-300 ${isOver ? 'text-crimson-ink' : 'text-ink'}`}>
+            {isOffline ? '--' : clampedValue.toFixed(1)}
+          </span>
+          <span className="text-sm text-ink-faint">%</span>
+        </p>
+        <p className={`mt-2 truncate text-xs ${isOver ? 'font-medium text-crimson-ink' : 'text-ink-soft'}`}>{caption}</p>
       </div>
-      
-      <div className="flex-1 w-full flex flex-col items-center justify-center relative mt-6">
-        <div className="w-full h-full absolute inset-0 -top-8">
-          <ResponsiveContainer width="100%" height="100%">
-            <PieChart>
-              <Pie
-                data={data}
-                cx="50%"
-                cy="100%"
-                startAngle={180}
-                endAngle={0}
-                innerRadius="80%"
-                outerRadius="100%"
-                paddingAngle={0}
-                dataKey="value"
-                stroke="none"
-                isAnimationActive={true}
-                animationDuration={800}
-                animationEasing="ease-out"
-              >
-                <Cell key="cell-0" fill={activeColor} />
-                <Cell key="cell-1" fill={inactiveColor} />
-              </Pie>
-            </PieChart>
-          </ResponsiveContainer>
-        </div>
-        
-        {/* Value Overlay */}
-        <div className="absolute bottom-0 left-0 right-0 flex flex-col items-center z-10">
-          <div className="flex items-baseline space-x-1">
-            <span className="text-4xl font-light text-text-primary tracking-tight">
-              {isOffline ? '--' : clampedValue.toFixed(1)}
-            </span>
-            <span className="text-sm text-text-secondary font-medium">{suffix}</span>
+
+      {/* The dial quotes the logo: a value ring, a faint inner ring, a glyph at the centre.
+          A card too narrow to hold it beside the reading shows the reading alone. */}
+      <div className="relative hidden h-[4.75rem] w-[4.75rem] shrink-0 @[15.5rem]:block">
+        <svg viewBox="0 0 100 100" className="h-full w-full" aria-hidden="true">
+          <g fill="none" transform="rotate(-90 50 50)">
+            <circle cx="50" cy="50" r={RING_RADIUS} stroke="var(--line-strong)" strokeWidth="1.5" />
+            {!isOffline && (
+              <circle
+                cx="50" cy="50" r={RING_RADIUS} pathLength={100}
+                stroke="var(--crimson)" strokeWidth="1.5"
+                strokeDasharray={`${100 - redZoneStart} 100`}
+                strokeDashoffset={-redZoneStart}
+              />
+            )}
+            <circle
+              cx="50" cy="50" r={RING_RADIUS} pathLength={100}
+              stroke={isOver ? 'var(--crimson)' : 'var(--ink)'} strokeWidth="5"
+              strokeDasharray={`${arcLength} 100`}
+              style={{ transition: 'stroke-dasharray 0.7s cubic-bezier(0.2, 0.7, 0.2, 1), stroke 0.3s ease' }}
+            />
+          </g>
+          <circle cx="50" cy="50" r="32" fill="none" stroke="var(--line)" strokeWidth="1" />
+        </svg>
+        {icon && (
+          <div className={`absolute inset-0 flex items-center justify-center transition-colors duration-300 ${isOver ? 'text-crimson-ink' : 'text-ink-faint'}`}>
+            {icon}
           </div>
-        </div>
+        )}
       </div>
-    </div>
+    </section>
   );
 });
