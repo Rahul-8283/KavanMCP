@@ -1,5 +1,5 @@
 import { useEffect } from 'react';
-import { X, Info, AlertTriangle, XOctagon } from 'lucide-react';
+import { X, Info, AlertTriangle, XOctagon, CheckCircle2 } from 'lucide-react';
 import { useToast, Toast as ToastType } from '../../context/ToastContext';
 
 interface ToastProps {
@@ -21,6 +21,10 @@ export function Toast({ toast }: ToastProps) {
     info: {
       border: 'border-blue-500',
       icon: <Info className="w-5 h-5 text-blue-500" />
+    },
+    success: {
+      border: 'border-emerald-500',
+      icon: <CheckCircle2 className="w-5 h-5 text-emerald-500" />
     },
     warning: {
       border: 'border-amber-500',
