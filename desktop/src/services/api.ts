@@ -1,4 +1,5 @@
 import axios from 'axios';
+import type { Process } from '../context/ProcessContext';
 
 // Errors that the backend describes with a machine-readable code (see ws_server.py)
 export class ApiError extends Error {
@@ -62,6 +63,8 @@ apiClient.interceptors.response.use(
 
 // Termination waits up to 3s for the OS before force-killing, so it needs more than the default 5s
 const TERMINATION_TIMEOUT_MS = 10000;
+// Scanning every process takes seconds on a busy machine, well past the default 5s
+const PROCESS_SCAN_TIMEOUT_MS = 20000;
 
 export interface StagedTermination {
   status: 'pending';
@@ -84,7 +87,8 @@ export interface TerminationResult {
 
 // 4.3 Service Definitions
 export const SystemAPI = {
-  fetchProcesses: () => apiClient.get('/api/list_processes'),
+  fetchProcesses: () =>
+    apiClient.get<Process[], Process[]>('/api/list_processes', { timeout: PROCESS_SCAN_TIMEOUT_MS }),
   confirmKill: (pid: number) =>
     apiClient.post<StagedTermination, StagedTermination>('/api/confirm_termination', { pid }, { timeout: TERMINATION_TIMEOUT_MS }),
   executeKill: (pid: number) =>
