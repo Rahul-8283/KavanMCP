@@ -82,7 +82,9 @@ async def websocket_endpoint(websocket: WebSocket):
 @app.get("/api/list_processes")
 async def get_processes():
     """Phase 3 REST Endpoint: Returns all running processes and their assigned security tiers."""
-    json_str = list_processes_logic()
+    # Scanning every process blocks for seconds. Run it in a worker thread, or it
+    # stalls the whole server: metric broadcasts and /api/get_config queue behind it.
+    json_str = await asyncio.to_thread(list_processes_logic)
     return Response(content=json_str, media_type="application/json")
 
 @app.get("/api/get_config")
