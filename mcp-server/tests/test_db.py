@@ -68,3 +68,36 @@ def test_blocked_action_is_not_returned_as_terminated(temp_db):
     asyncio.run(db.log_blocked_action("explorer.exe", 5, "blocked"))
 
     assert asyncio.run(db.get_last_terminated_process("explorer.exe")) == {}
+
+
+def test_recent_logs_filters_by_time_window_before_limit(temp_db):
+    conn = sqlite3.connect(temp_db)
+    conn.execute(
+        "INSERT INTO audit_log (id, timestamp, process_name, pid, action_type) "
+        "VALUES ('old', datetime('now', '-30 hours'), 'old.exe', 1, 'TERMINATED')"
+    )
+    conn.commit()
+    conn.close()
+
+    async def fill():
+        await asyncio.gather(*[
+            db.log_termination(f"p{i}.exe", i, None, 1.0, 0.0, "test") for i in range(150)
+        ])
+
+    asyncio.run(fill())
+
+    last_day = asyncio.run(db.get_recent_logs(limit=500, hours_back=24))
+    last_two_days = asyncio.run(db.get_recent_logs(limit=500, hours_back=48))
+
+    assert len(last_day) == 150  # More than the old 100-row cap, and the 30h-old row is excluded
+    assert len(last_two_days) == 151
+
+
+def test_view_audit_log_rejects_non_positive_window(temp_db):
+    import json
+
+    from tools.audit_tools import view_audit_log_logic
+
+    result = json.loads(asyncio.run(view_audit_log_logic(0)))
+
+    assert result["status"] == "error"

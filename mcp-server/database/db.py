@@ -90,13 +90,23 @@ async def log_rollback(process_name: str, pid: int, executable_path: str) -> Non
     except Exception as e:
         logger.error(f"Failed to log rollback for {process_name}: {e}")
 
-async def get_recent_logs(limit: int = 50) -> list[dict]:
-    """Retrieves the most recent audit logs as a list of dictionaries."""
+async def get_recent_logs(limit: int = 50, hours_back: float | None = None) -> list[dict]:
+    """
+    Retrieves the most recent audit logs as a list of dictionaries.
+    hours_back restricts the result to that time window before the limit is applied.
+    """
     logs = []
+    query = "SELECT * FROM audit_log"
+    params: tuple = ()
+    if hours_back is not None:
+        # timestamp is stored by SQLite's CURRENT_TIMESTAMP, which is UTC like datetime('now')
+        query += " WHERE timestamp >= datetime('now', ?)"
+        params = (f"-{hours_back} hours",)
+    query += " ORDER BY timestamp DESC LIMIT ?"
     try:
         async with aiosqlite.connect(DB_PATH) as db:
             db.row_factory = aiosqlite.Row
-            async with db.execute("SELECT * FROM audit_log ORDER BY timestamp DESC LIMIT ?", (limit,)) as cursor:
+            async with db.execute(query, (*params, limit)) as cursor:
                 async for row in cursor:
                     logs.append(dict(row))
     except Exception as e:
