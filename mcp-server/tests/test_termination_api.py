@@ -14,7 +14,7 @@ from config.whitelist import TIER_1_WHITELIST
 from handlers.approval_handler import PENDING_APPROVALS
 from ws_server import app
 
-client = TestClient(app)
+client = TestClient(app, base_url="http://127.0.0.1:8000")
 
 CONFIRM = "/api/confirm_termination"
 EXECUTE = "/api/execute_termination"
@@ -194,3 +194,43 @@ def test_execute_refuses_own_pid_even_if_an_approval_exists():
 
     assert response.status_code == 403
     assert _code(response) == "self_protected"
+
+
+def test_foreign_origin_cannot_stage_a_kill(dummy_process):
+    response = client.post(CONFIRM, json={"pid": dummy_process.pid}, headers={"Origin": "https://evil.example"})
+
+    assert response.status_code == 403
+    assert _code(response) == "forbidden_origin"
+    assert dummy_process.pid not in PENDING_APPROVALS
+
+
+def test_dns_rebinding_host_is_rejected(dummy_process):
+    """A rebound page is same-origin, so the only tell is a Host that is not localhost."""
+    response = client.post(CONFIRM, json={"pid": dummy_process.pid}, headers={"Host": "evil.example:8000"})
+
+    assert response.status_code == 403
+    assert dummy_process.pid not in PENDING_APPROVALS
+
+
+def test_tauri_origin_and_originless_local_clients_are_allowed(dummy_process):
+    from_app = client.post(CONFIRM, json={"pid": dummy_process.pid}, headers={"Origin": "http://tauri.localhost"})
+    PENDING_APPROVALS.clear()
+    from_cli = client.post(CONFIRM, json={"pid": dummy_process.pid})
+
+    assert from_app.status_code == 200
+    assert from_cli.status_code == 200
+
+
+def test_websocket_rejects_foreign_origin():
+    from starlette.websockets import WebSocketDisconnect
+
+    # The test client ignores base_url for sockets, so the local address is spelled out
+    ws_url = "ws://127.0.0.1:8000/ws"
+
+    with TestClient(app, base_url="http://127.0.0.1:8000") as live:  # Runs the lifespan, so metrics flow
+        with pytest.raises(WebSocketDisconnect):
+            with live.websocket_connect(ws_url, headers={"Origin": "https://evil.example"}):
+                pass
+
+        with live.websocket_connect(ws_url, headers={"Origin": "http://localhost:1420"}) as ws:
+            assert ws.receive_json()["type"] == "metrics_update"

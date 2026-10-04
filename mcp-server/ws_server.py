@@ -34,21 +34,62 @@ async def validation_exception_handler(request, exc):
     detail = [{"type": e.get("type"), "loc": list(e.get("loc", ())), "msg": e.get("msg")} for e in exc.errors()]
     return JSONResponse(status_code=400, content={"detail": detail})
 
+HOST = "127.0.0.1"
+PORT = 8000
+
 # Only the Tauri window may call this API. Any other origin (e.g. a web page open in
 # the browser) would otherwise be able to reach the kill endpoints on localhost.
 # Dev: Vite runs on 1420. Release (Windows): Tauri serves from tauri.localhost.
+ALLOWED_ORIGINS = [
+    "http://localhost:1420",
+    "http://tauri.localhost",
+    "https://tauri.localhost",
+    "tauri://localhost",
+]
+ALLOWED_HOSTS = {f"127.0.0.1:{PORT}", f"localhost:{PORT}"}
+
+class LocalOnlyMiddleware:
+    """
+    Rejects requests from foreign web origins before they reach a route.
+
+    CORS alone is not enough: it only stops a browser from reading the response, the
+    request itself still runs, and it does not apply to WebSockets at all. The Host check
+    defeats DNS rebinding, where a hostile page becomes same-origin with this server and
+    so needs no CORS permission. Non-browser local clients send no Origin and are allowed.
+    """
+
+    def __init__(self, app):
+        self.app = app
+
+    async def __call__(self, scope, receive, send):
+        if scope["type"] in ("http", "websocket"):
+            headers = {k.decode("latin-1").lower(): v.decode("latin-1") for k, v in scope["headers"]}
+            origin = headers.get("origin")
+            host = headers.get("host", "").lower()
+
+            if host not in ALLOWED_HOSTS or (origin is not None and origin not in ALLOWED_ORIGINS):
+                logger.warning(f"Rejected request from origin={origin!r} host={host!r} to {scope.get('path')}")
+                if scope["type"] == "websocket":
+                    await send({"type": "websocket.close", "code": 1008})
+                else:
+                    response = JSONResponse(
+                        status_code=403,
+                        content={"detail": {"code": "forbidden_origin", "message": "This API only accepts requests from the KavanMCP app."}},
+                    )
+                    await response(scope, receive, send)
+                return
+
+        await self.app(scope, receive, send)
+
 app.add_middleware(
     CORSMiddleware,
-    allow_origins=[
-        "http://localhost:1420",
-        "http://tauri.localhost",
-        "https://tauri.localhost",
-        "tauri://localhost",
-    ],
+    allow_origins=ALLOWED_ORIGINS,
     allow_credentials=False,
     allow_methods=["GET", "POST"],
     allow_headers=["Content-Type"],
 )
+# Added last so it is the outermost layer and runs before CORS and routing
+app.add_middleware(LocalOnlyMiddleware)
 
 class ConnectionManager:
     def __init__(self):
@@ -234,4 +275,4 @@ async def metrics_broadcaster():
 
 def run_ws_server():
     """Runs the Uvicorn server. Designed to be called in a separate thread."""
-    uvicorn.run(app, host="127.0.0.1", port=8000, log_level="warning")
+    uvicorn.run(app, host=HOST, port=PORT, log_level="warning")
