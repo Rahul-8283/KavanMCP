@@ -53,6 +53,9 @@ export function useWebSocketConnection() {
   const { updateMetrics, setStatus } = useMetrics();
   const { addToast } = useToast();
   const { config } = useConfig();
+  // The socket effect is created once, so it reads the sound setting through a ref
+  const soundEnabledRef = useRef(true);
+  soundEnabledRef.current = config?.sound_alerts !== false;
   const wsRef = useRef<WebSocket | null>(null);
   const reconnectTimeoutRef = useRef<ReturnType<typeof setTimeout> | null>(null);
   const backoffRef = useRef(1000); // Start with 1 second backoff
@@ -104,7 +107,7 @@ export function useWebSocketConnection() {
             }
             
             // 5.2 Sound Alerts
-            if (config?.sound_alerts !== false) {
+            if (soundEnabledRef.current) {
               playBeep();
             }
           }

@@ -89,8 +89,9 @@ export function useTrayIntegration() {
     let newIcon = 'icons/tray-green.ico';
     
     // Calculate thresholds
-    const cpuWarning = config.cpu_threshold || 90;
-    const ramWarning = config.ram_threshold || 90;
+    // ?? (not ||) so a threshold of 0 is respected
+    const cpuWarning = config.cpu_threshold ?? 90;
+    const ramWarning = config.ram_threshold ?? 90;
     
     if (cpu >= 95 || ram >= 95) {
       newIcon = 'icons/tray-red.ico'; // Critical
