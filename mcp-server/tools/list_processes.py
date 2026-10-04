@@ -20,7 +20,7 @@ def list_processes_logic(filter_name: str | None = None) -> str:
             process_name=proc.get('name', ''), 
             cpu_percent=proc.get('cpu_percent', 0.0), 
             memory_mb=proc.get('memory_mb', 0.0), 
-            is_headless=proc.get('is_headless', True) # Defaulting to True for now
+            is_headless=proc.get('is_headless', False)
         )
         
     # 2. Evaluate for Anomalies

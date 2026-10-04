@@ -22,7 +22,7 @@ def analyze_system_logic() -> str:
             process_name=proc.get('name', ''), 
             cpu_percent=proc.get('cpu_percent', 0.0), 
             memory_mb=proc.get('memory_mb', 0.0), 
-            is_headless=proc.get('is_headless', True)
+            is_headless=proc.get('is_headless', False)
         )
         
     # 2b. Evaluate for Anomalies
