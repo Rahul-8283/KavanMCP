@@ -1,9 +1,12 @@
+import asyncio
+
 from fastmcp import FastMCP
 
 from tools.analyze_system import analyze_system_logic
 from tools.audit_tools import view_audit_log_logic
 from tools.confirm_termination import confirm_termination_logic
 from tools.execute_termination import execute_termination_logic
+from tools.explain_process import explain_process_logic
 from tools.list_processes import list_processes_logic
 from tools.rollback_tool import rollback_last_action_logic
 from utils.error_handlers import safe_mcp_tool
@@ -22,6 +25,12 @@ async def analyze_system() -> str:
 async def list_processes(filter_name: str = None) -> str:
     """Lists active processes, optionally filtered by name."""
     return list_processes_logic(filter_name)
+
+@mcp.tool()
+@safe_mcp_tool
+async def explain_process(pid: int) -> str:
+    """Use this tool to deeply inspect ONE process before proposing its termination. It returns the command line, executable path, parent and child processes, loaded third-party modules and safety notes, so you can tell a safe local script from a rogue background task."""
+    return await asyncio.to_thread(explain_process_logic, pid)
 
 @mcp.tool()
 @safe_mcp_tool
