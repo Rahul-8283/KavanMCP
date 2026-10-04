@@ -1,419 +1,579 @@
-# KavanMCP
-
-**Your AI-Powered System Optimizer. Fast. Safe. Intelligent.**
-
-KavanMCP is a security-first Model Context Protocol (MCP) server that empowers LLMs (like Claude and ChatGPT) to intelligently monitor, analyze, and optimize your local system performance. Say goodbye to manual Task Manager hunting—let AI find the resource hogs, propose solutions, and safely terminate unnecessary processes.
-
----
-
-## The Vision
-
-Modern laptops are powerful, but random background updaters, forgotten chat apps, and rogue processes can unexpectedly spike CPU usage and drain memory. 
-
-KavanMCP connects your system directly to an LLM, allowing you to simply ask:
-> *"Claude, my laptop is lagging. Find out what's causing it and safely clean it up."*
-
-Instead of blindly killing tasks, KavanMCP introduces an **Ironclad 4-Tier Security Engine** to ensure that critical system processes and your active work are *never* touched without strict, multi-stage user confirmation.
-
----
-
-## How It Works (The 4-Tier Gatekeeper)
-
-KavanMCP acts as an intelligent bridge between the LLM and your Operating System, enforcing strict safety rules before any action is taken.
-
-1. **Tier 1 (System Critical) HARD LOCKED:** Core OS processes (e.g., `explorer.exe`, `svchost.exe`, system drivers) are hardcoded into a whitelist. The LLM is physically blocked from even suggesting their termination.
-2. **Tier 2 (Essential Work Apps) Single Confirmation:** Active workspace apps (like VS Code or your browser). Requires explicit, single user confirmation.
-3. **Tier 3 (Background Helpers) Dual Confirmation:** Unused apps or background updaters. Requires a strict two-step confirmation (Ask -> Confirm Details -> Execute).
-4. **Tier 4 (Suspicious Anomalies) High-Risk Alert:** Unrecognized processes hogging CPU/RAM. Triggers an elevated warning, dual confirmation, and detailed audit logging.
-
----
-
-## End-to-End Tech Stack
-
 <div align="center">
-  <img src="https://img.shields.io/badge/Python_3.11+-3776AB?style=for-the-badge&logo=python&logoColor=white" alt="Python" />
-  <img src="https://img.shields.io/badge/FastMCP-8A2BE2?style=for-the-badge" alt="FastMCP" />
-  <img src="https://img.shields.io/badge/SQLite-003B57?style=for-the-badge&logo=sqlite&logoColor=white" alt="SQLite" />
-  <img src="https://img.shields.io/badge/Pydantic_v2-E92063?style=for-the-badge&logo=pydantic&logoColor=white" alt="Pydantic" />
-  <img src="https://img.shields.io/badge/psutil-2C2D72?style=for-the-badge&logo=linux&logoColor=white" alt="psutil" />
-  <img src="https://img.shields.io/badge/pywin32-0078D6?style=for-the-badge&logo=windows&logoColor=white" alt="pywin32" />
-  <img src="https://img.shields.io/badge/Tauri_2.0-FFC131?style=for-the-badge&logo=tauri&logoColor=white" alt="Tauri" />
-  <img src="https://img.shields.io/badge/Rust-000000?style=for-the-badge&logo=rust&logoColor=white" alt="Rust" />
-  <img src="https://img.shields.io/badge/React-20232A?style=for-the-badge&logo=react&logoColor=61DAFB" alt="React" />
+  <img src="kavan_logo.jpg" alt="KavanMCP Logo" width="160" />
+  <h1>KavanMCP</h1>
+  <p><strong>AI-Powered System Optimizer · Dual-Interface · Ironclad Safety</strong></p>
+  <p>
+    <a href="https://github.com/Rahul-8283/KavanMCP/blob/main/LICENSE"><img src="https://img.shields.io/badge/License-MIT-green?style=flat-square" alt="License" /></a>
+    <a href="https://github.com/Rahul-8283/KavanMCP/commits/main"><img src="https://img.shields.io/github/last-commit/Rahul-8283/KavanMCP?style=flat-square" alt="Last Commit" /></a>
+    <img src="https://img.shields.io/badge/Phase-10%20Complete-blue?style=flat-square" alt="Phase 10 Complete" />
+    <img src="https://img.shields.io/badge/Platform-Windows-0078D6?style=flat-square&logo=windows" alt="Windows" />
+    <img src="https://img.shields.io/badge/Tests-23%20Passing-brightgreen?style=flat-square" alt="Tests" />
+  </p>
 </div>
 
-<br/>
+---
 
-Built for speed, low overhead, and cross-platform compatibility.
+## What is KavanMCP?
 
-| Layer | Technology | Purpose |
-|-------|------------|---------|
-| **Core Framework** | **Python 3.11+ & FastMCP** | Async-native, lightweight MCP server logic. |
-| **System Inspection** | **`psutil` & `pywin32`** | Low-latency monitoring of CPU, RAM, Disk I/O, and process trees. |
-| **Database / Audit** | **SQLite (`aiosqlite`)** | Zero-config local database for audit trails and 24-hour rollback history. |
-| **Data Validation** | **Pydantic v2** | Strict input/output schema validation for LLM tool calls. |
+KavanMCP is a **dual-interface AI-powered system optimizer** for Windows. It lets you monitor, analyze, and safely terminate resource-hogging processes — either through a real-time desktop dashboard or by asking Claude AI in plain English.
+
+Instead of manually hunting down processes in Task Manager, you can simply say:
+
+> *"Claude, my laptop is lagging. Find what's causing it and safely clean it up."*
+
+KavanMCP bridges your OS directly to an AI agent through the [Model Context Protocol (MCP)](https://modelcontextprotocol.io/), while simultaneously running a Tauri desktop GUI that gives you visual control over the same data. Both interfaces share a single SQLite audit database — concurrent writes are safe by design (WAL mode).
+
+The **Ironclad 4-Tier Security Engine** ensures that no critical system process can ever be killed, even if Claude recommends it.
 
 ---
 
-## Project Architecture
+## Tech Stack
 
-### Basic Data Flow
+<div align="center">
+
+### Backend
+[![Python](https://img.shields.io/badge/Python_3.11+-3776AB?style=for-the-badge&logo=python&logoColor=white)](https://python.org)
+[![FastAPI](https://img.shields.io/badge/FastAPI-009688?style=for-the-badge&logo=fastapi&logoColor=white)](https://fastapi.tiangolo.com)
+[![FastMCP](https://img.shields.io/badge/FastMCP-8A2BE2?style=for-the-badge&logo=anthropic&logoColor=white)](https://gofastmcp.com)
+[![SQLite](https://img.shields.io/badge/SQLite_WAL-003B57?style=for-the-badge&logo=sqlite&logoColor=white)](https://sqlite.org)
+[![Pydantic](https://img.shields.io/badge/Pydantic_v2-E92063?style=for-the-badge&logo=pydantic&logoColor=white)](https://docs.pydantic.dev)
+[![psutil](https://img.shields.io/badge/psutil-2C2D72?style=for-the-badge&logo=linux&logoColor=white)](https://github.com/giampaolo/psutil)
+[![pywin32](https://img.shields.io/badge/pywin32-0078D6?style=for-the-badge&logo=windows&logoColor=white)](https://github.com/mhammond/pywin32)
+[![aiosqlite](https://img.shields.io/badge/aiosqlite-003B57?style=for-the-badge&logo=sqlite&logoColor=white)](https://github.com/omnilib/aiosqlite)
+[![uvicorn](https://img.shields.io/badge/uvicorn-499848?style=for-the-badge&logo=gunicorn&logoColor=white)](https://www.uvicorn.org)
+
+### Desktop GUI
+[![Tauri](https://img.shields.io/badge/Tauri_2-FFC131?style=for-the-badge&logo=tauri&logoColor=black)](https://tauri.app)
+[![Rust](https://img.shields.io/badge/Rust-000000?style=for-the-badge&logo=rust&logoColor=white)](https://rust-lang.org)
+[![React](https://img.shields.io/badge/React_19-20232A?style=for-the-badge&logo=react&logoColor=61DAFB)](https://react.dev)
+[![TypeScript](https://img.shields.io/badge/TypeScript-3178C6?style=for-the-badge&logo=typescript&logoColor=white)](https://typescriptlang.org)
+[![Vite](https://img.shields.io/badge/Vite_8-646CFF?style=for-the-badge&logo=vite&logoColor=white)](https://vite.dev)
+[![Tailwind CSS](https://img.shields.io/badge/Tailwind_CSS_4-06B6D4?style=for-the-badge&logo=tailwindcss&logoColor=white)](https://tailwindcss.com)
+[![Recharts](https://img.shields.io/badge/Recharts-22B5BF?style=for-the-badge&logo=apacheecharts&logoColor=white)](https://recharts.org)
+[![Axios](https://img.shields.io/badge/Axios-5A29E4?style=for-the-badge&logo=axios&logoColor=white)](https://axios-http.com)
+[![Lucide](https://img.shields.io/badge/Lucide_React-F56040?style=for-the-badge&logo=lucide&logoColor=white)](https://lucide.dev)
+[![TanStack Virtual](https://img.shields.io/badge/TanStack_Virtual-FF4154?style=for-the-badge&logo=reactquery&logoColor=white)](https://tanstack.com/virtual)
+
+### Testing & Tooling
+[![Pytest](https://img.shields.io/badge/pytest-0A9EDC?style=for-the-badge&logo=pytest&logoColor=white)](https://pytest.org)
+[![Ruff](https://img.shields.io/badge/Ruff-D7FF64?style=for-the-badge&logo=ruff&logoColor=black)](https://docs.astral.sh/ruff)
+
+</div>
+
+---
+
+## Architecture
+
+### High-Level System Overview
 
 ```mermaid
-flowchart LR
-    Claude["LLM Client<br/>(Claude/ChatGPT)"] <-->|FastMCP Protocol| Server["FastMCP Server<br/>(Tools & Handlers)"]
-    Server <--> Security["Security Engine<br/>(Tiers 1-4)"]
-    Security <--> OS["OS Hooks<br/>(psutil/Win32)"]
-    Server <--> DB[("SQLite<br/>Audit DB")]
-```
-
-### End-to-End Architecture
-
-```mermaid
-flowchart TB
-    subgraph Clients ["Client Interface Layer"]
-        Claude["Claude Desktop / ChatGPT"]
-        TauriUI["Tauri GUI Dashboard (V2)"]
+graph TB
+    subgraph User["User Interfaces"]
+        Claude["🤖 Claude Desktop\nMCP Client"]
+        GUI["🖥️ KavanMCP\nTauri Desktop App"]
     end
 
-    subgraph FastMCPServer ["FastMCP Server Core (Python)"]
-        ServerEntryPoint["Server Entry (server.py)"]
-        
-        subgraph ToolSet ["Exposed MCP Tools"]
-            Tools["analyze_system, explain_process, etc"]
-        end
-
-        subgraph Handlers ["Logic & Security"]
-            Process["Process Handler"]
-            Security["Tier 1-4 Classification Engine"]
-            Approval["Dual Confirmation Manager"]
-        end
+    subgraph Backend["Python Backend (localhost:8000)"]
+        direction TB
+        MCP["FastMCP Server\nstdio transport"]
+        API["FastAPI Server\nHTTP + WebSocket"]
+        Security["4-Tier Security Engine"]
+        Approval["Approval Cache\nTTL: 5 min"]
+        Terminator["Termination Handler"]
     end
 
-    subgraph DataLayer ["Persistence"]
-        SQLiteDB[(SQLite Audit DB)]
-        JSONConfig["User Configs & Whitelist"]
+    subgraph OS["Operating System"]
+        psutil["psutil\nMetrics & Process Info"]
+        win32["pywin32\nDeep Inspection"]
+        Kill["Process Termination\nSIGTERM → SIGKILL"]
     end
 
-    subgraph OSLayer ["System Level"]
-        PSUtil["psutil (Metrics)"]
-        Win32API["pywin32 (Deep Inspection)"]
-        TaskKill["Process Termination"]
+    subgraph Data["Persistence"]
+        DB[("SQLite WAL\nprocess.db")]
+        Config["settings.json\nThresholds & Theme"]
+        Whitelist["tier_1_processes.json\nHard-locked Whitelist"]
     end
 
-    Claude <-->|"MCP Protocol (stdio/SSE)"| ServerEntryPoint
-    TauriUI <-->|"IPC / HTTP"| ServerEntryPoint
-    
-    ServerEntryPoint --> ToolSet
-    ToolSet --> Handlers
-    
-    Handlers --> Security
-    Security --> JSONConfig
+    Claude -->|"stdio pipes"| MCP
+    GUI -->|"HTTP REST"| API
+    GUI <-->|"WebSocket\nreal-time metrics"| API
+
+    MCP --> Security
+    API --> Security
+    Security --> Whitelist
     Security --> Approval
-    
-    Handlers --> Process
-    Process --> PSUtil
-    Process --> Win32API
-    
-    Approval --> TaskKill
-    TaskKill --> SQLiteDB
-    Handlers --> SQLiteDB
+    Approval --> Terminator
+    Terminator --> Kill
+
+    MCP --> psutil
+    API --> psutil
+    psutil --> OS
+    win32 --> OS
+
+    Terminator --> DB
+    MCP --> DB
+    API --> Config
+```
+
+### Dual-Interface Data Flow
+
+```mermaid
+sequenceDiagram
+    participant U as User
+    participant G as Tauri GUI
+    participant A as FastAPI :8000
+    participant M as FastMCP (stdio)
+    participant S as Security Engine
+    participant DB as SQLite WAL
+
+    par WebSocket Stream
+        A-->>G: metrics_update (CPU/RAM/Disk every 2s)
+    and REST Flow
+        U->>G: Right-click → Terminate
+        G->>A: POST /api/confirm_termination {pid}
+        A->>S: stage_termination(pid)
+        S-->>A: tier=3, status=pending
+        A-->>G: 200 OK
+        G->>U: Show Kill Confirm Modal
+        U->>G: Click Confirm
+        G->>A: POST /api/execute_termination {pid}
+        A->>S: verify create_time + tier check
+        A->>DB: log_termination()
+        A-->>G: 200 success
+        G-->>U: Row removed + success toast
+    and MCP Flow
+        U->>M: "Kill the calculator"
+        M->>S: confirm_termination([pid])
+        S-->>M: staged, awaiting confirm
+        M-->>U: "Staged. Confirm?"
+        U->>M: "Yes"
+        M->>S: execute_termination([pid])
+        S->>DB: log_termination()
+        M-->>U: "Done. Freed 15 MB"
+    end
+```
+
+### The 4-Tier Security Decision Engine
+
+```mermaid
+flowchart TD
+    Start([Process Identified]) --> T1{Is name in\nTier 1 Whitelist?}
+
+    T1 -->|YES| Block1[🔴 HARD BLOCK\nTermination Forbidden\nLog + Return Error]
+    T1 -->|NO| T2{Is it a known\nessential app?\nVSCode / Browser...}
+
+    T2 -->|YES| Tier2[🟠 Tier 2\nEssential Work App\nSingle Confirmation]
+    T2 -->|NO| T3{Is it a background\nhelper / updater?}
+
+    T3 -->|YES| Tier3[🟡 Tier 3\nBackground Helper\nDual Confirmation]
+    T3 -->|NO| T4{High CPU/RAM\nwith unknown name?}
+
+    T4 -->|YES| Tier4[🔵 Tier 4\nSuspicious Anomaly\nHigh-Risk Alert + Dual Confirm]
+    T4 -->|NO| Tier3
+
+    Tier2 --> Gate[Approval Cache\nTTL 5 min\nSingle-use pop]
+    Tier3 --> Gate
+    Tier4 --> Gate
+
+    Gate --> PID{PID still same\nprocess?\ncreate_time match}
+    PID -->|NO| Block2[🔴 PID REUSE DETECTED\nTermination Aborted]
+    PID -->|YES| T1Check{Re-check Tier 1\nDefence in depth}
+    T1Check -->|IS Tier 1| Block3[🔴 CRITICAL BLOCK\nLog + Abort]
+    T1Check -->|Safe| Execute[✅ Execute\nSIGTERM → wait 3s → SIGKILL]
+    Execute --> Audit[(Audit Log\nfreed MB, CPU,\npid, reasoning)]
+```
+
+### Kill Flow State Machine
+
+```mermaid
+stateDiagram-v2
+    [*] --> Idle: User opens app
+
+    Idle --> ContextMenu: Right-click process row
+    ContextMenu --> Idle: Click outside / Escape
+
+    ContextMenu --> ConfirmModal: Click "Terminate"
+
+    ConfirmModal --> Idle: Click "Cancel"
+    ConfirmModal --> Staged: Click "Confirm"\nPOST /api/confirm_termination
+
+    Staged --> Blocked: Tier 1 process\n→ 403 tier1_blocked
+    Staged --> Executing: POST /api/execute_termination
+
+    Executing --> RowRemoved: 200 success\nOptimistic UI delete
+    Executing --> ErrorToast: 403 access_denied\n(non-admin)
+    Executing --> WarningToast: 404 not_found\n(already closed)
+    Executing --> ErrorToast: 409 pid_reused\n(recycled PID)
+
+    RowRemoved --> Idle: Success toast shown
+    ErrorToast --> Idle: Toast dismissed
+    WarningToast --> Idle: Toast dismissed
+    Blocked --> ConfirmModal: Button disabled
+
+    note right of Staged
+        Approval stored with
+        process.create_time snapshot.
+        TTL: 5 minutes.
+        Single-use: dict.pop()
+    end note
+```
+
+### SQLite Database Schema
+
+```mermaid
+erDiagram
+    AUDIT_LOG {
+        INTEGER id PK
+        TEXT process_name
+        INTEGER pid
+        TEXT executable_path
+        REAL freed_memory_mb
+        REAL freed_cpu_percent
+        TEXT reasoning
+        TEXT action_type
+        DATETIME timestamp
+    }
+
+    SYSTEM_BASELINES {
+        INTEGER id PK
+        REAL cpu_baseline
+        REAL ram_baseline
+        REAL disk_baseline
+        DATETIME recorded_at
+    }
+
+    AUDIT_LOG ||--o{ SYSTEM_BASELINES : "recorded at same time"
+```
+
+### Phase Progression (V2 Roadmap)
+
+```mermaid
+gantt
+    title KavanMCP V2 — Phase Completion
+    dateFormat YYYY-MM-DD
+    section Foundation
+    Phase 0 · Tauri Setup          :done, 2026-09-10, 1d
+    Phase 1 · App Shell + Context  :done, 2026-09-11, 2d
+    section Real-time Data
+    Phase 2 · WebSocket + Gauges   :done, 2026-09-13, 2d
+    Phase 3 · Process Table        :done, 2026-09-15, 2d
+    Phase 4 · Sort & Filter        :done, 2026-09-17, 1d
+    section UX & Config
+    Phase 5 · Settings + Thresholds:done, 2026-09-18, 2d
+    Phase 6 · Toast Alerts         :done, 2026-09-20, 2d
+    section OS Integration
+    Phase 7 · Tray Integration     :done, 2026-09-22, 3d
+    Phase 8 · Kill Flow            :done, 2026-09-25, 5d
+    section QA
+    Phase 9 · Feature Testing      :done, 2026-10-01, 2d
+    Phase 10 · E2E + Claude Sync   :done, 2026-10-04, 1d
 ```
 
 ---
 
-## Running the Server
+## Key Features
 
-To give KavanMCP the necessary permissions to deeply inspect background processes and system resources, it **must** be run with Administrator privileges.
+| Feature | Detail |
+|---|---|
+| 🔴 **Tier 1 Hard Lock** | `explorer.exe`, `lsass.exe`, `svchost.exe` and others are physically un-killable — the UI disables the Confirm button and the backend rejects the request at two independent gates |
+| 🛡️ **PID Reuse Protection** | Approval stores the process `create_time` at staging time; if a different process recycles the same PID before execution, the kill is aborted |
+| 🎯 **Single-Use Approvals** | `dict.pop()` semantics mean a confirmed PID can only be executed once — double-clicks and replay attacks are blocked |
+| ⚡ **Non-Blocking Backend** | Long-running psutil scans run in worker threads via `asyncio.to_thread` so the event loop never freezes under a heavy process list |
+| 📊 **Real-Time Dashboard** | WebSocket pushes CPU/RAM/Disk metrics every 2 seconds with threshold-triggered alerts and colour-coded gauges |
+| 📋 **Virtualized Process Table** | `@tanstack/react-virtual` renders 800+ processes at 60fps — only visible rows are in the DOM |
+| ⚙️ **Persistent Settings** | Thresholds, theme, and sound toggle persist to `settings.json`; the UI rolls back on failed saves |
+| 🔔 **Native Notifications** | Tauri Notification API fires Windows Action Center alerts on CPU/RAM spikes even when the window is hidden |
+| 🗂️ **System Tray** | Left-click restores the window; right-click opens the menu; icon colour reflects the current alert state |
+| ↩️ **Undo (Rollback)** | The `rollback_last_action` tool relaunches a recently killed process from the audit log's stored executable path |
+| 🤝 **Dual-Interface Concurrency** | SQLite WAL mode allows the Tauri HTTP backend and Claude's stdio process to read/write simultaneously without lock errors |
 
-From your terminal (inside the `mcp-server` directory), use the following PowerShell command to launch the server in a new elevated window:
+---
+
+## Project Structure
+
+```text
+KavanMCP/
+├── mcp-server/                      # Python backend
+│   ├── main.py                      # Entry point: boots MCP server + FastAPI + TTL sweeper
+│   ├── server.py                    # 6 MCP tool definitions (FastMCP)
+│   ├── ws_server.py                 # FastAPI app: REST + WebSocket
+│   ├── handlers/
+│   │   ├── approval_handler.py      # PENDING_APPROVALS TTL cache
+│   │   ├── classification_handler.py# 4-Tier classification logic
+│   │   ├── termination_handler.py   # psutil kill + WAL audit log
+│   │   └── alert_handler.py         # Threshold evaluation
+│   ├── tools/
+│   │   ├── analyze_system.py        # Resource analysis MCP tool
+│   │   ├── list_processes.py        # Process enumeration MCP tool
+│   │   ├── confirm_termination.py   # Stage PIDs (MCP interface)
+│   │   ├── execute_termination.py   # Execute staged kills (MCP interface)
+│   │   ├── audit_tools.py           # Audit log viewer
+│   │   └── rollback_tool.py         # Process resurrection
+│   ├── config/
+│   │   ├── whitelist.py             # Tier 1 whitelist loader
+│   │   └── settings_manager.py      # Threshold config (settings.json)
+│   ├── database/
+│   │   ├── db.py                    # aiosqlite helpers + WAL init
+│   │   └── models.py                # SQL schema definitions
+│   ├── integrations/
+│   │   ├── monitor.py               # psutil metrics polling
+│   │   └── windows.py               # pywin32 deep inspection
+│   ├── tests/
+│   │   ├── test_approval.py         # Approval cache unit tests
+│   │   ├── test_classification.py   # Tier classification unit tests
+│   │   ├── test_db.py               # Database helpers unit tests
+│   │   ├── test_termination_api.py  # Phase 8 kill flow integration tests
+│   │   ├── test_phase9_backend.py   # Phase 9 WebSocket + persistence tests
+│   │   └── test_phase10_backend.py  # Phase 10 WAL concurrency tests
+│   ├── resources/
+│   │   └── tier_1_processes.json    # Hardcoded Tier 1 whitelist
+│   └── requirements.txt
+│
+├── desktop/                         # Tauri + React frontend
+│   ├── src-tauri/
+│   │   ├── src/lib.rs               # Tauri commands (quit_app, etc.)
+│   │   ├── capabilities/default.json# ACL permissions
+│   │   └── tauri.conf.json          # Window, tray, icon config
+│   └── src/
+│       ├── App.tsx                  # Root: hook initialization
+│       ├── pages/
+│       │   ├── Dashboard.tsx        # Gauges + process table
+│       │   └── Settings.tsx         # Threshold sliders + toggles
+│       ├── components/
+│       │   ├── dashboard/
+│       │   │   ├── GaugeCard.tsx            # Recharts radial gauge
+│       │   │   ├── ProcessTable.tsx          # Virtualized table + kill wiring
+│       │   │   ├── ProcessContextMenu.tsx    # Right-click menu (portal)
+│       │   │   ├── KillConfirmModal.tsx      # Tier-aware confirm dialog
+│       │   │   └── TierBadge.tsx             # Tier 1-4 visual chips
+│       │   ├── common/
+│       │   │   ├── Toast.tsx                # Single alert component
+│       │   │   └── ToastContainer.tsx        # Toast queue renderer
+│       │   └── layout/
+│       │       ├── Header.tsx               # Top bar + status dot
+│       │       ├── Sidebar.tsx              # Navigation rail
+│       │       └── MainLayout.tsx           # Page scaffold
+│       ├── context/
+│       │   ├── ConfigContext.tsx     # Settings with ref-based closure safety
+│       │   ├── MetricsContext.tsx    # CPU/RAM/Disk live state
+│       │   ├── ProcessContext.tsx    # Process list state
+│       │   └── ToastContext.tsx      # Toast queue state
+│       ├── hooks/
+│       │   ├── useWebSocketConnection.ts  # Reconnect with exponential backoff
+│       │   ├── useProcessManager.ts       # Kill cascade logic
+│       │   ├── useTrayIntegration.ts      # Global tray with offline awareness
+│       │   └── useWindowLifecycle.ts      # Hide-on-close behaviour
+│       └── services/
+│           └── api.ts               # Axios client + typed endpoints
+│
+├── phases_v2/                       # Phase-by-phase build plans
+│   ├── Phase0_v2.md … Phase10_v2.md
+│
+├── docs/                            # Architecture & API docs
+├── CLAUDE.md                        # Claude Code development guide
+├── kavan_logo.jpg
+└── README.md
+```
+
+---
+
+## Getting Started
+
+### Prerequisites
+
+| Requirement | Notes |
+|---|---|
+| Windows 10/11 | pywin32 and Tauri tray require Windows |
+| Python 3.11+ | `python --version` to verify |
+| Node.js 20+ | For the Tauri frontend |
+| Rust (stable) | `rustup install stable` |
+| Administrator rights | psutil deep inspection requires elevation |
+
+### 1 · Clone & install backend dependencies
+
+```powershell
+git clone https://github.com/Rahul-8283/KavanMCP.git
+cd KavanMCP/mcp-server
+
+python -m venv venv
+.\venv\Scripts\Activate.ps1
+pip install -r requirements.txt
+```
+
+### 2 · Run the backend (elevated)
+
+The server **must** run as Administrator to inspect privileged processes.
+
+```powershell
+# Open an elevated PowerShell, then:
+python main.py
+```
+
+Or use the provided script:
 
 ```powershell
 Start-Process -FilePath ".\scripts\run_server.bat" -Verb RunAs
 ```
 
-### Connecting to Claude Desktop
+The FastAPI server starts on `http://127.0.0.1:8000` and the FastMCP server listens on stdio.
 
-To connect KavanMCP to Claude Desktop, add the server to your `claude_desktop_config.json` file (typically located at `%APPDATA%\Claude\claude_desktop_config.json` on Windows).
+### 3 · Run the desktop app (dev mode)
 
-Add the following JSON to the `mcpServers` block (adjusting the paths if you cloned the repo somewhere else):
+```powershell
+cd ../desktop
+npm install
+npm run tauri dev
+```
+
+### 4 · Connect to Claude Desktop
+
+Add to `%APPDATA%\Claude\claude_desktop_config.json`:
 
 ```json
 {
   "mcpServers": {
     "KavanMCP": {
-      "command": "C:\\PROJECTS_S_WEB\\Project_KAVAN\\KavanMCP\\mcp-server\\venv\\Scripts\\python.exe",
+      "command": "C:\\path\\to\\KavanMCP\\mcp-server\\venv\\Scripts\\python.exe",
       "args": [
-        "C:\\PROJECTS_S_WEB\\Project_KAVAN\\KavanMCP\\mcp-server\\main.py"
+        "C:\\path\\to\\KavanMCP\\mcp-server\\main.py"
       ]
     }
   }
 }
 ```
-*Note: If you are using a virtual environment, you may need to use the absolute path to your `venv\Scripts\python.exe` instead of just `"python"`.*
 
-Restart Claude Desktop, and the KavanMCP tools will be available!
+Restart Claude Desktop. KavanMCP tools will appear automatically.
 
----
+### 5 · Run the test suite
 
-## Folder Structure
-
-```text
-KavanMCP/
-│
-├── mcp-server/                          # V1: FastMCP Server
-│   ├── config/
-│   │   ├── __init__.py
-│   │   └── whitelist.py
-│   │
-│   ├── data/
-│   │   ├── .gitkeep
-│   │   └── process.db
-│   │
-│   ├── database/
-│   │   ├── __init__.py
-│   │   ├── db.py
-│   │   └── models.py
-│   │
-│   ├── docs/
-│   │   └── API_v1.md
-│   │
-│   ├── handlers/
-│   │   ├── __init__.py
-│   │   ├── alert_handler.py
-│   │   ├── approval_handler.py
-│   │   ├── classification_handler.py
-│   │   └── termination_handler.py
-│   │
-│   ├── integrations/
-│   │   ├── __init__.py
-│   │   ├── monitor.py
-│   │   └── windows.py
-│   │
-│   ├── logs/
-│   │
-│   ├── resources/
-│   │   ├── .gitkeep
-│   │   └── tier_1_processes.json
-│   │
-│   ├── scripts/
-│   │   ├── .gitkeep
-│   │   ├── check_admin.bat
-│   │   ├── install_deps.bat
-│   │   ├── run_server.bat
-│   │   └── test_runner.bat
-│   │
-│   ├── tests/
-│   │   ├── .gitkeep
-│   │   ├── stress_test.py
-│   │   ├── test_approval.py
-│   │   ├── test_classification.py
-│   │   └── test_db.py
-│   │
-│   ├── tools/
-│   │   ├── __init__.py
-│   │   ├── analyze_system.py
-│   │   ├── audit_tools.py
-│   │   ├── confirm_termination.py
-│   │   ├── execute_termination.py
-│   │   ├── list_processes.py
-│   │   └── rollback_tool.py
-│   │
-│   ├── utils/
-│   │   ├── __init__.py
-│   │   ├── error_handlers.py
-│   │   ├── logger.py
-│   │   └── schemas.py
-│   │
-│   ├── main.py
-│   ├── requirements.txt
-│   └── server.py
-│
-├── desktop/                             # V2: Tauri Desktop App (later)
-│   ├── src-tauri/
-│   │   ├── main.rs
-│   │   ├── Cargo.toml
-│   │   └── src/
-│   ├── src/
-│   │   ├── components/
-│   │   ├── hooks/
-│   │   └── App.tsx
-│   ├── package.json
-│   ├── tauri.conf.json
-│   └── README.md
-│
-├── docs/                                # Project-level docs
-│   ├── PROJECT_OVERVIEW.md
-│   ├── ROADMAP.md
-│   └── CONTRIBUTING.md
-│
-├── .gitignore
-├── README.md                            # Root README
-└── VERSION.md
+```powershell
+cd mcp-server
+python -m pytest -q
+# 23 passed
 ```
 
 ---
 
-## API Documentation (V1 Core Tools)
+## MCP Tool Reference
 
-This section outlines the JSON schemas and payloads for the core FastMCP tools exposed by the KavanMCP server. These APIs are designed to be consumed by Large Language Models (LLMs) and the future Phase V2 Tauri GUI Dashboard.
+### `analyze_system`
+Returns global CPU/RAM totals and the top resource hogs classified by tier.
 
-All endpoints are wrapped in a global exception handler (`@safe_mcp_tool`) that guarantees a structured JSON error response if the OS denies access or a crash occurs.
-
-### 1. `analyze_system`
-Diagnoses system lag by returning global CPU/RAM totals and the top resource hogs categorized by Security Tiers (1-4).
-
-**Request Payload:**
-```json
+```jsonc
+// Request
 {}
-```
 
-**Example Response Payload (Success):**
-```json
+// Response
 {
   "global_cpu_percent": 15.2,
   "global_memory_percent": 45.1,
   "top_processes": [
-    {
-      "pid": 1204,
-      "name": "chrome.exe",
-      "cpu_percent": 5.1,
-      "memory_mb": 450.2,
-      "tier": 3
-    }
+    { "pid": 1204, "name": "chrome.exe", "cpu_percent": 5.1, "memory_mb": 450.2, "tier": 3 }
   ]
 }
 ```
 
-### 2. `list_processes`
-Lists active processes running on the machine, with an optional filter by name.
+### `list_processes`
+Lists all running processes with an optional name filter.
 
-**Request Payload:**
-```json
-{
-  "filter_name": "chrome"
-}
-```
-*(Note: `filter_name` is optional. Omitting it returns all processes.)*
-
-**Example Response Payload:**
-```json
-[
-  {
-    "pid": 1204,
-    "name": "chrome.exe",
-    "cpu_percent": 1.2,
-    "memory_mb": 450.2,
-    "tier": 3,
-    "tier_reason": "Standard background process."
-  }
-]
+```jsonc
+// Request (filter is optional)
+{ "filter_name": "chrome" }
 ```
 
-### 3. `view_audit_log`
-Retrieves the recent history of processes that were terminated, rolled back, or blocked by the server's Dual-Confirmation gate.
+### `confirm_termination`
+**Stage gate.** Adds PIDs to the approval cache. The LLM must present this list to the user before calling `execute_termination`.
 
-**Request Payload:**
-```json
-{
-  "hours_back": 24
-}
+```jsonc
+{ "pids": [9999, 8888] }
 ```
 
-**Example Response Payload:**
-```json
-[
-  {
-    "id": 1,
-    "process_name": "notepad.exe",
-    "pid": 9999,
-    "action_type": "TERMINATED",
-    "freed_memory_mb": 15.4,
-    "freed_cpu_percent": 0.0,
-    "reasoning": "User requested termination due to high memory usage.",
-    "timestamp": "2026-09-17 10:15:00"
-  }
-]
+### `execute_termination`
+**Kill gate.** Only executes PIDs previously staged by `confirm_termination` within 5 minutes.
+
+```jsonc
+{ "pids": [9999], "reasoning": "User confirmed; freeing memory." }
 ```
 
-### 4. `confirm_termination`
-**CRITICAL GATE:** Proposes termination of processes for user confirmation. This MUST be called to add the PIDs to the stateful `PENDING_APPROVALS` cache before execution is allowed.
+### `view_audit_log`
+Returns the recent termination history from the SQLite WAL database.
 
-**Request Payload:**
-```json
-{
-  "pids": [9999]
-}
+```jsonc
+{ "hours_back": 24 }
 ```
 
-**Example Response Payload (String):**
-```text
-The following processes have been staged for termination:
-- PID 9999 (Tier 3)
+### `rollback_last_action`
+Relaunches the last-killed process from its stored executable path.
 
-CRITICAL SYSTEM INSTRUCTION FOR LLM:
-Do not execute the termination yet. Present this list to the user and ask: 'Are you sure you want to close these applications?'
-Wait for the user's explicit confirmation before proceeding.
+```jsonc
+{ "process_identifier": "notepad.exe" }
 ```
 
-### 5. `execute_termination`
-Executes the physical termination of processes. Will violently reject any PID that was not previously staged by `confirm_termination` within the last 5 minutes.
+---
 
-**Request Payload:**
-```json
-{
-  "pids": [9999],
-  "reasoning": "User confirmed termination."
-}
+## REST API Quick Reference
+
+All endpoints are on `http://127.0.0.1:8000`. CORS is restricted to Tauri window origins only.
+
+| Method | Path | Description |
+|---|---|---|
+| `GET` | `/api/list_processes` | All running processes with tier classification |
+| `GET` | `/api/get_config` | Current thresholds and UI preferences |
+| `POST` | `/api/update_thresholds` | Partially update config (cpu/ram/disk/theme/sound) |
+| `POST` | `/api/confirm_termination` | Stage a PID (rejects Tier 1 immediately) |
+| `POST` | `/api/execute_termination` | Execute a staged kill (verifies create\_time) |
+| `WS` | `/ws` | Real-time metrics stream (2s interval) |
+
+### Error codes returned in `detail.code`
+
+| Code | HTTP | Meaning |
+|---|---|---|
+| `tier1_blocked` | 403 | Tier 1 system process — always rejected |
+| `access_denied` | 403 | Needs Administrator rights |
+| `not_approved` | 409 | PID not staged or approval expired |
+| `pid_reused` | 409 | A different process now holds this PID |
+| `not_found` | 404 | Process already exited |
+| `error` | 500 | Unexpected failure |
+
+---
+
+## Security Model
+
+```mermaid
+graph LR
+    subgraph Tier1["🔴 Tier 1 — HARD LOCKED"]
+        t1p["explorer.exe · lsass.exe\nsvchost.exe · csrss.exe\nwininit.exe · services.exe\nsmss.exe · System · taskmgr.exe"]
+    end
+
+    subgraph Tier2["🟠 Tier 2 — Single Confirmation"]
+        t2p["VS Code · Chrome · Firefox\nTeams · Slack · IDE processes"]
+    end
+
+    subgraph Tier3["🟡 Tier 3 — Dual Confirmation"]
+        t3p["Background updaters\nUnused helper services\nKnown safe background apps"]
+    end
+
+    subgraph Tier4["🔵 Tier 4 — High-Risk Alert"]
+        t4p["Unknown processes\nAnomaly: high CPU + headless\nPotential malware signatures"]
+    end
+
+    Lock["🔒 Approval Cache\n5-min TTL · Single-use\nPID identity check"] --> Kill["🎯 Termination\nSIGTERM → SIGKILL"]
+
+    Tier1 --> |REJECTED at API| Lock
+    Tier2 --> Lock
+    Tier3 --> Lock
+    Tier4 --> Lock
 ```
 
-**Example Response Payload:**
-```json
-[
-  {
-    "pid": 9999,
-    "result": {
-      "status": "success",
-      "freed_mb": 15.4,
-      "freed_cpu": 0.0
-    }
-  }
-]
-```
-
-### 6. `rollback_last_action`
-The "Undo Button". Queries the database for a recently killed process and relaunches it as a detached background process.
-
-**Request Payload:**
-```json
-{
-  "process_identifier": "notepad.exe"
-}
-```
-
-**Example Response Payload:**
-```json
-{
-  "status": "success",
-  "message": "Successfully rolled back (relaunched) notepad.exe."
-}
-```
-
-### Global Exception Handler Response
-If any of the above tools encounter a raw Python exception or OS-level `AccessDenied` error, they will intercept the crash and return this standardized schema:
-
-```json
-{
-  "status": "error",
-  "error_type": "OS_Access_Denied",
-  "message": "The system blocked this action due to insufficient permissions.",
-  "llm_instruction": "Tell the user they need to restart KavanMCP as an Administrator."
-}
-```
+Tier 1 is enforced at **three independent layers**:
+1. `confirm_termination` — rejects at the staging step and never adds to the approval cache
+2. `execute_approved_termination` — re-checks tier at the kill gate (defence in depth)
+3. `KillConfirmModal` — disables the Confirm button in the UI so the request is never sent
 
 ---
 
 <div align="center">
   <br/>
-  <b>Built by <a href="https://github.com/Rahul-8283">Rahul L S</a></b>
+  <p>Built by <a href="https://github.com/Rahul-8283"><strong>Rahul L S</strong></a></p>
+  <p><sub>KavanMCP V2 · Phase 10 Complete · Production Ready</sub></p>
 </div>
