@@ -1,5 +1,6 @@
 import asyncio
 import json
+import socket
 from contextlib import asynccontextmanager
 from datetime import datetime, timezone
 import time
@@ -273,6 +274,18 @@ async def metrics_broadcaster():
 
         await asyncio.sleep(BROADCAST_INTERVAL)
 
+def port_in_use() -> bool:
+    with socket.socket(socket.AF_INET, socket.SOCK_STREAM) as probe:
+        probe.settimeout(1)
+        return probe.connect_ex((HOST, PORT)) == 0
+
 def run_ws_server():
     """Runs the Uvicorn server. Designed to be called in a separate thread."""
+    # Claude Desktop starts its own copy of main.py for the MCP stdio transport while a
+    # standalone server may already be serving the dashboard. Only one of them can own the port.
+    if port_in_use():
+        logger.info(f"Port {PORT} is already served by another KavanMCP instance. This instance provides the MCP tools only.")
+        return
+
+    logger.info(f"Starting FastAPI WebSocket server on {HOST}:{PORT}.")
     uvicorn.run(app, host=HOST, port=PORT, log_level="warning")
