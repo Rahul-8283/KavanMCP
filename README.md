@@ -295,7 +295,7 @@ gantt
 KavanMCP/
 ├── mcp-server/                      # Python backend
 │   ├── main.py                      # Entry point: boots MCP server + FastAPI + TTL sweeper
-│   ├── server.py                    # 6 MCP tool definitions (FastMCP)
+│   ├── server.py                    # 7 MCP tool definitions (FastMCP)
 │   ├── ws_server.py                 # FastAPI app: REST + WebSocket
 │   ├── handlers/
 │   │   ├── approval_handler.py      # PENDING_APPROVALS TTL cache

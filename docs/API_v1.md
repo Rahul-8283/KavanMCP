@@ -42,7 +42,8 @@ Lists active processes running on the machine, with an optional filter by name.
   "filter_name": "chrome"
 }
 ```
-*(Note: `filter_name` is optional. Omitting it returns all processes.)*
+*(Note: `filter_name` is optional. Tier 1 critical OS processes are omitted unless you pass
+`include_tier_1: true` or search for one by name, since they can never be terminated.)*
 
 **Example Response Payload:**
 ```json
@@ -52,15 +53,60 @@ Lists active processes running on the machine, with an optional filter by name.
     "name": "chrome.exe",
     "cpu_percent": 1.2,
     "memory_mb": 450.2,
-    "tier": 3,
-    "tier_reason": "Standard background process."
+    "tier": 2,
+    "is_headless": false,
+    "anomaly_flags": []
   }
 ]
 ```
 
 ---
 
-## 3. `view_audit_log`
+## 3. `explain_process`
+Deep-inspects a single PID so the LLM can judge whether it is safe to terminate. Falls back to the
+Windows API when psutil is denied access, and reports whatever could not be read in `notes`.
+
+**Request Payload:**
+```json
+{
+  "pid": 1204
+}
+```
+
+**Example Response Payload:**
+```json
+{
+  "pid": 1204,
+  "name": "python.exe",
+  "tier": 3,
+  "is_headless": true,
+  "status": "running",
+  "username": "DESKTOP\rahul",
+  "executable_path": "C:\Python312\python.exe",
+  "command_line": "python.exe worker.py --port 9000",
+  "started_at": "2026-10-04T18:22:05+00:00",
+  "cpu_percent": 1.4,
+  "memory_mb": 48.2,
+  "num_threads": 7,
+  "parent": { "pid": 980, "name": "cmd.exe" },
+  "children": [],
+  "loaded_module_count": 112,
+  "third_party_modules": ["C:\Python312\DLLs\_socket.pyd"],
+  "notes": []
+}
+```
+
+**Not Found Response:**
+```json
+{
+  "status": "not_found",
+  "message": "PID 1204 does not exist or has already closed."
+}
+```
+
+---
+
+## 4. `view_audit_log`
 Retrieves the recent history of processes that were terminated, rolled back, or blocked by the server's Dual-Confirmation gate.
 
 **Request Payload:**
@@ -88,7 +134,7 @@ Retrieves the recent history of processes that were terminated, rolled back, or 
 
 ---
 
-## 4. `confirm_termination`
+## 5. `confirm_termination`
 **CRITICAL GATE:** Proposes termination of processes for user confirmation. This MUST be called to add the PIDs to the stateful `PENDING_APPROVALS` cache before execution is allowed.
 
 **Request Payload:**
@@ -110,7 +156,7 @@ Wait for the user's explicit confirmation before proceeding.
 
 ---
 
-## 5. `execute_termination`
+## 6. `execute_termination`
 Executes the physical termination of processes. Will violently reject any PID that was not previously staged by `confirm_termination` within the last 5 minutes.
 
 **Request Payload:**
@@ -137,7 +183,7 @@ Executes the physical termination of processes. Will violently reject any PID th
 
 ---
 
-## 6. `rollback_last_action`
+## 7. `rollback_last_action`
 The "Undo Button". Queries the database for a recently killed process and relaunches it as a detached background process.
 
 **Request Payload:**
