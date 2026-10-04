@@ -4,12 +4,12 @@ import { Cpu, Activity, HardDrive, RefreshCw, Search, X } from "lucide-react";
 import { useProcessManager } from "../hooks/useProcessManager";
 import { useProcess } from "../context/ProcessContext";
 import { ProcessTable } from "../components/dashboard/ProcessTable";
-import { useEffect } from "react";
+import { useEffect, useRef } from "react";
 
 export function Dashboard() {
   const { metrics, status } = useMetrics();
   const { fetchProcesses, isLoading } = useProcessManager();
-  const { filterTier, setFilterTier, searchQuery, setSearchQuery } = useProcess();
+  const { filterTier, setFilterTier, searchQuery, setSearchQuery, error } = useProcess();
   
   const isOffline = status !== 'CONNECTED';
 
@@ -17,6 +17,16 @@ export function Dashboard() {
   useEffect(() => {
     fetchProcesses();
   }, [fetchProcesses]);
+
+  // If the list failed to load while the backend was down, load it when the connection returns.
+  // This reacts to the reconnect event only; the table is still never polled.
+  const wasOffline = useRef(isOffline);
+  useEffect(() => {
+    if (wasOffline.current && !isOffline && error) {
+      fetchProcesses();
+    }
+    wasOffline.current = isOffline;
+  }, [isOffline, error, fetchProcesses]);
 
   return (
     <div className="flex flex-col space-y-8 max-w-7xl mx-auto w-full h-full">
