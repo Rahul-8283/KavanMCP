@@ -11,6 +11,7 @@ from utils.logger import logger
 
 ACCESS_DENIED_MESSAGE = "Permission Denied. Please restart KavanMCP as Administrator."
 MB = 1024 * 1024
+FORCE_KILL_WAIT_SECONDS = 2
 
 
 def _terminate_blocking(pid: int) -> dict:
@@ -37,8 +38,12 @@ def _terminate_blocking(pid: int) -> dict:
         except psutil.TimeoutExpired:
             try:
                 proc.kill() # Force kill if it hangs
+                proc.wait(timeout=FORCE_KILL_WAIT_SECONDS)
             except psutil.NoSuchProcess:
                 pass # Exited between wait and kill: that is the outcome we wanted
+            except psutil.TimeoutExpired:
+                # Never report (or audit) a kill that did not happen
+                return {"status": "error", "error": f"{name} (PID: {pid}) did not exit after a forced kill."}
 
         return {"status": "success", "name": name, "path": path, "freed_mb": mem_mb, "freed_cpu": cpu_pct}
 
