@@ -207,9 +207,9 @@ git push origin BRANCH_NAME  # Push right away; no batching
 ### Pull Requests (GitHub)
 
 When creating/merging a PR:
-1. **PR Title:** Follow conventional commit format + phase number
-   - ✅ `feat: implement kill confirmation modal (Phase 8)`
-   - ❌ `implement kill` or `Merge pull request #42...`
+1. **PR Title:** Follow conventional commit format with phase number at the **end**
+   - ✅ `feat: kill flow & settings fixes & tray fixes (phase(8))`
+   - ❌ `phase(8): kill flow & fixes` or `implement kill` or `Merge pull request #42...`
 
 2. **PR Description:** Include summary, test plan, and co-author line
    ```markdown
@@ -228,6 +228,14 @@ When creating/merging a PR:
    ```
 
 3. **Merge Commit:** Use the PR title as the merge message (GitHub auto-fills this correctly if you don't override it).
+
+4. **After Merge:** Immediately sync your local checkout to the updated main branch
+   ```bash
+   git checkout main
+   git fetch --all
+   git pull origin main
+   ```
+   This ensures you're always working from the latest merged state before starting the next phase.
 
 ---
 
@@ -448,20 +456,26 @@ Each phase has detailed requirements in `phases_v2/Phase{N}_v2.md`.
 ### When Starting a Phase
 
 1. **Read the phase document** (`phases_v2/Phase{N}_v2.md`).
-2. **Identify missing pieces** (e.g., Phase 8 needs `/api/confirm_termination` endpoint).
+2. **Identify missing pieces** (e.g., Phase 8 needed kill flow UI and endpoints).
 3. **Ask for approval** on the specific changes.
-4. **Use phase commits:** `phase(8): implement kill flow UI and endpoints`
+4. **Use phase commits:** `feat: description of changes (phase(N))`
 5. **Reference the DoD (Definition of Done)** at the end of the phase doc to verify completion.
+6. **PR Title format:** Feature description first, phase marker at the end: `feat: title (phase(N))`
 
 ---
 
 ## Known Issues & Tech Debt
 
-### Critical (Phase 8 Blockers)
+### Phase 8 (Kill Flow) — Merged to main
 
-1. **Missing Kill Endpoints:** `api.ts` calls `/api/confirm_termination` and `/api/execute_termination`, but `ws_server.py` doesn't define these routes. They would 404.
-2. **PID Reuse Vulnerability:** `PENDING_APPROVALS` keyed by PID only. If a PID is recycled between confirm and execute, a different process could be killed.
-3. **Tier 4 Unreachable:** `is_headless=False` hardcoded in `handle_confirmation_request()`. Tier 4 classification never triggers.
+✅ **Resolved:**
+1. Kill endpoints implemented: `/api/confirm_termination` and `/api/execute_termination`
+2. PID reuse protection: Approvals store `process.create_time` and verify it matches at execute
+3. Single-use approvals: Dict.pop() semantics prevent replay and double-click kills
+4. CORS locked down to Tauri origins only
+5. Event loop blocking fixed: Process scan runs in worker thread
+
+📋 **Remaining Known Issues:**
 
 ### Medium Priority
 
@@ -610,6 +624,6 @@ git push origin feat/phase-8-kill-flow
 
 ---
 
-**Last Updated:** October 4, 2026
-**Current Phase:** 8 (Kill Flow — ✅ Complete)
+**Last Updated:** October 4, 2026 (Phase 8 merged to main)
+**Current Phase:** 8 (Kill Flow — ✅ Complete & Merged)
 **Next Priority:** Phase 9 (Comprehensive Feature Testing)
