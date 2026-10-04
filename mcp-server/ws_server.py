@@ -1,23 +1,24 @@
 import asyncio
-import json
 import socket
+import time
 from contextlib import asynccontextmanager
 from datetime import datetime, timezone
-import time
+from typing import Literal, Optional
 
 import psutil
-from fastapi import FastAPI, WebSocket, WebSocketDisconnect, Response, HTTPException
-from fastapi.middleware.cors import CORSMiddleware
 import uvicorn
+from fastapi import FastAPI, HTTPException, Response, WebSocket, WebSocketDisconnect
+from fastapi.exceptions import RequestValidationError
+from fastapi.middleware.cors import CORSMiddleware
+from fastapi.responses import JSONResponse
 from pydantic import BaseModel, Field
-from typing import Literal, Optional
-from utils.logger import logger
-from tools.list_processes import list_processes_logic
+
+from config.settings_manager import ACTIVE_CONFIG, load_config, update_config
 from handlers.approval_handler import stage_termination
 from handlers.termination_handler import execute_approved_termination
-from config.settings_manager import load_config, update_config, ACTIVE_CONFIG
-from fastapi.exceptions import RequestValidationError
-from fastapi.responses import JSONResponse
+from tools.list_processes import list_processes_logic
+from utils.logger import logger
+
 
 @asynccontextmanager
 async def lifespan(app: FastAPI):
@@ -126,7 +127,7 @@ async def websocket_endpoint(websocket: WebSocket):
     try:
         while True:
             # We just need to keep connection open and detect disconnects.
-            data = await websocket.receive_text()
+            await websocket.receive_text()
     except WebSocketDisconnect:
         manager.disconnect(websocket)
     except Exception:
