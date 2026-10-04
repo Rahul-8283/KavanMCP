@@ -1,5 +1,6 @@
-from PIL import Image, ImageDraw
 import os
+
+from PIL import Image, ImageDraw
 
 # Get absolute path relative to this script to avoid CWD issues
 SCRIPT_DIR = os.path.dirname(os.path.abspath(__file__))

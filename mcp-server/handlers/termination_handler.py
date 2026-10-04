@@ -7,7 +7,11 @@ import psutil
 
 from config.whitelist import TIER_1_WHITELIST
 from database.db import get_last_terminated_process, log_rollback, log_termination
-from handlers.approval_handler import protected_pids, self_protection_error, take_approval
+from handlers.approval_handler import (
+    protected_pids,
+    self_protection_error,
+    take_approval,
+)
 from handlers.classification_handler import classify_process
 from utils.logger import logger
 

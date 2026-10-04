@@ -1,12 +1,14 @@
 import asyncio
-import time
-import psutil
 import os
 import sys
+import time
+
+import psutil
 
 sys.path.append(os.path.dirname(os.path.dirname(os.path.abspath(__file__))))
 
 from tools.analyze_system import analyze_system_logic
+
 
 async def run_stress_test(duration_seconds: int = 60, interval_seconds: int = 2):
     """
@@ -39,7 +41,7 @@ async def run_stress_test(duration_seconds: int = 60, interval_seconds: int = 2)
         
     final_mem = process.memory_info().rss / (1024 * 1024)
     print("\n==================================================")
-    print(f"Stress Test Complete!")
+    print("Stress Test Complete!")
     print(f"Total Iterations: {iterations}")
     print(f"Final Memory: {final_mem:.2f} MB")
     if final_mem < 60:

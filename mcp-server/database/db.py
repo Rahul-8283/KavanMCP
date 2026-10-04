@@ -4,7 +4,11 @@ from contextlib import asynccontextmanager
 
 import aiosqlite
 
-from database.models import AUDIT_LOG_MIGRATIONS, CREATE_AUDIT_LOG_TABLE, CREATE_SYSTEM_BASELINES_TABLE
+from database.models import (
+    AUDIT_LOG_MIGRATIONS,
+    CREATE_AUDIT_LOG_TABLE,
+    CREATE_SYSTEM_BASELINES_TABLE,
+)
 from utils.logger import logger
 
 # Resolve the absolute path to the data directory
