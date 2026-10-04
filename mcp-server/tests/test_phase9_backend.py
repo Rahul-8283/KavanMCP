@@ -79,3 +79,13 @@ def test_every_visible_tier1_process_is_unkillable_via_api():
         assert psutil.pid_exists(pid), f"{name} was killed"
 
     PENDING_APPROVALS.clear()
+
+
+def test_non_json_body_is_a_400_not_a_server_error():
+    client = TestClient(app, raise_server_exceptions=False)
+
+    response = client.post(CONFIRM, content='{"pid": 1}', headers={"Content-Type": "text/plain"})
+
+    assert response.status_code == 400
+    assert response.json()["detail"][0]["loc"] == ["body"]
+    assert 1 not in PENDING_APPROVALS
