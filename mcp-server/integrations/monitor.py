@@ -1,5 +1,8 @@
 import psutil
 
+# PID 0 is the "System Idle Process": its CPU figure is idle time, not load, and it cannot be killed.
+IDLE_PID = 0
+
 
 def get_global_metrics() -> dict:
     """
@@ -9,12 +12,12 @@ def get_global_metrics() -> dict:
     # We use a 0.1s interval to get an accurate, non-instantaneous CPU reading
     # without causing unacceptable latency to the LLM response.
     cpu_percent = psutil.cpu_percent(interval=0.1)
-    
+
     # Fetch virtual memory and convert from bytes to Gigabytes
     mem = psutil.virtual_memory()
     total_memory_gb = mem.total / (1024 ** 3)
     used_memory_gb = mem.used / (1024 ** 3)
-    
+
     return {
         "total_cpu_percent": round(cpu_percent, 2),
         "total_memory_gb": round(total_memory_gb, 2),
@@ -30,6 +33,9 @@ def get_all_processes() -> list:
     # Explicitly request the fields we need to avoid multiple system calls per process
     for proc in psutil.process_iter(['pid', 'name', 'cpu_percent', 'memory_info', 'status']):
         try:
+            if proc.info['pid'] == IDLE_PID:
+                continue
+
             # Safely access the pre-fetched .info dictionary
             memory_mb = proc.info['memory_info'].rss / (1024 * 1024)
             processes.append({
@@ -43,5 +49,5 @@ def get_all_processes() -> list:
             # Pass silently: Operating systems are volatile. If a process dies
             # while we are looping, or if Windows denies access, we simply skip it.
             pass
-            
+
     return processes
