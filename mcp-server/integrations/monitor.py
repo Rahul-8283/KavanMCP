@@ -33,8 +33,11 @@ def get_all_processes() -> list:
     """
     processes = []
     windowed_pids = get_windowed_pids()
-    # Explicitly request the fields we need to avoid multiple system calls per process
-    for proc in psutil.process_iter(['pid', 'name', 'cpu_percent', 'memory_info', 'status']):
+    # Explicitly request the fields we need to avoid multiple system calls per process.
+    # 'status' is deliberately not requested: on Windows psutil takes a full system thread
+    # snapshot per process to detect suspension, which tripled the scan time (3.5s of 4.9s).
+    # explain_process reports the status of a single PID.
+    for proc in psutil.process_iter(['pid', 'name', 'cpu_percent', 'memory_info']):
         try:
             if proc.info['pid'] == IDLE_PID:
                 continue
@@ -46,7 +49,6 @@ def get_all_processes() -> list:
                 "name": proc.info['name'] or "unknown",
                 "cpu_percent": proc.info['cpu_percent'] or 0.0,
                 "memory_mb": round(memory_mb, 2),
-                "status": proc.info['status'] or "running",
                 "is_headless": is_headless(proc.info['pid'], windowed_pids)
             })
         except (psutil.NoSuchProcess, psutil.AccessDenied, psutil.ZombieProcess):

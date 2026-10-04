@@ -7,7 +7,6 @@ class ProcessSchema(BaseModel):
     name: str
     cpu_percent: float
     memory_mb: float
-    status: str
     tier: int = 3
     is_headless: bool = False
     anomaly_flags: list[str] = []
