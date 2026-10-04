@@ -243,7 +243,8 @@ def test_kill_that_does_not_take_effect_is_not_reported_or_audited():
         def name(self): return "stubborn.exe"
         def memory_info(self): return type("M", (), {"rss": 50 * 1024 * 1024})()
         def cpu_percent(self, interval=None): return 1.0
-        def exe(self): return "C:\stubborn.exe"
+        def exe(self): return "C:/stubborn.exe"
+        def cmdline(self): return ["C:/stubborn.exe"]
         def terminate(self): pass
         def kill(self): pass
         def wait(self, timeout=None): raise psutil.TimeoutExpired(timeout)

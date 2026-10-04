@@ -1,4 +1,5 @@
 import asyncio
+import json
 import os
 import subprocess
 
@@ -30,6 +31,10 @@ def _terminate_blocking(pid: int) -> dict:
             path = proc.exe()
         except psutil.AccessDenied:
             path = None # Termination can still succeed without the path; only rollback needs it
+        try:
+            cmdline = proc.cmdline()
+        except psutil.AccessDenied:
+            cmdline = []
 
         # Attempt graceful termination first
         proc.terminate()
@@ -45,7 +50,8 @@ def _terminate_blocking(pid: int) -> dict:
                 # Never report (or audit) a kill that did not happen
                 return {"status": "error", "error": f"{name} (PID: {pid}) did not exit after a forced kill."}
 
-        return {"status": "success", "name": name, "path": path, "freed_mb": mem_mb, "freed_cpu": cpu_pct}
+        return {"status": "success", "name": name, "path": path, "freed_mb": mem_mb, "freed_cpu": cpu_pct,
+                "cmdline": cmdline}
 
     except psutil.NoSuchProcess:
         return {"status": "not_found", "error": "Process already closed."}
@@ -57,8 +63,11 @@ async def terminate_process(pid: int, reasoning: str) -> dict:
     result = await asyncio.to_thread(_terminate_blocking, pid)
 
     if result["status"] == "success":
+        # The argv is only needed by the audit record; callers get the same fields as before
+        cmdline = result.pop("cmdline")
         # Record to Phase 4 Database
-        await log_termination(result["name"], pid, result["path"], result["freed_mb"], result["freed_cpu"], reasoning)
+        await log_termination(result["name"], pid, result["path"], result["freed_mb"], result["freed_cpu"], reasoning,
+                              command_line=json.dumps(cmdline) if cmdline else None)
 
     return result
 
@@ -106,6 +115,20 @@ async def execute_approved_termination(pid: int, reasoning: str) -> dict:
 
     return await terminate_process(pid, reasoning)
 
+def _relaunch_argv(exe_path: str, stored_command_line: str | None) -> list[str]:
+    """
+    Rebuilds the argv a terminated process was started with. The executable always comes
+    from the audited path; only the arguments are taken from the stored command line.
+    Records written before arguments were captured relaunch with the executable alone.
+    """
+    try:
+        argv = json.loads(stored_command_line) if stored_command_line else []
+    except ValueError:
+        argv = []
+    if not isinstance(argv, list) or not all(isinstance(arg, str) for arg in argv):
+        argv = []
+    return [exe_path, *argv[1:]]
+
 async def rollback_process(pid_or_name: str) -> dict:
     """
     The Undo Button. Queries the database for a recently killed process and relaunches it.
@@ -124,7 +147,7 @@ async def rollback_process(pid_or_name: str) -> dict:
     try:
         # Launch as a completely independent background process
         # DETACHED_PROCESS = 0x00000008
-        relaunched = subprocess.Popen([exe_path], creationflags=0x00000008)
+        relaunched = subprocess.Popen(_relaunch_argv(exe_path, row.get("command_line")), creationflags=0x00000008)
 
         # Log the resurrection
         await log_rollback(process_name, relaunched.pid, exe_path)
