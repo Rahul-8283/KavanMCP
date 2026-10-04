@@ -154,6 +154,21 @@ async def handle_confirmation_request(pids: list[int]) -> str:
 
     return "\n".join(results)
 
+def sweep_expired(now: float | None = None) -> int:
+    """
+    Drops approvals older than the timeout and returns how many were removed.
+    Runs on the sweeper thread while request handlers use the same dict, so it never
+    assumes an entry it saw a moment ago is still there.
+    """
+    now = time.time() if now is None else now
+    removed = 0
+    for pid, entry in list(PENDING_APPROVALS.items()):
+        if now - entry["timestamp"] > APPROVAL_TIMEOUT_SECONDS:
+            # Only drop the entry we inspected; the PID may have been re-staged since
+            if PENDING_APPROVALS.get(pid) is entry and PENDING_APPROVALS.pop(pid, None) is not None:
+                removed += 1
+    return removed
+
 async def ttl_sweeper():
     """
     Background asyncio task that periodically cleans up expired approvals.
@@ -161,9 +176,4 @@ async def ttl_sweeper():
     """
     while True:
         await asyncio.sleep(60)
-        current_time = time.time()
-        # Cast to list to avoid 'dictionary changed size during iteration' error
-        for pid in list(PENDING_APPROVALS.keys()):
-            if pid in PENDING_APPROVALS:
-                if current_time - PENDING_APPROVALS[pid]["timestamp"] > APPROVAL_TIMEOUT_SECONDS:
-                    del PENDING_APPROVALS[pid]
+        sweep_expired()
