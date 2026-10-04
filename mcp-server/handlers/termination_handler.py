@@ -116,10 +116,10 @@ async def rollback_process(pid_or_name: str) -> dict:
     try:
         # Launch as a completely independent background process
         # DETACHED_PROCESS = 0x00000008
-        subprocess.Popen([exe_path], creationflags=0x00000008)
-        
+        relaunched = subprocess.Popen([exe_path], creationflags=0x00000008)
+
         # Log the resurrection
-        await log_rollback(process_name, exe_path)
+        await log_rollback(process_name, relaunched.pid, exe_path)
         logger.info(f"Successfully rolled back process: {process_name}")
         return {"status": "success", "message": f"Successfully rolled back (relaunched) {process_name}."}
         
