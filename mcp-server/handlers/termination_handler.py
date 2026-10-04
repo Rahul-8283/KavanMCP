@@ -5,7 +5,7 @@ import subprocess
 import psutil
 
 from database.db import get_last_terminated_process, log_rollback, log_termination
-from handlers.approval_handler import take_approval
+from handlers.approval_handler import protected_pids, self_protection_error, take_approval
 from handlers.classification_handler import classify_process
 from utils.logger import logger
 
@@ -65,7 +65,7 @@ async def execute_approved_termination(pid: int, reasoning: str) -> dict:
     (the process must be the same one that was confirmed), and the Tier 1 hard block.
 
     Returned status: "success" | "not_approved" | "pid_reused" | "tier1_blocked"
-                     | "not_found" | "access_denied" | "error".
+                     | "self_protected" | "not_found" | "access_denied" | "error".
     """
     entry = take_approval(pid)
     if entry is None:
@@ -73,6 +73,9 @@ async def execute_approved_termination(pid: int, reasoning: str) -> dict:
             "status": "not_approved",
             "error": f"Execution blocked for PID {pid}. PID was not found in the pending approvals list, or the approval timed out."
         }
+
+    if pid in protected_pids():
+        return self_protection_error(pid)
 
     try:
         proc = psutil.Process(pid)
