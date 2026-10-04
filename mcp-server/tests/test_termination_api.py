@@ -234,3 +234,25 @@ def test_websocket_rejects_foreign_origin():
 
         with live.websocket_connect(ws_url, headers={"Origin": "http://localhost:1420"}) as ws:
             assert ws.receive_json()["type"] == "metrics_update"
+
+
+def test_kill_that_does_not_take_effect_is_not_reported_or_audited():
+    from handlers import termination_handler
+
+    class Unkillable:
+        def name(self): return "stubborn.exe"
+        def memory_info(self): return type("M", (), {"rss": 50 * 1024 * 1024})()
+        def cpu_percent(self, interval=None): return 1.0
+        def exe(self): return "C:\stubborn.exe"
+        def terminate(self): pass
+        def kill(self): pass
+        def wait(self, timeout=None): raise psutil.TimeoutExpired(timeout)
+
+    with patch.object(termination_handler.psutil, "Process", return_value=Unkillable()), \
+         patch.object(termination_handler, "log_termination") as audit:
+        import asyncio
+        result = asyncio.run(termination_handler.terminate_process(MISSING_PID, "test"))
+
+    assert result["status"] == "error"
+    assert "did not exit" in result["error"]
+    audit.assert_not_called()
