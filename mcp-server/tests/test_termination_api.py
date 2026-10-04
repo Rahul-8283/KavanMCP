@@ -257,3 +257,24 @@ def test_kill_that_does_not_take_effect_is_not_reported_or_audited():
     assert result["status"] == "error"
     assert "did not exit" in result["error"]
     audit.assert_not_called()
+
+
+def test_lowest_layer_refuses_tier_1_before_any_os_call():
+    """TRD 6.1. Uses a fake process: a real Tier 1 process must never be at risk in a test."""
+    from handlers import termination_handler
+
+    calls = []
+
+    class FakeCritical:
+        def name(self): return "LSASS.EXE"
+        def terminate(self): calls.append("terminate")
+        def kill(self): calls.append("kill")
+
+    with patch.object(termination_handler.psutil, "Process", return_value=FakeCritical()), \
+         patch.object(termination_handler, "log_termination") as audit:
+        import asyncio
+        result = asyncio.run(termination_handler.terminate_process(MISSING_PID, "direct call, no approval"))
+
+    assert result["status"] == "tier1_blocked"
+    assert calls == []
+    audit.assert_not_called()

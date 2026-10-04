@@ -21,11 +21,11 @@ def print_banner():
     """Prints the KavanMCP startup banner."""
     banner = """
     =================================================
-                   KavanMCP Server V1
+                     KavanMCP Server
           AI-Powered System Optimization Engine
     =================================================
     """
-    import sys
+    # stdout is the MCP transport; printing there corrupts the protocol stream
     print(banner, file=sys.stderr)
 
 def main():
