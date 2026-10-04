@@ -4,7 +4,7 @@ from contextlib import asynccontextmanager
 
 import aiosqlite
 
-from database.models import CREATE_AUDIT_LOG_TABLE, CREATE_SYSTEM_BASELINES_TABLE
+from database.models import AUDIT_LOG_MIGRATIONS, CREATE_AUDIT_LOG_TABLE, CREATE_SYSTEM_BASELINES_TABLE
 from utils.logger import logger
 
 # Resolve the absolute path to the data directory
@@ -39,6 +39,13 @@ async def init_db():
             await db.execute("PRAGMA journal_mode=WAL")
             await db.execute(CREATE_AUDIT_LOG_TABLE)
             await db.execute(CREATE_SYSTEM_BASELINES_TABLE)
+
+            # Bring a database created by an older version up to the current schema
+            async with db.execute("PRAGMA table_info(audit_log)") as cursor:
+                existing = {row[1] async for row in cursor}
+            for column, statement in AUDIT_LOG_MIGRATIONS.items():
+                if column not in existing:
+                    await db.execute(statement)
             await db.commit()
             
         logger.info(f"Database successfully initialized at {DB_PATH}")
@@ -47,13 +54,14 @@ async def init_db():
         raise
 
 # when a process is successfully killed
-async def log_termination(process_name: str, pid: int, path: str, mem_mb: float, cpu_pct: float, reasoning: str) -> None:
-    """Logs a process termination event into the audit database."""
+async def log_termination(process_name: str, pid: int, path: str, mem_mb: float, cpu_pct: float, reasoning: str,
+                          command_line: str | None = None) -> None:
+    """Logs a process termination event. command_line is the JSON-encoded argv, kept for rollback."""
     try:
         async with _connect() as db:
             await db.execute(
-                "INSERT INTO audit_log (id, process_name, pid, executable_path, action_type, memory_freed_mb, cpu_freed_pct, llm_reasoning, user_approved) VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?)",
-                (str(uuid.uuid4()), process_name, pid, path, 'TERMINATED', mem_mb, cpu_pct, reasoning, True)
+                "INSERT INTO audit_log (id, process_name, pid, executable_path, action_type, memory_freed_mb, cpu_freed_pct, llm_reasoning, user_approved, command_line) VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?)",
+                (str(uuid.uuid4()), process_name, pid, path, 'TERMINATED', mem_mb, cpu_pct, reasoning, True, command_line)
             )
             await db.commit()
     except Exception as e:
