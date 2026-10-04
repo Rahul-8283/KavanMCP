@@ -2,6 +2,8 @@ import { useEffect } from 'react';
 import { createPortal } from 'react-dom';
 import { Loader2 } from 'lucide-react';
 import type { Process } from '../../context/ProcessContext';
+import { TierBadge } from './TierBadge';
+import { formatMemoryMb } from './format';
 
 interface TierCopy {
   text: string;
@@ -9,12 +11,16 @@ interface TierCopy {
   blocked: boolean;
 }
 
+const TONE_CRIMSON = 'border-crimson bg-crimson-wash text-crimson-ink';
+const TONE_WARN = 'border-warn bg-warn-wash text-warn';
+const TONE_NEUTRAL = 'border-line-strong bg-sunken text-ink-soft';
+
 // Warning copy from Phase 8 §3.2. Tier 1 locks the Confirm button.
 const TIER_COPY: Record<number, TierCopy> = {
-  1: { text: 'CRITICAL SYSTEM PROCESS. Termination blocked.', tone: 'text-red-600 dark:text-red-400', blocked: true },
-  2: { text: 'WARNING: Essential process. Termination may cause system instability.', tone: 'text-amber-600 dark:text-amber-400', blocked: false },
-  3: { text: 'Safe to terminate.', tone: 'text-text-secondary', blocked: false },
-  4: { text: 'Unverified process. Termination recommended.', tone: 'text-red-600 dark:text-red-400', blocked: false },
+  1: { text: 'CRITICAL SYSTEM PROCESS. Termination blocked.', tone: TONE_CRIMSON, blocked: true },
+  2: { text: 'WARNING: Essential process. Termination may cause system instability.', tone: TONE_WARN, blocked: false },
+  3: { text: 'Safe to terminate.', tone: TONE_NEUTRAL, blocked: false },
+  4: { text: 'Unverified process. Termination recommended.', tone: TONE_CRIMSON, blocked: false },
 };
 
 interface KillConfirmModalProps {
@@ -42,7 +48,7 @@ export function KillConfirmModal({ target, isBusy, error, onConfirm, onCancel }:
 
   return createPortal(
     <div
-      className="fixed inset-0 z-50 flex items-center justify-center bg-black/50 p-4"
+      className="animate-fade-in fixed inset-0 z-50 flex items-center justify-center bg-scrim p-4 backdrop-blur-[2px]"
       onMouseDown={(e) => {
         if (e.target === e.currentTarget && !isBusy) onCancel();
       }}
@@ -51,47 +57,43 @@ export function KillConfirmModal({ target, isBusy, error, onConfirm, onCancel }:
         role="dialog"
         aria-modal="true"
         aria-labelledby="kill-modal-title"
-        className="w-full max-w-md bg-bg-secondary border border-border rounded-lg shadow-xl p-6"
+        className="animate-pop-in w-full max-w-md overflow-hidden rounded-xl border border-line-strong bg-raised shadow-pop"
       >
-        <h3 id="kill-modal-title" className="text-lg font-semibold text-text-primary">
-          Terminate {target.name}?
-        </h3>
+        <div className="px-6 pt-5">
+          <p className="caps">Terminate process</p>
+          <h3 id="kill-modal-title" className="mt-1.5 truncate font-display text-lg font-semibold text-ink" title={target.name}>
+            Terminate {target.name}?
+          </h3>
+        </div>
 
-        <dl className="mt-4 grid grid-cols-[auto_1fr] gap-x-4 gap-y-1 text-sm">
-          <dt className="text-text-secondary">Target</dt>
-          <dd className="text-text-primary font-medium truncate">{target.name}</dd>
-          <dt className="text-text-secondary">PID</dt>
-          <dd className="text-text-primary font-mono">{target.pid}</dd>
+        <dl className="mx-6 mt-4 grid grid-cols-[auto_1fr] items-center gap-x-6 gap-y-2.5 border-y border-line py-4 text-[0.8125rem]">
+          <dt className="text-ink-soft">Target</dt>
+          <dd className="truncate text-right font-medium text-ink">{target.name}</dd>
+          <dt className="text-ink-soft">PID</dt>
+          <dd className="tnum text-right font-mono text-ink">{target.pid}</dd>
+          <dt className="text-ink-soft">Security tier</dt>
+          <dd className="flex justify-end"><TierBadge tier={target.tier} /></dd>
+          <dt className="text-ink-soft">Memory freed</dt>
+          <dd className="tnum text-right font-medium text-ink">{formatMemoryMb(target.memory_mb)} MB</dd>
+          <dt className="text-ink-soft">CPU released</dt>
+          <dd className="tnum text-right font-medium text-ink">{target.cpu_percent.toFixed(1)}%</dd>
         </dl>
 
-        <p className="mt-4 text-sm text-text-primary">
-          Terminating this will free <strong>{target.memory_mb.toFixed(1)} MB</strong> and drop CPU usage by{' '}
-          <strong>{target.cpu_percent.toFixed(1)}%</strong>.
-        </p>
+        <div className="space-y-2.5 px-6 pt-4">
+          <p className={`rounded-r-md border-l-2 px-3 py-2 text-[0.8125rem] font-medium ${copy.tone}`}>{copy.text}</p>
+          {error && (
+            <p role="alert" className={`rounded-r-md border-l-2 px-3 py-2 text-[0.8125rem] ${TONE_CRIMSON}`}>
+              {error}
+            </p>
+          )}
+        </div>
 
-        <p className={`mt-3 text-sm font-medium ${copy.tone}`}>{copy.text}</p>
-
-        {error && (
-          <p role="alert" className="mt-3 text-sm text-red-600 dark:text-red-400">
-            {error}
-          </p>
-        )}
-
-        <div className="flex justify-end gap-3 mt-6">
-          <button
-            autoFocus
-            onClick={onCancel}
-            disabled={isBusy}
-            className="px-4 py-2 rounded-md border border-border text-sm text-text-primary hover:bg-hover-bg transition-colors disabled:opacity-50 cursor-pointer disabled:cursor-not-allowed"
-          >
+        <div className="flex justify-end gap-2.5 px-6 pb-5 pt-5">
+          <button autoFocus onClick={onCancel} disabled={isBusy} className="btn h-9 px-4">
             Cancel
           </button>
-          <button
-            onClick={onConfirm}
-            disabled={copy.blocked || isBusy}
-            className="flex items-center gap-2 px-4 py-2 rounded-md bg-red-600 hover:bg-red-700 text-white text-sm font-medium transition-colors disabled:opacity-40 cursor-pointer disabled:cursor-not-allowed"
-          >
-            {isBusy && <Loader2 className="w-4 h-4 animate-spin" />}
+          <button onClick={onConfirm} disabled={copy.blocked || isBusy} className="btn btn-primary h-9 px-4">
+            {isBusy && <Loader2 className="h-4 w-4 animate-spin" />}
             Confirm Termination
           </button>
         </div>

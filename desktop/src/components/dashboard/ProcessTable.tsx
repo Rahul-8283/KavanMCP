@@ -1,11 +1,13 @@
 import { useProcess, Process } from '../../context/ProcessContext';
-import { Loader2, ChevronUp, ChevronDown } from 'lucide-react';
+import { ChevronDown, ChevronUp, Loader2, RefreshCw, Search, Unplug, X } from 'lucide-react';
 import { TierBadge } from './TierBadge';
+import { TIER_NUMBERS, tierInfo } from './tiers';
+import { formatMemoryMb } from './format';
 import { ProcessContextMenu } from './ProcessContextMenu';
 import { KillConfirmModal } from './KillConfirmModal';
 import { useProcessManager } from '../../hooks/useProcessManager';
 import { useVirtualizer } from '@tanstack/react-virtual';
-import { useRef, useMemo, useState, useCallback } from 'react';
+import { ReactNode, useRef, useMemo, useState, useCallback } from 'react';
 
 interface MenuState {
   x: number;
@@ -13,8 +15,51 @@ interface MenuState {
   process: Process;
 }
 
-export function ProcessTable() {
-  const { processes, isLoading, filterTier, setFilterTier, sortConfig, setSortConfig, searchQuery, setSearchQuery } = useProcess();
+interface Column {
+  key: keyof Process;
+  label: string;
+  isNumeric: boolean;
+}
+
+const COLUMNS: Column[] = [
+  { key: 'name', label: 'Process Name', isNumeric: false },
+  { key: 'pid', label: 'PID', isNumeric: true },
+  { key: 'cpu_percent', label: 'CPU (%)', isNumeric: true },
+  { key: 'memory_mb', label: 'Memory (MB)', isNumeric: true },
+  { key: 'tier', label: 'Security Tier', isNumeric: false },
+];
+
+const ROW_HEIGHT = 36; // Pixel height of one row, as the virtualizer positions rows in pixels
+const MIN_BAR_RATIO = 0.08; // Below this a bar is a few pixels wide and reads as a stray dot
+
+// A number with a bar showing its size against the rest of the column.
+// The bars share the cell's left edge as their origin, so they can be compared down the column.
+function Magnitude({ text, ratio }: { text: string; ratio: number }) {
+  const clamped = Math.min(Math.max(ratio, 0), 1);
+  const width = clamped < MIN_BAR_RATIO ? 0 : clamped;
+
+  return (
+    <div className="flex items-center gap-3">
+      <span className="proc-bar h-[3px] w-12 shrink-0">
+        <span className="block h-full rounded-[1px] bg-ink-faint" style={{ width: `${width * 100}%` }} />
+      </span>
+      <span className="tnum min-w-0 flex-1 text-right text-ink">{text}</span>
+    </div>
+  );
+}
+
+function EmptyState({ icon, message, children }: { icon?: ReactNode; message: string; children?: ReactNode }) {
+  return (
+    <div className="flex flex-1 flex-col items-center justify-center gap-4 p-12 text-center">
+      {icon && <div className="text-ink-faint">{icon}</div>}
+      <p className="max-w-sm text-[0.8125rem] text-ink-soft">{message}</p>
+      {children}
+    </div>
+  );
+}
+
+export function ProcessTable({ onRefresh }: { onRefresh: () => void }) {
+  const { processes, isLoading, error, filterTier, setFilterTier, sortConfig, setSortConfig, searchQuery, setSearchQuery } = useProcess();
   const { terminateProcess } = useProcessManager();
   const parentRef = useRef<HTMLDivElement>(null);
 
@@ -29,6 +74,11 @@ export function ProcessTable() {
     setKillTarget(null);
     setKillError(null);
   }, []);
+
+  const clearFilters = () => {
+    setFilterTier('ALL');
+    setSearchQuery('');
+  };
 
   const handleConfirmKill = async () => {
     if (!killTarget) return;
@@ -52,11 +102,6 @@ export function ProcessTable() {
     }
   };
 
-  const renderSortIcon = (key: string) => {
-    if (sortConfig?.key !== key) return null;
-    return sortConfig.direction === 'asc' ? <ChevronUp size={14} className="ml-1" /> : <ChevronDown size={14} className="ml-1" />;
-  };
-
   const processedData = useMemo(() => {
     let data = [...processes];
 
@@ -77,9 +122,9 @@ export function ProcessTable() {
         const key = sortConfig.key as keyof Process;
         const valA = a[key];
         const valB = b[key];
-        
+
         let comparison = 0;
-        
+
         if (typeof valA === 'string' && typeof valB === 'string') {
           comparison = valA.localeCompare(valB);
         } else if (typeof valA === 'number' && typeof valB === 'number') {
@@ -98,115 +143,204 @@ export function ProcessTable() {
     return data;
   }, [processes, filterTier, sortConfig, searchQuery]);
 
+  // Memory bars are scaled against the largest process, so they stay comparable while filtering
+  const largestMemory = useMemo(
+    () => processes.reduce((largest, p) => Math.max(largest, p.memory_mb), 0),
+    [processes]
+  );
+
   // Initialize the Row Virtualizer to guarantee 60 FPS scrolling even with 10,000+ processes
   const rowVirtualizer = useVirtualizer({
     count: processedData.length,
     getScrollElement: () => parentRef.current,
-    estimateSize: () => 53, // Approximate pixel height of one row
+    estimateSize: () => ROW_HEIGHT,
     overscan: 10, // Render 10 rows outside the visible viewport to prevent flickering when scrolling fast
   });
 
-  if (isLoading && processes.length === 0) {
-    return (
-      <div className="flex-1 flex flex-col items-center justify-center text-text-secondary opacity-50 p-12">
-        <Loader2 className="w-8 h-8 animate-spin mb-4" />
-        <p className="text-sm tracking-wide">Scanning system processes...</p>
-      </div>
-    );
-  }
+  const isFiltered = filterTier !== 'ALL' || searchQuery !== '';
+  const hasProcesses = processes.length > 0;
 
-  if (processes.length === 0) {
-    return (
-      <div className="flex-1 flex flex-col items-center justify-center text-text-secondary opacity-50 p-12">
-        <p className="text-sm tracking-wide">No processes found.</p>
-      </div>
-    );
-  }
+  const renderBody = () => {
+    if (isLoading && !hasProcesses) {
+      return <EmptyState icon={<Loader2 className="h-6 w-6 animate-spin" />} message="Scanning system processes..." />;
+    }
 
-  if (processedData.length === 0) {
+    if (error && !hasProcesses) {
+      return (
+        <EmptyState icon={<Unplug className="h-6 w-6" strokeWidth={1.5} />} message={`The process list could not be loaded: ${error}.`}>
+          <button onClick={onRefresh} className="btn">
+            <RefreshCw size={14} />
+            Retry
+          </button>
+        </EmptyState>
+      );
+    }
+
+    if (!hasProcesses) {
+      return <EmptyState message="No processes found." />;
+    }
+
+    if (processedData.length === 0) {
+      return (
+        <EmptyState message="No processes match the current filters.">
+          <button onClick={clearFilters} className="btn">Clear Filters</button>
+        </EmptyState>
+      );
+    }
+
     return (
-      <div className="flex-1 flex flex-col items-center justify-center text-text-secondary opacity-50 p-12">
-        <p className="text-sm tracking-wide mb-4">No processes found in this Tier.</p>
-        <button 
-          onClick={() => {
-            setFilterTier('ALL');
-            setSearchQuery('');
-          }}
-          className="px-4 py-2 bg-input-bg hover:bg-hover-bg rounded-md border border-border text-text-primary text-xs transition-colors cursor-pointer"
-        >
-          Clear Filters
-        </button>
-      </div>
+      <>
+        {error && (
+          <p role="status" className="shrink-0 border-b border-line bg-warn-wash px-5 py-2 text-xs text-warn">
+            The list could not be refreshed ({error}). Showing the previous scan.
+          </p>
+        )}
+
+        {/* In a window too narrow for the compact columns, the table scrolls sideways instead of clipping */}
+        <div className="flex min-h-0 flex-1 flex-col overflow-x-auto">
+          <div className="flex min-h-0 min-w-[34.5rem] flex-1 flex-col">
+            {/* Table Header (Fixed). The extra right padding matches the body's scrollbar gutter. */}
+            <div className="proc-grid h-9 shrink-0 border-b border-line bg-sunken pr-[calc(1.25rem+10px)]">
+              {COLUMNS.map(({ key, label, isNumeric }) => {
+                const direction = sortConfig?.key === key ? sortConfig.direction : null;
+                const SortIcon = direction === 'asc' ? ChevronUp : ChevronDown;
+                const sortIcon = direction && <SortIcon size={13} strokeWidth={2.25} className="shrink-0 text-crimson-ink" />;
+                return (
+                  <button
+                    key={key}
+                    onClick={() => handleSort(key)}
+                    className={`caps flex h-full select-none items-center gap-1 whitespace-nowrap transition-colors hover:text-ink ${isNumeric ? 'justify-end' : ''} ${direction ? 'text-ink' : ''}`}
+                  >
+                    {/* On numeric columns the icon leads, so the label stays aligned with the figures */}
+                    {isNumeric && sortIcon}
+                    {label}
+                    {!isNumeric && sortIcon}
+                  </button>
+                );
+              })}
+            </div>
+
+            {/* Table Body (Virtualized) */}
+            <div ref={parentRef} className="min-h-0 flex-1 overflow-y-auto overflow-x-hidden [scrollbar-gutter:stable]">
+              <div className="relative w-full" style={{ height: `${rowVirtualizer.getTotalSize()}px` }}>
+                {rowVirtualizer.getVirtualItems().map((virtualRow) => {
+                  const proc = processedData[virtualRow.index];
+                  const isMenuTarget = menu?.process.pid === proc.pid;
+                  return (
+                    <div
+                      key={`${proc.pid}-${proc.name}`}
+                      onContextMenu={(e) => {
+                        e.preventDefault(); // Suppress the browser menu in favour of ours
+                        setMenu({ x: e.clientX, y: e.clientY, process: proc });
+                      }}
+                      className={`proc-grid absolute left-0 top-0 w-full border-b border-line-faint text-[0.8125rem] ${isMenuTarget ? 'bg-active' : 'hover:bg-hover'}`}
+                      style={{
+                        height: `${virtualRow.size}px`,
+                        transform: `translateY(${virtualRow.start}px)`,
+                      }}
+                    >
+                      <div className="truncate font-medium text-ink" title={proc.name}>
+                        {proc.name}
+                      </div>
+                      <div className="tnum text-right font-mono text-xs text-ink-soft">
+                        {proc.pid}
+                      </div>
+                      <Magnitude text={proc.cpu_percent.toFixed(1)} ratio={proc.cpu_percent / 100} />
+                      <Magnitude text={formatMemoryMb(proc.memory_mb)} ratio={largestMemory > 0 ? proc.memory_mb / largestMemory : 0} />
+                      <div>
+                        <TierBadge tier={proc.tier} />
+                      </div>
+                    </div>
+                  );
+                })}
+              </div>
+            </div>
+          </div>
+        </div>
+
+        <p className="flex h-8 shrink-0 items-center border-t border-line px-5 text-xs text-ink-faint">
+          Right-click a process to terminate it.
+        </p>
+      </>
     );
-  }
+  };
 
   return (
-    <div className="flex-1 flex flex-col min-h-0">
-      {/* Table Header (Fixed) */}
-      <div className="flex text-xs uppercase tracking-widest text-text-secondary bg-input-bg border-b border-border pr-3">
-        <button onClick={() => handleSort('name')} className="px-6 py-4 font-medium w-[30%] text-left hover:text-text-primary transition-colors flex items-center select-none group cursor-pointer">
-          Process Name <span className="opacity-50 group-hover:opacity-100">{renderSortIcon('name')}</span>
-        </button>
-        <button onClick={() => handleSort('pid')} className="px-6 py-4 font-medium w-[15%] text-left hover:text-text-primary transition-colors flex items-center select-none group cursor-pointer">
-          PID <span className="opacity-50 group-hover:opacity-100">{renderSortIcon('pid')}</span>
-        </button>
-        <button onClick={() => handleSort('cpu_percent')} className="px-6 py-4 font-medium w-[15%] text-left hover:text-text-primary transition-colors flex items-center select-none group cursor-pointer">
-          CPU (%) <span className="opacity-50 group-hover:opacity-100">{renderSortIcon('cpu_percent')}</span>
-        </button>
-        <button onClick={() => handleSort('memory_mb')} className="px-6 py-4 font-medium w-[20%] text-left hover:text-text-primary transition-colors flex items-center select-none group cursor-pointer">
-          Memory (MB) <span className="opacity-50 group-hover:opacity-100">{renderSortIcon('memory_mb')}</span>
-        </button>
-        <button onClick={() => handleSort('tier')} className="px-6 py-4 font-medium w-[20%] justify-end hover:text-text-primary transition-colors flex items-center select-none group cursor-pointer">
-          Security Tier <span className="opacity-50 group-hover:opacity-100">{renderSortIcon('tier')}</span>
-        </button>
-      </div>
+    <section className="panel @container flex min-h-[19rem] flex-1 flex-col overflow-hidden">
+      <div className="relative flex shrink-0 flex-wrap items-center gap-x-3 gap-y-2.5 border-b border-line px-5 py-3">
+        <div className="mr-auto flex items-baseline gap-2.5 pr-2">
+          <h2 className="font-display text-[0.9375rem] font-semibold text-ink">Monitored Processes</h2>
+          {hasProcesses && (
+            <span className="tnum text-xs text-ink-faint">
+              {isFiltered ? `${processedData.length} of ${processes.length}` : processes.length}
+            </span>
+          )}
+        </div>
 
-      {/* Table Body (Virtualized) */}
-      <div ref={parentRef} className="flex-1 overflow-y-auto overflow-x-hidden">
-        <div
-          className="relative w-full"
-          style={{ height: `${rowVirtualizer.getTotalSize()}px` }}
-        >
-          {rowVirtualizer.getVirtualItems().map((virtualRow) => {
-            const proc = processedData[virtualRow.index];
+        <div role="radiogroup" aria-label="Filter by security tier" className="flex h-8 items-center gap-0.5 rounded-md border border-line bg-sunken p-0.5">
+          {(['ALL', ...TIER_NUMBERS] as const).map((tier) => {
+            const isSelected = filterTier === tier;
             return (
-              <div
-                key={`${proc.pid}-${proc.name}`}
-                onContextMenu={(e) => {
-                  e.preventDefault(); // Suppress the browser menu in favour of ours
-                  setMenu({ x: e.clientX, y: e.clientY, process: proc });
-                }}
-                className="absolute top-0 left-0 w-full flex items-center text-sm border-b border-border-subtle hover:bg-hover-bg transition-colors"
-                style={{
-                  height: `${virtualRow.size}px`,
-                  transform: `translateY(${virtualRow.start}px)`,
-                }}
+              <button
+                key={tier}
+                role="radio"
+                aria-checked={isSelected}
+                onClick={() => setFilterTier(tier)}
+                title={tier === 'ALL' ? undefined : `Tier ${tier}`}
+                className={`h-full rounded px-2.5 text-xs font-medium transition-colors ${isSelected ? 'bg-raised text-ink shadow-[0_0_0_1px_var(--line-strong)]' : 'text-ink-soft hover:text-ink'}`}
               >
-                <div className="px-6 py-4 font-medium text-text-primary truncate w-[30%]" title={proc.name}>
-                  {proc.name}
-                </div>
-                <div className="px-6 py-4 text-text-secondary font-mono text-xs w-[15%]">
-                  {proc.pid}
-                </div>
-                <div className="px-6 py-4 text-text-primary w-[15%]">
-                  {proc.cpu_percent.toFixed(1)}
-                </div>
-                <div className="px-6 py-4 text-text-primary w-[20%]">
-                  {proc.memory_mb.toFixed(1)}
-                </div>
-                <div className="px-6 py-4 text-right w-[20%]">
-                  <TierBadge tier={proc.tier} />
-                </div>
-              </div>
+                {tier === 'ALL' ? 'All' : tierInfo(tier).label}
+              </button>
             );
           })}
         </div>
+
+        <div className="relative w-52">
+          <Search size={14} className="pointer-events-none absolute left-2.5 top-1/2 -translate-y-1/2 text-ink-faint" />
+          <input
+            type="text"
+            placeholder="Search processes..."
+            aria-label="Search processes"
+            className="field w-full pl-8 pr-8"
+            value={searchQuery}
+            onChange={(e) => setSearchQuery(e.target.value)}
+          />
+          {searchQuery !== '' && (
+            <button
+              onClick={() => setSearchQuery('')}
+              title="Clear search"
+              aria-label="Clear search"
+              className="absolute right-1.5 top-1/2 flex h-5 w-5 -translate-y-1/2 items-center justify-center rounded text-ink-faint transition-colors hover:bg-hover hover:text-ink"
+            >
+              <X size={13} />
+            </button>
+          )}
+        </div>
+
+        <button
+          onClick={onRefresh}
+          disabled={isLoading}
+          title="Refresh Processes"
+          aria-label="Refresh processes"
+          className="btn btn-quiet btn-icon"
+        >
+          <RefreshCw size={15} className={isLoading ? 'animate-spin' : ''} />
+        </button>
+
+        {isLoading && hasProcesses && (
+          <div className="absolute inset-x-0 -bottom-px h-0.5 overflow-hidden">
+            <div className="animate-sweep h-full w-1/4 bg-crimson" />
+          </div>
+        )}
       </div>
+
+      {renderBody()}
 
       {menu && (
         <ProcessContextMenu
           x={menu.x}
           y={menu.y}
+          process={menu.process}
           onClose={closeMenu}
           onTerminate={() => {
             setKillTarget(menu.process);
@@ -223,6 +357,6 @@ export function ProcessTable() {
         onConfirm={handleConfirmKill}
         onCancel={closeKillModal}
       />
-    </div>
+    </section>
   );
 }
