@@ -21,13 +21,20 @@ app = FastAPI(title="KavanMCP WebSocket Server")
 async def validation_exception_handler(request, exc):
     return JSONResponse(status_code=400, content={"detail": exc.errors()})
 
-# Allow the Tauri React frontend to query this API
+# Only the Tauri window may call this API. Any other origin (e.g. a web page open in
+# the browser) would otherwise be able to reach the kill endpoints on localhost.
+# Dev: Vite runs on 1420. Release (Windows): Tauri serves from tauri.localhost.
 app.add_middleware(
     CORSMiddleware,
-    allow_origins=["*"],
-    allow_credentials=True,
-    allow_methods=["*"],
-    allow_headers=["*"],
+    allow_origins=[
+        "http://localhost:1420",
+        "http://tauri.localhost",
+        "https://tauri.localhost",
+        "tauri://localhost",
+    ],
+    allow_credentials=False,
+    allow_methods=["GET", "POST"],
+    allow_headers=["Content-Type"],
 )
 
 class ConnectionManager:
