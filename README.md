@@ -1,11 +1,11 @@
 <div align="center">
-  <img src="kavan_logo.jpg" alt="KavanMCP Logo" width="160" />
+  <img src="desktop/public/kavan_logo.svg" alt="KavanMCP Logo" width="160" />
   <h1>KavanMCP</h1>
   <p><strong>AI-Powered System Optimizer · Dual-Interface · Ironclad Safety</strong></p>
   <p>
     <a href="https://github.com/Rahul-8283/KavanMCP/blob/main/LICENSE"><img src="https://img.shields.io/badge/License-MIT-green?style=flat-square" alt="License" /></a>
     <a href="https://github.com/Rahul-8283/KavanMCP/commits/main"><img src="https://img.shields.io/github/last-commit/Rahul-8283/KavanMCP?style=flat-square" alt="Last Commit" /></a>
-    <img src="https://img.shields.io/badge/Phase-10%20Complete-blue?style=flat-square" alt="Phase 10 Complete" />
+    <img src="https://img.shields.io/badge/V2-Production%20Grade-blue?style=flat-square" alt="V2 Production Grade" />
     <img src="https://img.shields.io/badge/Platform-Windows-0078D6?style=flat-square&logo=windows" alt="Windows" />
     <img src="https://img.shields.io/badge/Tests-23%20Passing-brightgreen?style=flat-square" alt="Tests" />
   </p>
@@ -575,5 +575,5 @@ Tier 1 is enforced at **three independent layers**:
 <div align="center">
   <br/>
   <p>Built by <a href="https://github.com/Rahul-8283"><strong>Rahul L S</strong></a></p>
-  <p><sub>KavanMCP V2 · Phase 10 Complete · Production Ready</sub></p>
+  <p><sub>KavanMCP V2 · Production Grade</sub></p>
 </div>
