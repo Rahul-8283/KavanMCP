@@ -1,12 +1,23 @@
 import { useProcess, Process } from '../../context/ProcessContext';
 import { Loader2, ChevronUp, ChevronDown } from 'lucide-react';
 import { TierBadge } from './TierBadge';
+import { ProcessContextMenu } from './ProcessContextMenu';
 import { useVirtualizer } from '@tanstack/react-virtual';
-import { useRef, useMemo } from 'react';
+import { useRef, useMemo, useState, useCallback } from 'react';
+
+interface MenuState {
+  x: number;
+  y: number;
+  process: Process;
+}
 
 export function ProcessTable() {
   const { processes, isLoading, filterTier, setFilterTier, sortConfig, setSortConfig, searchQuery, setSearchQuery } = useProcess();
   const parentRef = useRef<HTMLDivElement>(null);
+
+  const [menu, setMenu] = useState<MenuState | null>(null);
+
+  const closeMenu = useCallback(() => setMenu(null), []);
 
   const handleSort = (key: string) => {
     if (sortConfig?.key === key) {
@@ -136,6 +147,10 @@ export function ProcessTable() {
             return (
               <div
                 key={`${proc.pid}-${proc.name}`}
+                onContextMenu={(e) => {
+                  e.preventDefault(); // Suppress the browser menu in favour of ours
+                  setMenu({ x: e.clientX, y: e.clientY, process: proc });
+                }}
                 className="absolute top-0 left-0 w-full flex items-center text-sm border-b border-border-subtle hover:bg-hover-bg transition-colors"
                 style={{
                   height: `${virtualRow.size}px`,
@@ -162,6 +177,16 @@ export function ProcessTable() {
           })}
         </div>
       </div>
+
+      {menu && (
+        <ProcessContextMenu
+          x={menu.x}
+          y={menu.y}
+          onClose={closeMenu}
+          onTerminate={closeMenu}
+        />
+      )}
+
     </div>
   );
 }
