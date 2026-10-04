@@ -5,8 +5,9 @@ export interface Process {
   name: string;
   cpu_percent: number;
   memory_mb: number;
-  status?: string;
   tier: number;
+  is_headless?: boolean;
+  anomaly_flags?: string[];
   create_time?: number;
 }
 
