@@ -1,4 +1,4 @@
-import { createContext, useContext, useState, ReactNode } from 'react';
+import { createContext, useContext, useState, ReactNode, useCallback } from 'react';
 
 export interface Process {
   pid: number;
@@ -13,6 +13,7 @@ export interface Process {
 interface ProcessContextType {
   processes: Process[];
   setProcesses: (processes: Process[]) => void;
+  removeProcess: (pid: number) => void;
   isLoading: boolean;
   setIsLoading: (loading: boolean) => void;
   error: string | null;
@@ -35,9 +36,14 @@ export function ProcessProvider({ children }: { children: ReactNode }) {
   const [filterTier, setFilterTier] = useState<number | 'ALL'>('ALL');
   const [searchQuery, setSearchQuery] = useState('');
 
+  // Phase 8 optimistic deletion: drop one row locally instead of re-fetching 500+ processes
+  const removeProcess = useCallback((pid: number) => {
+    setProcesses(prev => prev.filter(p => p.pid !== pid));
+  }, []);
+
   return (
-    <ProcessContext.Provider value={{ 
-      processes, setProcesses, 
+    <ProcessContext.Provider value={{
+      processes, setProcesses, removeProcess,
       isLoading, setIsLoading,
       error, setError,
       sortConfig, setSortConfig,

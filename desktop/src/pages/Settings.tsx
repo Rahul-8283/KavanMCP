@@ -1,76 +1,65 @@
-import { useState, useEffect } from 'react';
-import { useConfig } from '../context/ConfigContext';
-import { Loader2, RotateCcw } from 'lucide-react';
+import { useEffect, useState } from 'react';
+import { useConfig, DEFAULT_THRESHOLDS } from '../context/ConfigContext';
+import { useToast } from '../context/ToastContext';
+import { Loader2, RotateCcw, RefreshCw } from 'lucide-react';
+
+type ThresholdKey = 'cpu_threshold' | 'ram_threshold' | 'disk_threshold';
+
+const SAVE_DEBOUNCE_MS = 500; // Phase 5 §4.1: one request after the user stops moving the slider
+
+// Local slider value for smooth dragging, persisted to the backend once it settles.
+function useThresholdSlider(key: ThresholdKey, label: string, saved: number | undefined) {
+  const { updateSetting } = useConfig();
+  const { addToast } = useToast();
+  const [value, setValue] = useState<number>(DEFAULT_THRESHOLDS[key]);
+
+  // Server-side changes (initial load, rollback after a failed save, reset) take over the slider
+  useEffect(() => {
+    if (saved !== undefined) setValue(saved);
+  }, [saved]);
+
+  useEffect(() => {
+    if (saved === undefined || value === saved) return;
+    const timer = setTimeout(async () => {
+      const ok = await updateSetting(key, value);
+      if (!ok) addToast(`Could not save ${label}. The previous value was restored.`, 'warning');
+    }, SAVE_DEBOUNCE_MS);
+    return () => clearTimeout(timer);
+  }, [value, saved, key, label, updateSetting, addToast]);
+
+  return [value, setValue] as const;
+}
 
 export function Settings() {
-  const { config, isLoadingConfig, updateThreshold, resetThresholds } = useConfig();
+  const { config, isLoadingConfig, configError, reloadConfig, updateSetting, resetThresholds, theme, setTheme } = useConfig();
+  const { addToast } = useToast();
 
-  // Local state for buttery smooth slider dragging
-  const [cpuThreshold, setCpuThreshold] = useState(90);
-  const [ramThreshold, setRamThreshold] = useState(90);
-  const [diskThreshold, setDiskThreshold] = useState(95);
+  const [cpu, setCpu] = useThresholdSlider('cpu_threshold', 'CPU threshold', config?.cpu_threshold);
+  const [ram, setRam] = useThresholdSlider('ram_threshold', 'memory threshold', config?.ram_threshold);
+  const [disk, setDisk] = useThresholdSlider('disk_threshold', 'disk threshold', config?.disk_threshold);
 
-  // Local state for toggles
-  const [isDarkTheme, setIsDarkTheme] = useState(() => {
-    return localStorage.getItem('theme') !== 'light';
-  });
-  const [soundAlerts, setSoundAlerts] = useState(true);
+  const soundAlerts = config?.sound_alerts ?? true;
+  const isDarkTheme = theme === 'dark';
 
-  // Sync local state when config is fetched from the backend on boot
-  useEffect(() => {
-    if (config) {
-      setCpuThreshold(config.cpu_threshold);
-      setRamThreshold(config.ram_threshold);
-      setDiskThreshold(config.disk_threshold);
-      setSoundAlerts(config.sound_alerts ?? true);
-    }
-  }, [config]);
-
-  // Network call triggered ONLY when dragging stops
-  const handleMouseUp = (key: 'cpu_threshold' | 'ram_threshold' | 'disk_threshold', val: number) => {
-    if (config && config[key] !== val) {
-      updateThreshold(key, val);
-    }
+  const handleReset = async () => {
+    // Setting the sliders first cancels any save still waiting in the debounce window
+    setCpu(DEFAULT_THRESHOLDS.cpu_threshold);
+    setRam(DEFAULT_THRESHOLDS.ram_threshold);
+    setDisk(DEFAULT_THRESHOLDS.disk_threshold);
+    const ok = await resetThresholds();
+    if (!ok) addToast('Could not reset thresholds. The previous values were restored.', 'warning');
   };
 
-  const toggleTheme = () => {
-    const newTheme = !isDarkTheme;
-    setIsDarkTheme(newTheme);
-    if (newTheme) {
-      document.documentElement.classList.add('dark');
-      localStorage.setItem('theme', 'dark');
-      if (config) updateThreshold('theme' as any, 'dark');
-    } else {
-      document.documentElement.classList.remove('dark');
-      localStorage.setItem('theme', 'light');
-      if (config) updateThreshold('theme' as any, 'light');
-    }
+  const toggleSound = async () => {
+    const ok = await updateSetting('sound_alerts', !soundAlerts);
+    if (!ok) addToast('Could not save the sound setting. It was reverted.', 'warning');
   };
 
-  const toggleSound = () => {
-    const newVal = !soundAlerts;
-    setSoundAlerts(newVal);
-    // Persist immediately to backend
-    if (config) {
-      updateThreshold('sound_alerts' as any, newVal);
-    }
-  };
-
-  const handleReset = () => {
-    setCpuThreshold(90);
-    setRamThreshold(90);
-    setDiskThreshold(95);
-    resetThresholds();
-  };
-
-  if (isLoadingConfig) {
-    return (
-      <div className="flex-1 flex flex-col items-center justify-center text-text-secondary opacity-50 p-12">
-        <Loader2 className="w-8 h-8 animate-spin mb-4" />
-        <p className="text-sm tracking-wide">Loading configuration...</p>
-      </div>
-    );
-  }
+  const sliders: { key: ThresholdKey; label: string; value: number; set: (v: number) => void }[] = [
+    { key: 'cpu_threshold', label: 'CPU Usage Warning', value: cpu, set: setCpu },
+    { key: 'ram_threshold', label: 'Memory Usage Warning', value: ram, set: setRam },
+    { key: 'disk_threshold', label: 'Disk Usage Warning', value: disk, set: setDisk },
+  ];
 
   return (
     <div className="flex flex-col space-y-8 max-w-4xl w-full h-full pb-8">
@@ -87,72 +76,61 @@ export function Settings() {
               <h2 className="text-sm font-medium text-text-primary tracking-wide uppercase">Alert Thresholds</h2>
               <p className="text-xs text-text-secondary mt-1">Adjust when Kavan should warn you about resource usage.</p>
             </div>
-            <button 
+            <button
               onClick={handleReset}
-              className="flex items-center gap-2 px-3 py-1.5 text-xs font-medium bg-input-bg hover:bg-hover-bg border border-border rounded-md text-text-secondary hover:text-text-primary transition-colors cursor-pointer"
+              disabled={!config}
+              className="flex items-center gap-2 px-3 py-1.5 text-xs font-medium bg-input-bg hover:bg-hover-bg border border-border rounded-md text-text-secondary hover:text-text-primary transition-colors cursor-pointer disabled:opacity-50 disabled:cursor-not-allowed"
               title="Reset to Safe Defaults"
             >
               <RotateCcw size={14} />
               Reset Defaults
             </button>
           </div>
-          <div className="p-6 space-y-6">
-            
-            {/* CPU Slider */}
-            <div>
-              <div className="flex justify-between items-center mb-2">
-                <label className="text-sm font-medium text-text-primary">CPU Usage Warning</label>
-                <span className="text-sm font-mono text-text-secondary bg-input-bg px-2 py-1 rounded border border-border">{cpuThreshold}%</span>
-              </div>
-              <input 
-                type="range" 
-                min="0" max="100" 
-                value={cpuThreshold}
-                onChange={(e) => setCpuThreshold(Number(e.target.value))}
-                onMouseUp={() => handleMouseUp('cpu_threshold', cpuThreshold)}
-                onTouchEnd={() => handleMouseUp('cpu_threshold', cpuThreshold)}
-                className="w-full accent-accent cursor-pointer"
-              />
-            </div>
 
-            {/* RAM Slider */}
-            <div>
-              <div className="flex justify-between items-center mb-2">
-                <label className="text-sm font-medium text-text-primary">Memory Usage Warning</label>
-                <span className="text-sm font-mono text-text-secondary bg-input-bg px-2 py-1 rounded border border-border">{ramThreshold}%</span>
-              </div>
-              <input 
-                type="range" 
-                min="0" max="100" 
-                value={ramThreshold}
-                onChange={(e) => setRamThreshold(Number(e.target.value))}
-                onMouseUp={() => handleMouseUp('ram_threshold', ramThreshold)}
-                onTouchEnd={() => handleMouseUp('ram_threshold', ramThreshold)}
-                className="w-full accent-accent cursor-pointer"
-              />
+          {isLoadingConfig && !config && (
+            <div className="p-6 flex items-center gap-3 text-sm text-text-secondary">
+              <Loader2 className="w-4 h-4 animate-spin" />
+              Loading settings from the backend...
             </div>
+          )}
 
-            {/* Disk Slider */}
-            <div>
-              <div className="flex justify-between items-center mb-2">
-                <label className="text-sm font-medium text-text-primary">Disk Usage Warning</label>
-                <span className="text-sm font-mono text-text-secondary bg-input-bg px-2 py-1 rounded border border-border">{diskThreshold}%</span>
-              </div>
-              <input 
-                type="range" 
-                min="0" max="100" 
-                value={diskThreshold}
-                onChange={(e) => setDiskThreshold(Number(e.target.value))}
-                onMouseUp={() => handleMouseUp('disk_threshold', diskThreshold)}
-                onTouchEnd={() => handleMouseUp('disk_threshold', diskThreshold)}
-                className="w-full accent-accent cursor-pointer"
-              />
+          {!isLoadingConfig && !config && (
+            <div className="p-6 flex items-center justify-between gap-4">
+              <p className="text-sm text-red-600 dark:text-red-400">{configError ?? 'Settings are unavailable.'}</p>
+              <button
+                onClick={reloadConfig}
+                className="flex items-center gap-2 px-3 py-1.5 text-xs font-medium bg-input-bg hover:bg-hover-bg border border-border rounded-md text-text-primary transition-colors cursor-pointer"
+              >
+                <RefreshCw size={14} />
+                Retry
+              </button>
             </div>
+          )}
 
-          </div>
+          {config && (
+            <div className="p-6 space-y-6">
+              {sliders.map(({ key, label, value, set }) => (
+                <div key={key}>
+                  <div className="flex justify-between items-center mb-2">
+                    <label htmlFor={key} className="text-sm font-medium text-text-primary">{label}</label>
+                    <span className="text-sm font-mono text-text-secondary bg-input-bg px-2 py-1 rounded border border-border">{value}%</span>
+                  </div>
+                  <input
+                    id={key}
+                    type="range"
+                    min={0}
+                    max={100}
+                    value={value}
+                    onChange={(e) => set(Number(e.target.value))}
+                    className="w-full accent-accent cursor-pointer"
+                  />
+                </div>
+              ))}
+            </div>
+          )}
         </div>
 
-        {/* Card 2: Appearance (Section 5.1) */}
+        {/* Card 2: Appearance (client-side only, Phase 5 §5.1) */}
         <div className="bg-bg-secondary border border-border rounded-lg overflow-hidden shadow-xs">
           <div className="px-6 py-5 border-b border-border bg-bg-tertiary/40">
             <h2 className="text-sm font-medium text-text-primary tracking-wide uppercase">Appearance</h2>
@@ -163,8 +141,10 @@ export function Settings() {
                 <label className="text-sm font-medium text-text-primary">Dark Theme</label>
                 <p className="text-xs text-text-secondary mt-1">Toggle between light and dark UI.</p>
               </div>
-              <button 
-                onClick={toggleTheme}
+              <button
+                role="switch"
+                aria-checked={isDarkTheme}
+                onClick={() => setTheme(isDarkTheme ? 'light' : 'dark')}
                 className={`w-11 h-6 rounded-full transition-colors relative flex items-center cursor-pointer ${isDarkTheme ? 'bg-accent' : 'bg-switch-off border border-border'}`}
               >
                 <div className={`w-4 h-4 rounded-full bg-white shadow-xs absolute top-1 transition-transform ${isDarkTheme ? 'left-6' : 'left-1'}`} />
@@ -173,7 +153,7 @@ export function Settings() {
           </div>
         </div>
 
-        {/* Card 3: System Integrations (Section 5.2) */}
+        {/* Card 3: System Integrations */}
         <div className="bg-bg-secondary border border-border rounded-lg overflow-hidden shadow-xs">
           <div className="px-6 py-5 border-b border-border bg-bg-tertiary/40">
             <h2 className="text-sm font-medium text-text-primary tracking-wide uppercase">System Integrations</h2>
@@ -182,18 +162,20 @@ export function Settings() {
             <div className="flex items-center justify-between">
               <div>
                 <label className="text-sm font-medium text-text-primary">Enable Sound Notifications</label>
-                <p className="text-xs text-text-secondary mt-1">Play an alert chime when a critical threshold is breached.</p>
+                <p className="text-xs text-text-secondary mt-1">Play an alert chime when a threshold is breached.</p>
               </div>
-              <button 
+              <button
+                role="switch"
+                aria-checked={soundAlerts}
                 onClick={toggleSound}
-                className={`w-11 h-6 rounded-full transition-colors relative flex items-center cursor-pointer ${soundAlerts ? 'bg-accent' : 'bg-switch-off border border-border'}`}
+                disabled={!config}
+                className={`w-11 h-6 rounded-full transition-colors relative flex items-center cursor-pointer disabled:opacity-50 disabled:cursor-not-allowed ${soundAlerts ? 'bg-accent' : 'bg-switch-off border border-border'}`}
               >
                 <div className={`w-4 h-4 rounded-full bg-white shadow-xs absolute top-1 transition-transform ${soundAlerts ? 'left-6' : 'left-1'}`} />
               </button>
             </div>
           </div>
         </div>
-        
       </div>
     </div>
   );

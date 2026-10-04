@@ -4,13 +4,15 @@ from datetime import datetime, timezone
 import time
 
 import psutil
-from fastapi import FastAPI, WebSocket, WebSocketDisconnect, Response
+from fastapi import FastAPI, WebSocket, WebSocketDisconnect, Response, HTTPException
 from fastapi.middleware.cors import CORSMiddleware
 import uvicorn
 from pydantic import BaseModel, Field
 from typing import Optional
 from utils.logger import logger
 from tools.list_processes import list_processes_logic
+from handlers.approval_handler import stage_termination
+from handlers.termination_handler import execute_approved_termination
 from config.settings_manager import load_config, update_config, ACTIVE_CONFIG
 from fastapi.exceptions import RequestValidationError
 from fastapi.responses import JSONResponse
@@ -21,13 +23,20 @@ app = FastAPI(title="KavanMCP WebSocket Server")
 async def validation_exception_handler(request, exc):
     return JSONResponse(status_code=400, content={"detail": exc.errors()})
 
-# Allow the Tauri React frontend to query this API
+# Only the Tauri window may call this API. Any other origin (e.g. a web page open in
+# the browser) would otherwise be able to reach the kill endpoints on localhost.
+# Dev: Vite runs on 1420. Release (Windows): Tauri serves from tauri.localhost.
 app.add_middleware(
     CORSMiddleware,
-    allow_origins=["*"],
-    allow_credentials=True,
-    allow_methods=["*"],
-    allow_headers=["*"],
+    allow_origins=[
+        "http://localhost:1420",
+        "http://tauri.localhost",
+        "https://tauri.localhost",
+        "tauri://localhost",
+    ],
+    allow_credentials=False,
+    allow_methods=["GET", "POST"],
+    allow_headers=["Content-Type"],
 )
 
 class ConnectionManager:
@@ -73,7 +82,9 @@ async def websocket_endpoint(websocket: WebSocket):
 @app.get("/api/list_processes")
 async def get_processes():
     """Phase 3 REST Endpoint: Returns all running processes and their assigned security tiers."""
-    json_str = list_processes_logic()
+    # Scanning every process blocks for seconds. Run it in a worker thread, or it
+    # stalls the whole server: metric broadcasts and /api/get_config queue behind it.
+    json_str = await asyncio.to_thread(list_processes_logic)
     return Response(content=json_str, media_type="application/json")
 
 @app.get("/api/get_config")
@@ -99,6 +110,44 @@ async def update_thresholds(payload: ConfigUpdate):
         
     new_config = update_config(update_data)
     return {"status": "success", "config": new_config}
+
+class PidRequest(BaseModel):
+    pid: int = Field(..., ge=0)
+
+# Maps termination statuses to HTTP codes. The UI reads `detail.code` for its messages.
+KILL_HTTP_STATUS = {
+    "tier1_blocked": 403,
+    "access_denied": 403,
+    "not_approved": 409,
+    "pid_reused": 409,
+    "not_found": 404,
+    "error": 500,
+}
+
+def _kill_error(result: dict) -> HTTPException:
+    status = result["status"]
+    return HTTPException(
+        status_code=KILL_HTTP_STATUS.get(status, 500),
+        detail={"code": status, "message": result.get("error", "Termination failed.")},
+    )
+
+@app.post("/api/confirm_termination")
+async def confirm_termination(payload: PidRequest):
+    """Phase 8 Step 1: stage a PID in the approval cache. Tier 1 is rejected and logged."""
+    result = await stage_termination(payload.pid, source="UI")
+    if result["status"] != "pending":
+        raise _kill_error(result)
+    return result
+
+@app.post("/api/execute_termination")
+async def execute_termination(payload: PidRequest):
+    """Phase 8 Step 2: kill a PID that was staged by /api/confirm_termination within its TTL."""
+    result = await execute_approved_termination(
+        payload.pid, reasoning="User confirmed termination via KavanMCP UI"
+    )
+    if result["status"] != "success":
+        raise _kill_error(result)
+    return {"pid": payload.pid, **result}
 
 async def metrics_broadcaster():
     """Background task to poll psutil and broadcast to WS clients."""
