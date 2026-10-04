@@ -7,12 +7,13 @@ from database.db import log_blocked_action
 from handlers.classification_handler import classify_process
 
 # Global state dictionary
-# Format: { pid: {"name": str, "tier": int, "timestamp": float} }
+# Format: { pid: {"name": str, "tier": int, "timestamp": float, "create_time": float | None} }
+# create_time pins the approval to one specific process, so a recycled PID cannot inherit it.
 PENDING_APPROVALS: dict[int, dict] = {}
 
 APPROVAL_TIMEOUT_SECONDS = 300 # 5 minutes
 
-def request_approval(pid: int, name: str, tier: int) -> str:
+def request_approval(pid: int, name: str, tier: int, create_time: float | None = None) -> str:
     """
     Places a process into the pending approval state.
     Returns the strict warning string that the LLM must present to the user.
@@ -20,7 +21,8 @@ def request_approval(pid: int, name: str, tier: int) -> str:
     PENDING_APPROVALS[pid] = {
         "name": name,
         "tier": tier,
-        "timestamp": time.time()
+        "timestamp": time.time(),
+        "create_time": create_time
     }
     return f"Process {name} (PID: {pid}) [Tier {tier}] is now pending approval. You MUST ask the user for confirmation before calling execute_termination."
 
@@ -30,12 +32,88 @@ def is_approved(pid: int) -> bool:
     """
     if pid not in PENDING_APPROVALS:
         return False
-        
+
     if time.time() - PENDING_APPROVALS[pid]["timestamp"] > APPROVAL_TIMEOUT_SECONDS:
         del PENDING_APPROVALS[pid] # Expired
         return False
-        
+
     return True
+
+def take_approval(pid: int) -> dict | None:
+    """
+    Removes and returns the approval for a PID, or None if there is none or it expired.
+    Approvals are single-use: every execution attempt consumes them, so a stale
+    confirmation can never be replayed and a double-click cannot kill twice.
+    """
+    entry = PENDING_APPROVALS.pop(pid, None)
+    if entry is None:
+        return None
+    if time.time() - entry["timestamp"] > APPROVAL_TIMEOUT_SECONDS:
+        return None
+    return entry
+
+def _inspect_process(pid: int) -> dict:
+    """Blocking psutil reads. Must run in a worker thread, never on the event loop."""
+    proc = psutil.Process(pid)
+    name = proc.name()
+
+    # Fetch minimal stats for classification
+    try:
+        cpu_pct = proc.cpu_percent(interval=0.1)
+        mem_mb = proc.memory_info().rss / (1024 * 1024)
+    except (psutil.AccessDenied, psutil.NoSuchProcess):
+        cpu_pct = 0.0
+        mem_mb = 0.0
+
+    return {
+        "name": name,
+        "cpu_percent": cpu_pct,
+        "memory_mb": mem_mb,
+        "create_time": proc.create_time(),
+    }
+
+async def stage_termination(pid: int, source: str = "LLM") -> dict:
+    """
+    Classifies a PID and, unless it is Tier 1, places it in the pending approval state.
+    Shared by the MCP confirm_termination tool and the REST /api/confirm_termination route.
+
+    Returned status: "pending" | "tier1_blocked" | "not_found" | "error".
+    """
+    try:
+        info = await asyncio.to_thread(_inspect_process, pid)
+    except psutil.NoSuchProcess:
+        return {"status": "not_found", "error": f"PID {pid} does not exist or has already closed."}
+    except Exception as e:
+        return {"status": "error", "error": f"Could not access PID {pid}: {e}"}
+
+    name = info["name"]
+    tier = classify_process(
+        process_name=name,
+        cpu_percent=info["cpu_percent"],
+        memory_mb=info["memory_mb"],
+        is_headless=False # Assuming false for safety checks
+    )
+
+    if tier == 1:
+        reasoning = f"{source} attempted to terminate a Tier 1 Critical OS Component."
+        await log_blocked_action(name, pid, reasoning)
+        return {
+            "status": "tier1_blocked",
+            "tier": 1,
+            "name": name,
+            "error": f"CRITICAL ERROR: {name} (PID: {pid}) is a Tier 1 process. Termination is STRICTLY PROHIBITED and this attempt has been logged."
+        }
+
+    message = request_approval(pid, name, tier, info["create_time"])
+    return {
+        "status": "pending",
+        "pid": pid,
+        "name": name,
+        "tier": tier,
+        "cpu_percent": info["cpu_percent"],
+        "memory_mb": info["memory_mb"],
+        "message": message
+    }
 
 async def handle_confirmation_request(pids: list[int]) -> str:
     """
@@ -43,43 +121,14 @@ async def handle_confirmation_request(pids: list[int]) -> str:
     Instantly blocks Tier 1. Requests approval for Tiers 2-4.
     """
     results = []
-    
+
     for pid in pids:
-        try:
-            if not psutil.pid_exists(pid):
-                results.append(f"PID {pid} does not exist or has already closed.")
-                continue
-                
-            proc = psutil.Process(pid)
-            name = proc.name()
-            
-            # Fetch minimal stats for classification
-            try:
-                cpu_pct = proc.cpu_percent(interval=0.1)
-                mem_mb = proc.memory_info().rss / (1024 * 1024)
-            except (psutil.AccessDenied, psutil.NoSuchProcess):
-                cpu_pct = 0.0
-                mem_mb = 0.0
-                
-            # Classify the process
-            tier = classify_process(
-                process_name=name, 
-                cpu_percent=cpu_pct, 
-                memory_mb=mem_mb, 
-                is_headless=False # Assuming false for safety checks
-            )
-            
-            if tier == 1:
-                reasoning = "LLM attempted to terminate a Tier 1 Critical OS Component."
-                await log_blocked_action(name, pid, reasoning)
-                results.append(f"CRITICAL ERROR: {name} (PID: {pid}) is a Tier 1 process. Termination is STRICTLY PROHIBITED and this attempt has been logged.")
-            else:
-                msg = request_approval(pid, name, tier)
-                results.append(msg)
-                
-        except Exception as e:
-            results.append(f"Could not access PID {pid}: {e}")
-            
+        result = await stage_termination(pid, source="LLM")
+        if result["status"] == "pending":
+            results.append(result["message"])
+        else:
+            results.append(result["error"])
+
     return "\n".join(results)
 
 async def ttl_sweeper():
