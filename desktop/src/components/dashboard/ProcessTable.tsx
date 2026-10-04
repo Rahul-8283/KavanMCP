@@ -2,6 +2,8 @@ import { useProcess, Process } from '../../context/ProcessContext';
 import { Loader2, ChevronUp, ChevronDown } from 'lucide-react';
 import { TierBadge } from './TierBadge';
 import { ProcessContextMenu } from './ProcessContextMenu';
+import { KillConfirmModal } from './KillConfirmModal';
+import { useProcessManager } from '../../hooks/useProcessManager';
 import { useVirtualizer } from '@tanstack/react-virtual';
 import { useRef, useMemo, useState, useCallback } from 'react';
 
@@ -13,11 +15,34 @@ interface MenuState {
 
 export function ProcessTable() {
   const { processes, isLoading, filterTier, setFilterTier, sortConfig, setSortConfig, searchQuery, setSearchQuery } = useProcess();
+  const { terminateProcess } = useProcessManager();
   const parentRef = useRef<HTMLDivElement>(null);
 
   const [menu, setMenu] = useState<MenuState | null>(null);
+  const [killTarget, setKillTarget] = useState<Process | null>(null);
+  const [killError, setKillError] = useState<string | null>(null);
+  const [isKilling, setIsKilling] = useState(false);
 
   const closeMenu = useCallback(() => setMenu(null), []);
+
+  const closeKillModal = useCallback(() => {
+    setKillTarget(null);
+    setKillError(null);
+  }, []);
+
+  const handleConfirmKill = async () => {
+    if (!killTarget) return;
+    setIsKilling(true);
+    setKillError(null);
+    const stagingError = await terminateProcess(killTarget);
+    setIsKilling(false);
+    if (stagingError) {
+      // Staging was rejected: keep the modal open and show why
+      setKillError(stagingError);
+    } else {
+      closeKillModal();
+    }
+  };
 
   const handleSort = (key: string) => {
     if (sortConfig?.key === key) {
@@ -183,10 +208,21 @@ export function ProcessTable() {
           x={menu.x}
           y={menu.y}
           onClose={closeMenu}
-          onTerminate={closeMenu}
+          onTerminate={() => {
+            setKillTarget(menu.process);
+            setKillError(null);
+            closeMenu();
+          }}
         />
       )}
 
+      <KillConfirmModal
+        target={killTarget}
+        isBusy={isKilling}
+        error={killError}
+        onConfirm={handleConfirmKill}
+        onCancel={closeKillModal}
+      />
     </div>
   );
 }
