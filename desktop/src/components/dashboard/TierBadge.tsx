@@ -1,42 +1,25 @@
-interface TierBadgeProps {
-  tier: number;
-}
+import { Lock } from 'lucide-react';
+import { tierInfo, type TierTone } from './tiers';
 
-export function TierBadge({ tier }: TierBadgeProps) {
-  let uiClass = '';
-  let text = '';
-  let tooltip = '';
+const TONE_CLASS: Record<TierTone, string> = {
+  sealed: 'border-line-strong bg-sunken text-ink',
+  warn: 'border-transparent bg-warn-wash text-warn',
+  muted: 'border-line text-ink-soft',
+  crimson: 'border-transparent bg-crimson-wash text-crimson-ink',
+};
 
-  switch (tier) {
-    case 1:
-      uiClass = 'bg-red-600 text-white';
-      text = 'SYSTEM';
-      tooltip = 'Critical OS process. Terminating this may cause system instability or a blue screen.';
-      break;
-    case 2:
-      uiClass = 'bg-amber-500 text-white';
-      text = 'ESSENTIAL';
-      tooltip = 'Essential application. Terminating this might disrupt your workflow.';
-      break;
-    case 3:
-      uiClass = 'bg-yellow-400 text-gray-900';
-      text = 'OPTIONAL';
-      tooltip = 'User background process. Safe to terminate if resources are needed.';
-      break;
-    case 4:
-    default:
-      uiClass = 'bg-red-500/10 border border-red-500/30 text-red-600 dark:text-red-400';
-      text = 'UNVERIFIED';
-      tooltip = 'Unknown or suspicious process. Proceed with caution.';
-      break;
-  }
+export function TierBadge({ tier }: { tier: number }) {
+  const { label, tooltip, tone } = tierInfo(tier);
 
   return (
-    <span 
+    <span
       title={tooltip}
-      className={`inline-flex items-center justify-center px-2 py-1 rounded-sm text-[10px] font-bold tracking-widest uppercase cursor-help min-w-[90px] ${uiClass}`}
+      className={`inline-flex h-[1.375rem] cursor-help items-center gap-1.5 rounded border px-2 text-[0.6875rem] font-semibold uppercase tracking-[0.07em] ${TONE_CLASS[tone]}`}
     >
-      {text}
+      {tone === 'sealed'
+        ? <Lock size={10} strokeWidth={2.25} />
+        : <span className="h-1.5 w-1.5 rounded-full bg-current" />}
+      {label}
     </span>
   );
 }
