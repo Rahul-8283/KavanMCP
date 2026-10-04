@@ -1,5 +1,18 @@
 import axios from 'axios';
 
+// Errors that the backend describes with a machine-readable code (see ws_server.py)
+export class ApiError extends Error {
+  code: string;
+  status?: number;
+
+  constructor(code: string, message: string, status?: number) {
+    super(message);
+    this.name = 'ApiError';
+    this.code = code;
+    this.status = status;
+  }
+}
+
 // 4.1 Axios Instance Configuration
 const apiClient = axios.create({
   baseURL: import.meta.env.VITE_API_URL || 'http://localhost:8000',
@@ -26,6 +39,11 @@ apiClient.interceptors.response.use(
     if (error.response) {
       const status = error.response.status;
       const detail = error.response.data?.detail;
+
+      // Coded errors carry their own user-facing message from the server
+      if (detail && typeof detail === 'object' && typeof detail.code === 'string') {
+        return Promise.reject(new ApiError(detail.code, detail.message, status));
+      }
 
       // Standardize 500 or 403 errors for UI Toast alerts
       if (status === 403) {
