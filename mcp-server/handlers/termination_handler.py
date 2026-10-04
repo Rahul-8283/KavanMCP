@@ -5,6 +5,7 @@ import subprocess
 
 import psutil
 
+from config.whitelist import TIER_1_WHITELIST
 from database.db import get_last_terminated_process, log_rollback, log_termination
 from handlers.approval_handler import protected_pids, self_protection_error, take_approval
 from handlers.classification_handler import classify_process
@@ -23,8 +24,16 @@ def _terminate_blocking(pid: int) -> dict:
     try:
         proc = psutil.Process(pid)
 
-        # Snapshot metrics before death
+        # TRD 6.1: the hard block sits at the lowest layer, directly in front of the OS call,
+        # so no caller can reach terminate() for a critical process whatever checks it skipped.
         name = proc.name()
+        if name.lower() in TIER_1_WHITELIST:
+            return {
+                "status": "tier1_blocked",
+                "error": f"CRITICAL ERROR: {name} (PID: {pid}) is a Tier 1 process. Termination is STRICTLY PROHIBITED."
+            }
+
+        # Snapshot metrics before death
         mem_mb = proc.memory_info().rss / MB
         cpu_pct = proc.cpu_percent(interval=0.1)
         try:
