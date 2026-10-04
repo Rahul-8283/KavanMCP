@@ -26,8 +26,8 @@ def restore_settings():
 
 
 def test_websocket_streams_metrics_update():
-    with TestClient(app) as client:
-        with client.websocket_connect("/ws") as ws:
+    with TestClient(app, base_url="http://127.0.0.1:8000") as client:
+        with client.websocket_connect("ws://127.0.0.1:8000/ws") as ws:
             message = ws.receive_json()
 
     assert message["type"] == "metrics_update"
@@ -37,7 +37,7 @@ def test_websocket_streams_metrics_update():
 
 
 def test_threshold_update_persists_to_disk(restore_settings):
-    response = TestClient(app).post(UPDATE, json={"cpu_threshold": 12, "theme": "dark"})
+    response = TestClient(app, base_url="http://127.0.0.1:8000").post(UPDATE, json={"cpu_threshold": 12, "theme": "dark"})
 
     assert response.status_code == 200
     with open(settings_manager.CONFIG_PATH, encoding="utf-8") as f:
@@ -63,7 +63,7 @@ def test_every_visible_tier1_process_is_unkillable_via_api():
     if not pids:
         pytest.skip("No Tier 1 process visible to this session")
 
-    client = TestClient(app)
+    client = TestClient(app, base_url="http://127.0.0.1:8000")
     for name, pid in pids.items():
         PENDING_APPROVALS.clear()
 
@@ -81,7 +81,7 @@ def test_every_visible_tier1_process_is_unkillable_via_api():
 
 
 def test_non_json_body_is_a_400_not_a_server_error():
-    client = TestClient(app, raise_server_exceptions=False)
+    client = TestClient(app, base_url="http://127.0.0.1:8000", raise_server_exceptions=False)
 
     response = client.post(CONFIRM, content='{"pid": 1}', headers={"Content-Type": "text/plain"})
 
@@ -91,7 +91,7 @@ def test_non_json_body_is_a_400_not_a_server_error():
 
 
 def test_null_threshold_and_unknown_theme_are_not_persisted(restore_settings):
-    client = TestClient(app)
+    client = TestClient(app, base_url="http://127.0.0.1:8000")
     before = settings_manager.load_config()
 
     null_threshold = client.post(UPDATE, json={"cpu_threshold": None})
