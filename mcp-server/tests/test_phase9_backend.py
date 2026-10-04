@@ -30,11 +30,10 @@ def test_websocket_streams_metrics_update():
         with client.websocket_connect("/ws") as ws:
             message = ws.receive_json()
 
-    assert message["type"] in ("metrics_update", "threshold_alert")
-    if message["type"] == "metrics_update":
-        data = message["data"]
-        assert 0 <= data["cpu_percent"] <= 100
-        assert 0 <= data["ram_percent"] <= 100
+    assert message["type"] == "metrics_update"
+    data = message["data"]
+    assert 0 <= data["cpu_percent"] <= 100
+    assert 0 <= data["ram_percent"] <= 100
 
 
 def test_threshold_update_persists_to_disk(restore_settings):
@@ -113,3 +112,31 @@ def test_corrupt_settings_file_values_fall_back_to_defaults(restore_settings):
     config = settings_manager.load_config()
 
     assert config == {**settings_manager.DEFAULT_CONFIG, "disk_threshold": 80}
+
+
+def test_gauges_keep_updating_while_a_threshold_is_exceeded():
+    from ws_server import ALERT_COOLDOWN, build_messages
+
+    values = {"cpu": 97.0, "ram": 50.0, "disk": 10.0}
+    config = {"cpu_threshold": 90, "ram_threshold": 90, "disk_threshold": 95}
+    last_alert: dict = {}
+
+    first = build_messages(values, config, last_alert, now=100.0)
+    during_cooldown = build_messages(values, config, last_alert, now=100.0 + ALERT_COOLDOWN - 1)
+    after_cooldown = build_messages(values, config, last_alert, now=100.0 + ALERT_COOLDOWN)
+
+    # The metrics update is always first, alert or not
+    assert [m["type"] for m in first] == ["metrics_update", "threshold_alert"]
+    assert first[0]["data"]["cpu_percent"] == 97.0
+    assert first[1]["level"] == "critical"
+    assert [m["type"] for m in during_cooldown] == ["metrics_update"]
+    assert [m["type"] for m in after_cooldown] == ["metrics_update", "threshold_alert"]
+
+
+def test_no_alert_at_or_below_threshold():
+    from ws_server import build_messages
+
+    messages = build_messages({"cpu": 90.0, "ram": 10.0, "disk": 10.0},
+                              {"cpu_threshold": 90, "ram_threshold": 90, "disk_threshold": 95}, {}, now=1.0)
+
+    assert [m["type"] for m in messages] == ["metrics_update"]

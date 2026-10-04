@@ -1,5 +1,6 @@
 import asyncio
 import json
+from contextlib import asynccontextmanager
 from datetime import datetime, timezone
 import time
 
@@ -17,7 +18,15 @@ from config.settings_manager import load_config, update_config, ACTIVE_CONFIG
 from fastapi.exceptions import RequestValidationError
 from fastapi.responses import JSONResponse
 
-app = FastAPI(title="KavanMCP WebSocket Server")
+@asynccontextmanager
+async def lifespan(app: FastAPI):
+    # The first cpu_percent(interval=None) call only sets the baseline and returns 0.0
+    psutil.cpu_percent(interval=None)
+    broadcaster = asyncio.create_task(metrics_broadcaster())
+    yield
+    broadcaster.cancel()
+
+app = FastAPI(title="KavanMCP WebSocket Server", lifespan=lifespan)
 
 @app.exception_handler(RequestValidationError)
 async def validation_exception_handler(request, exc):
@@ -152,76 +161,76 @@ async def execute_termination(payload: PidRequest):
         raise _kill_error(result)
     return {"pid": payload.pid, **result}
 
+ALERT_COOLDOWN = 3.0  # seconds between repeated alerts for the same metric
+BROADCAST_INTERVAL = 2.0  # seconds
+CRITICAL_LEVEL = 95
+
+# (metric key, config key, label shown to the user)
+ALERT_METRICS = (
+    ("cpu", "cpu_threshold", "CPU"),
+    ("ram", "ram_threshold", "Memory"),
+    ("disk", "disk_threshold", "Disk"),
+)
+
+def collect_metrics() -> dict:
+    """Non-blocking snapshot. CPU is the average since the previous call."""
+    return {
+        "cpu": psutil.cpu_percent(interval=None),
+        "ram": psutil.virtual_memory().percent,
+        "disk": psutil.disk_usage('/').percent,
+    }
+
+def build_alerts(values: dict, config: dict, last_alert_time: dict, now: float) -> list[dict]:
+    """Phase 6: one threshold_alert per metric over its threshold, rate-limited per metric."""
+    alerts = []
+    for metric, config_key, label in ALERT_METRICS:
+        threshold = config.get(config_key)
+        current = values[metric]
+        if threshold is None or current <= threshold:
+            continue
+        if now - last_alert_time.get(metric, 0) < ALERT_COOLDOWN:
+            continue
+        last_alert_time[metric] = now
+        alerts.append({
+            "type": "threshold_alert",
+            "level": "critical" if current >= CRITICAL_LEVEL else "warning",
+            "message": f"{label} exceeded {threshold}% threshold. Current: {current}%.",
+            "timestamp": int(now)
+        })
+    return alerts
+
+def build_messages(values: dict, config: dict, last_alert_time: dict, now: float) -> list[dict]:
+    """
+    Every cycle carries a metrics_update, followed by any alerts. Alerts must never
+    replace the update: the gauges have to keep moving while a threshold is exceeded.
+    """
+    metrics_update = {
+        "type": "metrics_update",
+        "data": {
+            "cpu_percent": values["cpu"],
+            "ram_percent": values["ram"],
+            "disk_percent": values["disk"],
+            "timestamp": datetime.now(timezone.utc).isoformat()
+        }
+    }
+    return [metrics_update, *build_alerts(values, config, last_alert_time, now)]
+
 async def metrics_broadcaster():
     """Background task to poll psutil and broadcast to WS clients."""
     logger.info("Metrics broadcaster background task started.")
-    
-    last_alert_time = {
-        "cpu": 0,
-        "ram": 0,
-        "disk": 0
-    }
-    ALERT_COOLDOWN = 3.0  # seconds
+    last_alert_time: dict = {}
 
     while True:
         try:
+            # Sample every cycle, even with no clients, so the CPU average always covers one interval
+            values = collect_metrics()
             if manager.active_connections:
-                # Poll metrics
-                cpu_percent = psutil.cpu_percent(interval=0.1)
-                ram = psutil.virtual_memory()
-                ram_percent = ram.percent
-                disk = psutil.disk_usage('/')
-                disk_percent = disk.percent
-                
-                # Phase 6: Alert Evaluation
-                current_time = time.time()
-                
-                def get_alert_payload(metric_name, current_val, threshold_val, metric_label):
-                    if threshold_val is not None and current_val > threshold_val:
-                        if current_time - last_alert_time[metric_name] >= ALERT_COOLDOWN:
-                            last_alert_time[metric_name] = current_time
-                            level = "critical" if current_val >= 95 else "warning"
-                            return {
-                                "type": "threshold_alert",
-                                "level": level,
-                                "message": f"{metric_label} exceeded {threshold_val}% threshold. Current: {current_val}%.",
-                                "timestamp": int(current_time)
-                            }
-                    return None
-
-                cpu_alert = get_alert_payload("cpu", cpu_percent, ACTIVE_CONFIG.get("cpu_threshold"), "CPU")
-                ram_alert = get_alert_payload("ram", ram_percent, ACTIVE_CONFIG.get("ram_threshold"), "Memory")
-                disk_alert = get_alert_payload("disk", disk_percent, ACTIVE_CONFIG.get("disk_threshold"), "Disk")
-
-                alerts = [a for a in (cpu_alert, ram_alert, disk_alert) if a]
-
-                if alerts:
-                    # Instead of a standard metrics_update, the server pushes a specific alert message
-                    for alert_payload in alerts:
-                        await manager.broadcast(alert_payload)
-                else:
-                    # Standard metrics broadcast only if no alerts triggered this cycle
-                    payload = {
-                        "type": "metrics_update",
-                        "data": {
-                            "cpu_percent": cpu_percent,
-                            "ram_percent": ram_percent,
-                            "disk_percent": disk_percent,
-                            "timestamp": datetime.now(timezone.utc).isoformat()
-                        }
-                    }
-                    await manager.broadcast(payload)
-
+                for message in build_messages(values, ACTIVE_CONFIG, last_alert_time, time.time()):
+                    await manager.broadcast(message)
         except Exception as e:
             logger.error(f"Error in metrics broadcaster: {e}")
-        
-        # Sleep ~1.9s so total loop time (with 0.1s CPU interval) is ~2.0s
-        await asyncio.sleep(1.9)
 
-@app.on_event("startup")
-async def startup_event():
-    # Start the broadcaster when the FastAPI app starts
-    asyncio.create_task(metrics_broadcaster())
+        await asyncio.sleep(BROADCAST_INTERVAL)
 
 def run_ws_server():
     """Runs the Uvicorn server. Designed to be called in a separate thread."""
