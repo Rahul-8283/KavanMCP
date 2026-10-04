@@ -67,7 +67,7 @@ async def get_last_terminated_process(pid_or_name: str) -> dict:
                 query = "SELECT * FROM audit_log WHERE action_type = 'TERMINATED' AND pid = ? ORDER BY timestamp DESC LIMIT 1"
                 params = (int(pid_or_name),)
             else:
-                query = "SELECT * FROM audit_log WHERE action_type = 'TERMINATED' AND process_name = ? ORDER BY timestamp DESC LIMIT 1"
+                query = "SELECT * FROM audit_log WHERE action_type = 'TERMINATED' AND process_name = ? COLLATE NOCASE ORDER BY timestamp DESC LIMIT 1"
                 params = (pid_or_name,)
                 
             async with db.execute(query, params) as cursor:
@@ -78,13 +78,13 @@ async def get_last_terminated_process(pid_or_name: str) -> dict:
         logger.error(f"Failed to query last terminated process for {pid_or_name}: {e}")
     return {}
 
-async def log_rollback(process_name: str, executable_path: str) -> None:
-    """Logs a rollback event into the audit database."""
+async def log_rollback(process_name: str, pid: int, executable_path: str) -> None:
+    """Logs a rollback event into the audit database. pid is the relaunched process."""
     try:
         async with aiosqlite.connect(DB_PATH) as db:
             await db.execute(
-                "INSERT INTO audit_log (id, process_name, executable_path, action_type, user_approved) VALUES (?, ?, ?, ?, ?)",
-                (str(uuid.uuid4()), process_name, executable_path, 'ROLLBACK', True)
+                "INSERT INTO audit_log (id, process_name, pid, executable_path, action_type, user_approved) VALUES (?, ?, ?, ?, ?, ?)",
+                (str(uuid.uuid4()), process_name, pid, executable_path, 'ROLLBACK', True)
             )
             await db.commit()
     except Exception as e:
