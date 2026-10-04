@@ -439,7 +439,7 @@ APPROVAL_TIMEOUT_SECONDS = 300  # 5 minutes
 | 5 | Settings + Thresholds | ✅ Done |
 | 6 | Toast Alerts | ✅ Done |
 | 7 | Tray Integration | ✅ Done |
-| **8** | **Kill Flow** | ❌ **TODO** |
+| 8 | Kill Flow | ✅ Done |
 | 9 | Feature Testing | ❌ Not started |
 | 10 | E2E + Claude Sync | ❌ Not started |
 
@@ -611,5 +611,5 @@ git push origin feat/phase-8-kill-flow
 ---
 
 **Last Updated:** October 4, 2026
-**Current Phase:** 8 (Kill Flow — Not Started)
-**Next Priority:** Implement Phase 8 (Kill Confirmation & Execution)
+**Current Phase:** 8 (Kill Flow — ✅ Complete)
+**Next Priority:** Phase 9 (Comprehensive Feature Testing)
