@@ -1,3 +1,4 @@
+import pythoncom
 import pywintypes
 import win32api
 import win32com.client
@@ -69,12 +70,16 @@ def get_deep_process_info(pid: int) -> dict:
     # Note: Reading the CommandLine purely through OpenProcess requires parsing the 
     # Process Environment Block (PEB) manually in memory, which is highly unstable.
     # WMI (Windows Management Instrumentation) provides a safe, native Windows API for this.
+    # COM must be initialised on the calling thread, and tools call this from worker threads.
+    pythoncom.CoInitialize()
     try:
         wmi = win32com.client.GetObject('winmgmts:')
-        processes = wmi.ExecQuery(f"Select CommandLine From Win32_Process Where ProcessId = {pid}")
+        processes = wmi.ExecQuery(f"Select CommandLine From Win32_Process Where ProcessId = {int(pid)}")
         for process in processes:
             info["CommandLine"] = process.CommandLine
     except Exception:
         pass
+    finally:
+        pythoncom.CoUninitialize()
         
     return info
