@@ -1,12 +1,48 @@
 import { useProcess, Process } from '../../context/ProcessContext';
 import { Loader2, ChevronUp, ChevronDown } from 'lucide-react';
 import { TierBadge } from './TierBadge';
+import { ProcessContextMenu } from './ProcessContextMenu';
+import { KillConfirmModal } from './KillConfirmModal';
+import { useProcessManager } from '../../hooks/useProcessManager';
 import { useVirtualizer } from '@tanstack/react-virtual';
-import { useRef, useMemo } from 'react';
+import { useRef, useMemo, useState, useCallback } from 'react';
+
+interface MenuState {
+  x: number;
+  y: number;
+  process: Process;
+}
 
 export function ProcessTable() {
   const { processes, isLoading, filterTier, setFilterTier, sortConfig, setSortConfig, searchQuery, setSearchQuery } = useProcess();
+  const { terminateProcess } = useProcessManager();
   const parentRef = useRef<HTMLDivElement>(null);
+
+  const [menu, setMenu] = useState<MenuState | null>(null);
+  const [killTarget, setKillTarget] = useState<Process | null>(null);
+  const [killError, setKillError] = useState<string | null>(null);
+  const [isKilling, setIsKilling] = useState(false);
+
+  const closeMenu = useCallback(() => setMenu(null), []);
+
+  const closeKillModal = useCallback(() => {
+    setKillTarget(null);
+    setKillError(null);
+  }, []);
+
+  const handleConfirmKill = async () => {
+    if (!killTarget) return;
+    setIsKilling(true);
+    setKillError(null);
+    const stagingError = await terminateProcess(killTarget);
+    setIsKilling(false);
+    if (stagingError) {
+      // Staging was rejected: keep the modal open and show why
+      setKillError(stagingError);
+    } else {
+      closeKillModal();
+    }
+  };
 
   const handleSort = (key: string) => {
     if (sortConfig?.key === key) {
@@ -136,6 +172,10 @@ export function ProcessTable() {
             return (
               <div
                 key={`${proc.pid}-${proc.name}`}
+                onContextMenu={(e) => {
+                  e.preventDefault(); // Suppress the browser menu in favour of ours
+                  setMenu({ x: e.clientX, y: e.clientY, process: proc });
+                }}
                 className="absolute top-0 left-0 w-full flex items-center text-sm border-b border-border-subtle hover:bg-hover-bg transition-colors"
                 style={{
                   height: `${virtualRow.size}px`,
@@ -162,6 +202,27 @@ export function ProcessTable() {
           })}
         </div>
       </div>
+
+      {menu && (
+        <ProcessContextMenu
+          x={menu.x}
+          y={menu.y}
+          onClose={closeMenu}
+          onTerminate={() => {
+            setKillTarget(menu.process);
+            setKillError(null);
+            closeMenu();
+          }}
+        />
+      )}
+
+      <KillConfirmModal
+        target={killTarget}
+        isBusy={isKilling}
+        error={killError}
+        onConfirm={handleConfirmKill}
+        onCancel={closeKillModal}
+      />
     </div>
   );
 }
