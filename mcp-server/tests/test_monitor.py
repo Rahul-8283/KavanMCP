@@ -65,3 +65,31 @@ def test_listing_and_confirmation_agree_on_tier():
     assert staged["status"] == "pending"
     # A windowless process pinning a core is the Tier 4 case from the V1 plan
     assert staged["tier"] == classify_process("python.exe", staged["cpu_percent"], 0.0, is_headless=True) == 4
+
+
+def test_scan_tools_do_not_block_the_mcp_event_loop():
+    """A heartbeat coroutine must keep ticking while the multi-second scan runs."""
+    import asyncio
+
+    from server import analyze_system, list_processes
+
+    async def run(tool, *args):
+        ticks = 0
+
+        async def heartbeat():
+            nonlocal ticks
+            while True:
+                await asyncio.sleep(0.05)
+                ticks += 1
+
+        beat = asyncio.create_task(heartbeat())
+        started = asyncio.get_running_loop().time()
+        await getattr(tool, "fn", tool)(*args)
+        elapsed = asyncio.get_running_loop().time() - started
+        beat.cancel()
+        return ticks, elapsed
+
+    for tool, args in ((analyze_system, ()), (list_processes, (None,))):
+        ticks, elapsed = asyncio.run(run(tool, *args))
+        # A blocked loop yields ~0 ticks; a free one ticks roughly every 50ms
+        assert ticks >= (elapsed / 0.05) * 0.5, (tool, ticks, elapsed)
