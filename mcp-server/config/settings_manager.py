@@ -12,7 +12,33 @@ DEFAULT_CONFIG = {
     "sound_alerts": True
 }
 
+THRESHOLD_KEYS = ("cpu_threshold", "ram_threshold", "disk_threshold")
+THEMES = ("dark", "light")
+
 _lock = threading.Lock()
+
+def _valid_entries(data: dict) -> dict:
+    """Returns only the known keys of data whose values are valid."""
+    valid = {}
+    if not isinstance(data, dict):
+        return valid
+
+    for key in THRESHOLD_KEYS:
+        value = data.get(key)
+        if isinstance(value, (int, float)) and not isinstance(value, bool) and 0 <= value <= 100:
+            valid[key] = value
+    if data.get("theme") in THEMES:
+        valid["theme"] = data["theme"]
+    if isinstance(data.get("sound_alerts"), bool):
+        valid["sound_alerts"] = data["sound_alerts"]
+    return valid
+
+def _sanitize(data: dict) -> dict:
+    """
+    Returns DEFAULT_CONFIG overlaid with the valid entries of data. The settings file is
+    hand-editable, so a bad value falls back to its default instead of reaching the alert loop.
+    """
+    return {**DEFAULT_CONFIG, **_valid_entries(data)}
 
 def load_config() -> dict:
     """Loads configuration from disk, creating it with defaults if it doesn't exist."""
@@ -23,12 +49,8 @@ def load_config() -> dict:
             
         try:
             with open(CONFIG_PATH, "r", encoding="utf-8") as f:
-                data = json.load(f)
-                
-                # Merge with defaults in case of missing keys
-                config = DEFAULT_CONFIG.copy()
-                config.update(data)
-                return config
+                # Merge with defaults in case of missing or invalid keys
+                return _sanitize(json.load(f))
         except Exception:
             return DEFAULT_CONFIG.copy()
 
@@ -50,12 +72,8 @@ ACTIVE_CONFIG = load_config()
 def update_config(partial_data: dict) -> dict:
     """Merges partial data into ACTIVE_CONFIG and saves to disk."""
     with _lock:
-        config = ACTIVE_CONFIG.copy()
-        # Only update keys that actually exist in DEFAULT_CONFIG to prevent bloat
-        for k, v in partial_data.items():
-            if k in DEFAULT_CONFIG:
-                config[k] = v
-                
+        # Unknown keys and invalid values are dropped, so bad input can never be persisted
+        config = {**ACTIVE_CONFIG, **_valid_entries(partial_data)}
         save_config_internal(config)
         ACTIVE_CONFIG.clear()
         ACTIVE_CONFIG.update(config)
