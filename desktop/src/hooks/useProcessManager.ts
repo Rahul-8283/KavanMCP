@@ -1,5 +1,4 @@
 import { useCallback } from 'react';
-import axios from 'axios';
 import { useProcess, Process } from '../context/ProcessContext';
 import { useToast } from '../context/ToastContext';
 import { SystemAPI, ApiError } from '../services/api';
@@ -17,11 +16,10 @@ export function useProcessManager() {
     setIsLoading(true);
     setError(null);
     try {
-      const response = await axios.get('http://localhost:8000/api/list_processes');
-      setProcesses(response.data);
-    } catch (err: any) {
+      setProcesses(await SystemAPI.fetchProcesses());
+    } catch (err) {
       console.error('Failed to fetch processes:', err);
-      setError(err.message || 'Failed to fetch processes');
+      setError(describeError(err));
     } finally {
       setIsLoading(false);
     }

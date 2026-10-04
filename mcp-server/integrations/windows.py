@@ -1,8 +1,41 @@
+import pythoncom
 import pywintypes
 import win32api
 import win32com.client
 import win32con
+import win32gui
 import win32process
+
+
+def get_windowed_pids() -> set[int] | None:
+    """
+    Returns the PIDs that own at least one visible, titled top-level window,
+    i.e. the processes a user can actually see on the desktop.
+    Returns None if the desktop cannot be enumerated (e.g. no interactive session).
+    """
+    pids: set[int] = set()
+
+    def _collect(hwnd, _):
+        if win32gui.IsWindowVisible(hwnd) and win32gui.GetWindowText(hwnd):
+            _, pid = win32process.GetWindowThreadProcessId(hwnd)
+            pids.add(pid)
+        return True
+
+    try:
+        win32gui.EnumWindows(_collect, None)
+    except pywintypes.error:
+        return None
+    return pids
+
+
+def is_headless(pid: int, windowed_pids: set[int] | None) -> bool:
+    """
+    A process is headless when it shows no window. If the desktop could not be
+    inspected we cannot tell, and report False so nothing is flagged as suspicious on a guess.
+    """
+    if windowed_pids is None:
+        return False
+    return pid not in windowed_pids
 
 
 def get_deep_process_info(pid: int) -> dict:
@@ -37,12 +70,16 @@ def get_deep_process_info(pid: int) -> dict:
     # Note: Reading the CommandLine purely through OpenProcess requires parsing the 
     # Process Environment Block (PEB) manually in memory, which is highly unstable.
     # WMI (Windows Management Instrumentation) provides a safe, native Windows API for this.
+    # COM must be initialised on the calling thread, and tools call this from worker threads.
+    pythoncom.CoInitialize()
     try:
         wmi = win32com.client.GetObject('winmgmts:')
-        processes = wmi.ExecQuery(f"Select CommandLine From Win32_Process Where ProcessId = {pid}")
+        processes = wmi.ExecQuery(f"Select CommandLine From Win32_Process Where ProcessId = {int(pid)}")
         for process in processes:
             info["CommandLine"] = process.CommandLine
     except Exception:
         pass
+    finally:
+        pythoncom.CoUninitialize()
         
     return info

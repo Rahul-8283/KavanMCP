@@ -1,10 +1,12 @@
 import asyncio
+import os
 import time
 
 import psutil
 
 from database.db import log_blocked_action
 from handlers.classification_handler import classify_process
+from integrations.windows import get_windowed_pids, is_headless
 
 # Global state dictionary
 # Format: { pid: {"name": str, "tier": int, "timestamp": float, "create_time": float | None} }
@@ -52,6 +54,23 @@ def take_approval(pid: int) -> dict | None:
         return None
     return entry
 
+def protected_pids() -> set[int]:
+    """
+    The server's own process and the chain of processes that launched it.
+    Killing any of them shuts KavanMCP down mid-request, before the audit entry is written.
+    """
+    me = psutil.Process(os.getpid())
+    try:
+        return {me.pid, *(parent.pid for parent in me.parents())}
+    except psutil.Error:
+        return {me.pid}
+
+def self_protection_error(pid: int) -> dict:
+    return {
+        "status": "self_protected",
+        "error": f"PID {pid} is KavanMCP itself or the process that launched it. Terminating it would shut KavanMCP down."
+    }
+
 def _inspect_process(pid: int) -> dict:
     """Blocking psutil reads. Must run in a worker thread, never on the event loop."""
     proc = psutil.Process(pid)
@@ -70,6 +89,7 @@ def _inspect_process(pid: int) -> dict:
         "cpu_percent": cpu_pct,
         "memory_mb": mem_mb,
         "create_time": proc.create_time(),
+        "is_headless": is_headless(pid, get_windowed_pids()),
     }
 
 async def stage_termination(pid: int, source: str = "LLM") -> dict:
@@ -77,8 +97,11 @@ async def stage_termination(pid: int, source: str = "LLM") -> dict:
     Classifies a PID and, unless it is Tier 1, places it in the pending approval state.
     Shared by the MCP confirm_termination tool and the REST /api/confirm_termination route.
 
-    Returned status: "pending" | "tier1_blocked" | "not_found" | "error".
+    Returned status: "pending" | "tier1_blocked" | "self_protected" | "not_found" | "error".
     """
+    if pid in protected_pids():
+        return self_protection_error(pid)
+
     try:
         info = await asyncio.to_thread(_inspect_process, pid)
     except psutil.NoSuchProcess:
@@ -91,7 +114,7 @@ async def stage_termination(pid: int, source: str = "LLM") -> dict:
         process_name=name,
         cpu_percent=info["cpu_percent"],
         memory_mb=info["memory_mb"],
-        is_headless=False # Assuming false for safety checks
+        is_headless=info["is_headless"]
     )
 
     if tier == 1:
@@ -131,6 +154,21 @@ async def handle_confirmation_request(pids: list[int]) -> str:
 
     return "\n".join(results)
 
+def sweep_expired(now: float | None = None) -> int:
+    """
+    Drops approvals older than the timeout and returns how many were removed.
+    Runs on the sweeper thread while request handlers use the same dict, so it never
+    assumes an entry it saw a moment ago is still there.
+    """
+    now = time.time() if now is None else now
+    removed = 0
+    for pid, entry in list(PENDING_APPROVALS.items()):
+        if now - entry["timestamp"] > APPROVAL_TIMEOUT_SECONDS:
+            # Only drop the entry we inspected; the PID may have been re-staged since
+            if PENDING_APPROVALS.get(pid) is entry and PENDING_APPROVALS.pop(pid, None) is not None:
+                removed += 1
+    return removed
+
 async def ttl_sweeper():
     """
     Background asyncio task that periodically cleans up expired approvals.
@@ -138,9 +176,4 @@ async def ttl_sweeper():
     """
     while True:
         await asyncio.sleep(60)
-        current_time = time.time()
-        # Cast to list to avoid 'dictionary changed size during iteration' error
-        for pid in list(PENDING_APPROVALS.keys()):
-            if pid in PENDING_APPROVALS:
-                if current_time - PENDING_APPROVALS[pid]["timestamp"] > APPROVAL_TIMEOUT_SECONDS:
-                    del PENDING_APPROVALS[pid]
+        sweep_expired()
