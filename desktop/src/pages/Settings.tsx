@@ -1,11 +1,17 @@
-import { useEffect, useState } from 'react';
-import { useConfig, DEFAULT_THRESHOLDS } from '../context/ConfigContext';
+import { CSSProperties, ReactNode, useEffect, useState } from 'react';
+import { useConfig, DEFAULT_THRESHOLDS, Theme } from '../context/ConfigContext';
 import { useToast } from '../context/ToastContext';
+import { Switch } from '../components/common/Switch';
 import { Loader2, RotateCcw, RefreshCw } from 'lucide-react';
 
 type ThresholdKey = 'cpu_threshold' | 'ram_threshold' | 'disk_threshold';
 
 const SAVE_DEBOUNCE_MS = 500; // Phase 5 §4.1: one request after the user stops moving the slider
+
+const THEME_OPTIONS: { theme: Theme; label: string }[] = [
+  { theme: 'dark', label: 'Dark' },
+  { theme: 'light', label: 'Light' },
+];
 
 // Local slider value for smooth dragging, persisted to the backend once it settles.
 function useThresholdSlider(key: ThresholdKey, label: string, saved: number | undefined) {
@@ -30,6 +36,43 @@ function useThresholdSlider(key: ThresholdKey, label: string, saved: number | un
   return [value, setValue] as const;
 }
 
+function SettingsSection({ title, description, action, children }: { title: string; description?: string; action?: ReactNode; children: ReactNode }) {
+  return (
+    <section className="panel overflow-hidden">
+      <div className="flex min-h-[4.25rem] items-center justify-between gap-4 border-b border-line px-5 py-3">
+        <div className="min-w-0">
+          <h2 className="font-display text-[0.9375rem] font-semibold text-ink">{title}</h2>
+          {description && <p className="mt-0.5 text-xs text-ink-soft">{description}</p>}
+        </div>
+        {action}
+      </div>
+      {children}
+    </section>
+  );
+}
+
+// A miniature of the app drawn in the given theme's own palette
+function ThemePreview({ theme }: { theme: Theme }) {
+  return (
+    <div data-palette={theme} aria-hidden="true" className="flex h-[4.5rem] overflow-hidden rounded-md border border-line bg-canvas">
+      <div className="flex w-6 flex-col items-center gap-1.5 border-r border-line bg-sidebar pt-2">
+        <span className="h-2 w-2 rounded-full bg-crimson" />
+        <span className="h-[3px] w-3 rounded-full bg-ink-faint" />
+        <span className="h-[3px] w-3 rounded-full bg-line-strong" />
+      </div>
+      <div className="flex flex-1 flex-col gap-1.5 p-2">
+        <span className="h-1.5 w-12 rounded-full bg-ink" />
+        <div className="flex gap-1.5">
+          <span className="h-4 flex-1 rounded-sm border border-line bg-surface" />
+          <span className="h-4 flex-1 rounded-sm border border-line bg-surface" />
+          <span className="h-4 flex-1 rounded-sm border border-line bg-surface" />
+        </div>
+        <span className="flex-1 rounded-sm border border-line bg-surface" />
+      </div>
+    </div>
+  );
+}
+
 export function Settings() {
   const { config, isLoadingConfig, configError, reloadConfig, updateSetting, resetThresholds, theme, setTheme } = useConfig();
   const { addToast } = useToast();
@@ -39,7 +82,6 @@ export function Settings() {
   const [disk, setDisk] = useThresholdSlider('disk_threshold', 'disk threshold', config?.disk_threshold);
 
   const soundAlerts = config?.sound_alerts ?? true;
-  const isDarkTheme = theme === 'dark';
 
   const handleReset = async () => {
     // Setting the sliders first cancels any save still waiting in the debounce window
@@ -62,120 +104,97 @@ export function Settings() {
   ];
 
   return (
-    <div className="flex flex-col space-y-8 max-w-4xl w-full h-full pb-8">
-      <div>
-        <h1 className="text-3xl font-bold tracking-tight text-text-primary">Settings</h1>
-        <p className="text-text-secondary mt-1">Configure system alerts and application preferences.</p>
-      </div>
-
-      <div className="space-y-6">
-        {/* Card 1: Alert Thresholds */}
-        <div className="bg-bg-secondary border border-border rounded-lg overflow-hidden shadow-xs">
-          <div className="px-6 py-5 border-b border-border bg-bg-tertiary/40 flex justify-between items-center">
-            <div>
-              <h2 className="text-sm font-medium text-text-primary tracking-wide uppercase">Alert Thresholds</h2>
-              <p className="text-xs text-text-secondary mt-1">Adjust when Kavan should warn you about resource usage.</p>
-            </div>
-            <button
-              onClick={handleReset}
-              disabled={!config}
-              className="flex items-center gap-2 px-3 py-1.5 text-xs font-medium bg-input-bg hover:bg-hover-bg border border-border rounded-md text-text-secondary hover:text-text-primary transition-colors cursor-pointer disabled:opacity-50 disabled:cursor-not-allowed"
-              title="Reset to Safe Defaults"
-            >
-              <RotateCcw size={14} />
-              Reset Defaults
-            </button>
-          </div>
-
-          {isLoadingConfig && !config && (
-            <div className="p-6 flex items-center gap-3 text-sm text-text-secondary">
-              <Loader2 className="w-4 h-4 animate-spin" />
-              Loading settings from the backend...
-            </div>
-          )}
-
-          {!isLoadingConfig && !config && (
-            <div className="p-6 flex items-center justify-between gap-4">
-              <p className="text-sm text-red-600 dark:text-red-400">{configError ?? 'Settings are unavailable.'}</p>
-              <button
-                onClick={reloadConfig}
-                className="flex items-center gap-2 px-3 py-1.5 text-xs font-medium bg-input-bg hover:bg-hover-bg border border-border rounded-md text-text-primary transition-colors cursor-pointer"
-              >
-                <RefreshCw size={14} />
-                Retry
+    <div className="@container w-full max-w-6xl">
+      {/* Two columns when the page is wide enough, so everything is visible without scrolling */}
+      <div className="grid items-start gap-5 @4xl:grid-cols-[minmax(0,3fr)_minmax(0,2fr)]">
+        <div className="flex flex-col gap-5">
+          {/* Card 1: Alert Thresholds */}
+          <SettingsSection
+            title="Alert Thresholds"
+            description="Adjust when Kavan should warn you about resource usage."
+            action={
+              <button onClick={handleReset} disabled={!config} className="btn shrink-0" title="Reset to Safe Defaults">
+                <RotateCcw size={14} />
+                Reset Defaults
               </button>
-            </div>
-          )}
+            }
+          >
+            {isLoadingConfig && !config && (
+              <div className="flex items-center gap-3 px-5 py-6 text-[0.8125rem] text-ink-soft">
+                <Loader2 className="h-4 w-4 animate-spin" />
+                Loading settings from the backend...
+              </div>
+            )}
 
-          {config && (
-            <div className="p-6 space-y-6">
-              {sliders.map(({ key, label, value, set }) => (
-                <div key={key}>
-                  <div className="flex justify-between items-center mb-2">
-                    <label htmlFor={key} className="text-sm font-medium text-text-primary">{label}</label>
-                    <span className="text-sm font-mono text-text-secondary bg-input-bg px-2 py-1 rounded border border-border">{value}%</span>
+            {!isLoadingConfig && !config && (
+              <div className="flex items-center justify-between gap-4 px-5 py-6">
+                <p className="text-[0.8125rem] text-crimson-ink">{configError ?? 'Settings are unavailable.'}</p>
+                <button onClick={reloadConfig} className="btn shrink-0">
+                  <RefreshCw size={14} />
+                  Retry
+                </button>
+              </div>
+            )}
+
+            {config && (
+              <div className="divide-y divide-line-faint">
+                {sliders.map(({ key, label, value, set }) => (
+                  <div key={key} className="grid grid-cols-[10.5rem_1fr_3rem] items-center gap-5 px-5 py-4">
+                    <label htmlFor={key} className="text-[0.8125rem] font-medium text-ink">{label}</label>
+                    <input
+                      id={key}
+                      type="range"
+                      min={0}
+                      max={100}
+                      value={value}
+                      onChange={(e) => set(Number(e.target.value))}
+                      className="range"
+                      style={{ '--fill': `${value}%` } as CSSProperties}
+                    />
+                    <span className="tnum text-right font-display text-[0.9375rem] text-ink">{value}%</span>
                   </div>
-                  <input
-                    id={key}
-                    type="range"
-                    min={0}
-                    max={100}
-                    value={value}
-                    onChange={(e) => set(Number(e.target.value))}
-                    className="w-full accent-accent cursor-pointer"
-                  />
-                </div>
-              ))}
+                ))}
+              </div>
+            )}
+          </SettingsSection>
+
+          {/* Card 3: System Integrations */}
+          <SettingsSection title="System Integrations">
+            <div className="flex items-center justify-between gap-6 px-5 py-4">
+              <div>
+                <p className="text-[0.8125rem] font-medium text-ink">Enable Sound Notifications</p>
+                <p className="mt-0.5 text-xs text-ink-soft">Play an alert chime when a threshold is breached.</p>
+              </div>
+              <Switch checked={soundAlerts} onChange={toggleSound} disabled={!config} label="Enable Sound Notifications" />
             </div>
-          )}
+          </SettingsSection>
         </div>
 
         {/* Card 2: Appearance (client-side only, Phase 5 §5.1) */}
-        <div className="bg-bg-secondary border border-border rounded-lg overflow-hidden shadow-xs">
-          <div className="px-6 py-5 border-b border-border bg-bg-tertiary/40">
-            <h2 className="text-sm font-medium text-text-primary tracking-wide uppercase">Appearance</h2>
+        <SettingsSection title="Appearance" description="Choose between the dark and light interface.">
+          <div role="radiogroup" aria-label="Theme" className="grid max-w-md grid-cols-2 gap-4 p-5">
+            {THEME_OPTIONS.map(({ theme: option, label }) => {
+              const isSelected = theme === option;
+              return (
+                <button
+                  key={option}
+                  role="radio"
+                  aria-checked={isSelected}
+                  onClick={() => setTheme(option)}
+                  className={`rounded-lg border p-2 text-left transition-colors ${isSelected ? 'border-crimson bg-crimson-wash' : 'border-line hover:border-line-strong'}`}
+                >
+                  <ThemePreview theme={option} />
+                  <span className="mt-2 flex items-center gap-2 px-0.5 text-[0.8125rem] font-medium text-ink">
+                    <span className={`flex h-3.5 w-3.5 items-center justify-center rounded-full border ${isSelected ? 'border-crimson' : 'border-line-strong'}`}>
+                      {isSelected && <span className="h-1.5 w-1.5 rounded-full bg-crimson" />}
+                    </span>
+                    {label}
+                  </span>
+                </button>
+              );
+            })}
           </div>
-          <div className="p-6">
-            <div className="flex items-center justify-between">
-              <div>
-                <label className="text-sm font-medium text-text-primary">Dark Theme</label>
-                <p className="text-xs text-text-secondary mt-1">Toggle between light and dark UI.</p>
-              </div>
-              <button
-                role="switch"
-                aria-checked={isDarkTheme}
-                onClick={() => setTheme(isDarkTheme ? 'light' : 'dark')}
-                className={`w-11 h-6 rounded-full transition-colors relative flex items-center cursor-pointer ${isDarkTheme ? 'bg-accent' : 'bg-switch-off border border-border'}`}
-              >
-                <div className={`w-4 h-4 rounded-full bg-white shadow-xs absolute top-1 transition-transform ${isDarkTheme ? 'left-6' : 'left-1'}`} />
-              </button>
-            </div>
-          </div>
-        </div>
-
-        {/* Card 3: System Integrations */}
-        <div className="bg-bg-secondary border border-border rounded-lg overflow-hidden shadow-xs">
-          <div className="px-6 py-5 border-b border-border bg-bg-tertiary/40">
-            <h2 className="text-sm font-medium text-text-primary tracking-wide uppercase">System Integrations</h2>
-          </div>
-          <div className="p-6">
-            <div className="flex items-center justify-between">
-              <div>
-                <label className="text-sm font-medium text-text-primary">Enable Sound Notifications</label>
-                <p className="text-xs text-text-secondary mt-1">Play an alert chime when a threshold is breached.</p>
-              </div>
-              <button
-                role="switch"
-                aria-checked={soundAlerts}
-                onClick={toggleSound}
-                disabled={!config}
-                className={`w-11 h-6 rounded-full transition-colors relative flex items-center cursor-pointer disabled:opacity-50 disabled:cursor-not-allowed ${soundAlerts ? 'bg-accent' : 'bg-switch-off border border-border'}`}
-              >
-                <div className={`w-4 h-4 rounded-full bg-white shadow-xs absolute top-1 transition-transform ${soundAlerts ? 'left-6' : 'left-1'}`} />
-              </button>
-            </div>
-          </div>
-        </div>
+        </SettingsSection>
       </div>
     </div>
   );

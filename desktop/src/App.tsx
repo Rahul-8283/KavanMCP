@@ -1,5 +1,6 @@
 import { useState, useEffect } from "react";
 import { MainLayout } from "./components/layout/MainLayout";
+import type { View } from "./components/layout/views";
 import { useWebSocketConnection } from "./hooks/useWebSocketConnection";
 import { useTrayIntegration } from "./hooks/useTrayIntegration";
 import { useWindowLifecycle } from "./hooks/useWindowLifecycle";
@@ -12,9 +13,7 @@ function App() {
   useTrayIntegration(); // Start the System Tray & IPC integrations
   useWindowLifecycle(); // Intercept window close to hide instead of kill
 
-  const [activeView, setActiveView] = useState<'dashboard' | 'settings'>('dashboard');
-
-
+  const [activeView, setActiveView] = useState<View>('dashboard');
 
   useEffect(() => {
     // Clear any lingering CSS zoom property from previous HMR states

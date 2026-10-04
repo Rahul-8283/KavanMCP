@@ -1,32 +1,36 @@
 import { useMetrics } from '../../context/MetricsContext';
 import { ConnectionStatus } from '../../hooks/useWebSocketConnection';
+import { VIEW_META, type View } from './views';
 
-export function Header() {
-  const { status } = useMetrics();
-  
-  const getStatusDisplay = () => {
-    switch (status) {
-      case ConnectionStatus.CONNECTED:
-        return { text: 'Backend Active', color: 'bg-green-500', shadow: 'shadow-[0_0_8px_rgba(34,197,94,0.6)]' };
-      case ConnectionStatus.CONNECTING:
-        return { text: 'Connecting...', color: 'bg-yellow-500', shadow: 'shadow-[0_0_8px_rgba(234,179,8,0.6)]' };
-      default:
-        return { text: 'Offline', color: 'bg-red-500', shadow: 'shadow-[0_0_8px_rgba(239,68,68,0.6)]' };
-    }
-  };
+const STATUS_DISPLAY: Record<ConnectionStatus, { text: string; tone: string; isLive: boolean }> = {
+  [ConnectionStatus.CONNECTED]: { text: 'Backend Active', tone: 'text-ok', isLive: true },
+  [ConnectionStatus.CONNECTING]: { text: 'Connecting...', tone: 'text-warn', isLive: true },
+  [ConnectionStatus.DISCONNECTED]: { text: 'Offline', tone: 'text-crimson-ink', isLive: false },
+};
 
-  const display = getStatusDisplay();
+export function Header({ view }: { view: View }) {
+  const { status, metrics } = useMetrics();
+  const { title, description } = VIEW_META[view];
+  const display = STATUS_DISPLAY[status];
 
   return (
-    <header className="h-16 border-b border-border bg-bg-primary flex items-center justify-between px-6 shrink-0 z-10 relative">
-      <div className="flex items-center space-x-4">
-        <h2 className="text-sm font-medium text-text-secondary tracking-wide">SYSTEM INTELLIGENCE</h2>
+    <header className="flex shrink-0 items-end justify-between gap-6 px-7 pb-5 pt-6">
+      <div className="min-w-0">
+        <h1 className="truncate font-display text-[1.375rem] font-semibold leading-tight tracking-[-0.01em] text-ink">
+          {title}
+        </h1>
+        <p className="mt-1 truncate text-[0.8125rem] text-ink-soft">{description}</p>
       </div>
-      
-      <div className="flex items-center space-x-3">
-        <div className="flex items-center space-x-2 bg-bg-secondary px-3 py-1.5 rounded-md border border-border shadow-sm">
-          <div className={`w-2 h-2 rounded-full ${display.color} ${display.shadow} ${status !== ConnectionStatus.DISCONNECTED ? 'animate-pulse' : ''}`}></div>
-          <span className="text-xs font-medium text-text-primary tracking-wide">{display.text}</span>
+
+      <div className="flex shrink-0 items-center gap-4">
+        {metrics.lastUpdated && (
+          <span className="tnum text-xs text-ink-faint">
+            Last updated {new Date(metrics.lastUpdated).toLocaleTimeString()}
+          </span>
+        )}
+        <div className="flex h-7 items-center gap-2 rounded-md border border-line bg-surface pl-2.5 pr-3">
+          <span className={`h-1.5 w-1.5 rounded-full bg-current ${display.tone} ${display.isLive ? 'animate-live' : ''}`} />
+          <span className="text-xs font-medium text-ink">{display.text}</span>
         </div>
       </div>
     </header>

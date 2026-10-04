@@ -1,54 +1,63 @@
 import { useState } from "react";
-import { ChevronLeft, ChevronRight } from "lucide-react";
+import { LayoutDashboard, PanelLeftClose, PanelLeftOpen, SlidersHorizontal, type LucideIcon } from "lucide-react";
+import type { View } from "./views";
 
 interface SidebarProps {
-  activeView: 'dashboard' | 'settings';
-  setActiveView: (view: 'dashboard' | 'settings') => void;
+  activeView: View;
+  setActiveView: (view: View) => void;
 }
+
+const NAV_ITEMS: { view: View; label: string; icon: LucideIcon }[] = [
+  { view: 'dashboard', label: 'Dashboard', icon: LayoutDashboard },
+  { view: 'settings', label: 'Settings', icon: SlidersHorizontal },
+];
 
 export function Sidebar({ activeView, setActiveView }: SidebarProps) {
   const [isCollapsed, setIsCollapsed] = useState(false);
+  const ToggleIcon = isCollapsed ? PanelLeftOpen : PanelLeftClose;
 
   return (
-    <aside className={`${isCollapsed ? 'w-20' : 'w-64'} border-r border-border bg-bg-secondary flex flex-col h-full shrink-0 transition-all duration-300 relative`}>
-      <div className={`h-24 flex items-center ${isCollapsed ? 'justify-center' : 'justify-between pl-6 pr-3'}`}>
+    <aside
+      className={`${isCollapsed ? 'w-[3.75rem]' : 'w-[13.5rem]'} flex h-full shrink-0 flex-col border-r border-line bg-sidebar transition-[width] duration-200`}
+    >
+      <div className={`flex h-[4.75rem] shrink-0 items-center gap-3 ${isCollapsed ? 'justify-center' : 'px-5'}`}>
+        <img src="/kavan_logo.svg" alt="" className="h-8 w-8 shrink-0" draggable={false} />
         {!isCollapsed && (
-          <h1 className="text-xl font-semibold tracking-tight text-text-primary">
+          <span className="font-display text-[0.9375rem] font-semibold uppercase tracking-[0.2em] text-ink">
             Kavan
-          </h1>
+          </span>
         )}
-        <button 
-          onClick={() => setIsCollapsed(!isCollapsed)}
-          className="p-1.5 text-text-secondary hover:text-text-primary hover:bg-hover-bg rounded-md transition-colors cursor-pointer flex items-center justify-center"
-          title={isCollapsed ? "Expand Sidebar" : "Collapse Sidebar"}
-        >
-          {isCollapsed ? <ChevronRight className="w-5 h-5" /> : <ChevronLeft className="w-5 h-5" />}
-        </button>
       </div>
-      
-      <nav className="flex-1 px-4 space-y-2 flex flex-col items-center w-full">
-        <button 
-          onClick={() => setActiveView('dashboard')}
-          className={`flex items-center ${isCollapsed ? 'justify-center w-12 h-12' : 'w-full px-3 py-2'} rounded-md border transition-all duration-200 cursor-pointer ${activeView === 'dashboard' ? 'bg-active-bg text-text-primary border-border font-medium' : 'text-text-secondary hover:bg-hover-bg hover:text-text-primary border-transparent'}`} 
-          title="Dashboard"
-        >
-          <span className="font-medium whitespace-nowrap overflow-hidden">{isCollapsed ? 'D' : 'Dashboard'}</span>
-        </button>
-        <button 
-          className={`flex items-center ${isCollapsed ? 'justify-center w-12 h-12' : 'w-full px-3 py-2'} rounded-md text-text-secondary hover:bg-hover-bg hover:text-text-primary border border-transparent transition-all duration-200 cursor-pointer`} 
-          title="Alerts"
-        >
-          <span className="font-medium whitespace-nowrap overflow-hidden">{isCollapsed ? 'A' : 'Alerts'}</span>
-        </button>
+
+      <nav aria-label="Main" className="flex flex-1 flex-col gap-1 px-2.5 pt-2">
+        {NAV_ITEMS.map(({ view, label, icon: Icon }) => {
+          const isActive = activeView === view;
+          return (
+            <button
+              key={view}
+              onClick={() => setActiveView(view)}
+              aria-current={isActive ? 'page' : undefined}
+              title={isCollapsed ? label : undefined}
+              className={`relative flex h-9 items-center gap-3 rounded-md text-[0.8125rem] font-medium transition-colors ${isCollapsed ? 'justify-center' : 'px-3'} ${isActive ? 'bg-active text-ink' : 'text-ink-soft hover:bg-hover hover:text-ink'}`}
+            >
+              {/* The stem of the K marks the current page */}
+              {isActive && <span className="absolute -left-2.5 top-1.5 bottom-1.5 w-[3px] rounded-r-sm bg-crimson" />}
+              <Icon size={16} strokeWidth={1.75} className="shrink-0" />
+              {!isCollapsed && <span className="truncate">{label}</span>}
+            </button>
+          );
+        })}
       </nav>
 
-      <div className="p-4 flex flex-col items-center w-full">
-        <button 
-          onClick={() => setActiveView('settings')}
-          className={`flex items-center ${isCollapsed ? 'justify-center w-12 h-12' : 'w-full px-3 py-2'} rounded-md border transition-all duration-200 cursor-pointer ${activeView === 'settings' ? 'bg-active-bg text-text-primary border-border font-medium' : 'text-text-secondary hover:bg-hover-bg hover:text-text-primary border-transparent'}`} 
-          title="Settings"
+      <div className="border-t border-line-faint p-2.5">
+        <button
+          onClick={() => setIsCollapsed(!isCollapsed)}
+          title={isCollapsed ? 'Expand sidebar' : 'Collapse sidebar'}
+          aria-label={isCollapsed ? 'Expand sidebar' : 'Collapse sidebar'}
+          className={`flex h-9 w-full items-center gap-3 rounded-md text-[0.8125rem] text-ink-faint transition-colors hover:bg-hover hover:text-ink ${isCollapsed ? 'justify-center' : 'px-3'}`}
         >
-          <span className="font-medium whitespace-nowrap overflow-hidden">{isCollapsed ? 'S' : 'Settings'}</span>
+          <ToggleIcon size={16} strokeWidth={1.75} className="shrink-0" />
+          {!isCollapsed && <span>Collapse</span>}
         </button>
       </div>
     </aside>
