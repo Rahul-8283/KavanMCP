@@ -23,16 +23,18 @@ apiClient.interceptors.response.use(
       return Promise.reject(new Error('Backend Offline'));
     }
 
-    // Standardize 500 or 403 errors for UI Toast alerts
     if (error.response) {
       const status = error.response.status;
+      const detail = error.response.data?.detail;
+
+      // Standardize 500 or 403 errors for UI Toast alerts
       if (status === 403) {
         console.error('[API] Access Denied. Ensure FastMCP has Admin privileges.');
         return Promise.reject(new Error('Access Denied: Administrator Privileges Required'));
       }
       if (status === 500) {
         console.error('[API] Internal Server Error on Python backend.');
-        return Promise.reject(new Error(error.response.data?.detail || 'Internal Server Error'));
+        return Promise.reject(new Error(typeof detail === 'string' ? detail : 'Internal Server Error'));
       }
     }
 
@@ -40,11 +42,35 @@ apiClient.interceptors.response.use(
   }
 );
 
+// Termination waits up to 3s for the OS before force-killing, so it needs more than the default 5s
+const TERMINATION_TIMEOUT_MS = 10000;
+
+export interface StagedTermination {
+  status: 'pending';
+  pid: number;
+  name: string;
+  tier: number;
+  cpu_percent: number;
+  memory_mb: number;
+  message: string;
+}
+
+export interface TerminationResult {
+  status: 'success';
+  pid: number;
+  name: string;
+  path: string | null;
+  freed_mb: number;
+  freed_cpu: number;
+}
+
 // 4.3 Service Definitions
 export const SystemAPI = {
   fetchProcesses: () => apiClient.get('/api/list_processes'),
-  confirmKill: (pid: number) => apiClient.post('/api/confirm_termination', { pid }),
-  executeKill: (pid: number) => apiClient.post('/api/execute_termination', { pid }),
+  confirmKill: (pid: number) =>
+    apiClient.post<StagedTermination, StagedTermination>('/api/confirm_termination', { pid }, { timeout: TERMINATION_TIMEOUT_MS }),
+  executeKill: (pid: number) =>
+    apiClient.post<TerminationResult, TerminationResult>('/api/execute_termination', { pid }, { timeout: TERMINATION_TIMEOUT_MS }),
   fetchConfig: () => apiClient.get('/api/get_config'),
   updateThresholds: (payload: Record<string, any>) => apiClient.post('/api/update_thresholds', payload)
 };
