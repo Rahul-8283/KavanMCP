@@ -8,7 +8,7 @@ from fastapi import FastAPI, WebSocket, WebSocketDisconnect, Response, HTTPExcep
 from fastapi.middleware.cors import CORSMiddleware
 import uvicorn
 from pydantic import BaseModel, Field
-from typing import Optional
+from typing import Literal, Optional
 from utils.logger import logger
 from tools.list_processes import list_processes_logic
 from handlers.approval_handler import stage_termination
@@ -99,14 +99,14 @@ class ConfigUpdate(BaseModel):
     cpu_threshold: Optional[int] = Field(None, ge=0, le=100)
     ram_threshold: Optional[int] = Field(None, ge=0, le=100)
     disk_threshold: Optional[int] = Field(None, ge=0, le=100)
-    theme: Optional[str] = None
+    theme: Optional[Literal["dark", "light"]] = None
     sound_alerts: Optional[bool] = None
 
 @app.post("/api/update_thresholds")
 async def update_thresholds(payload: ConfigUpdate):
     """Phase 5 REST Endpoint: Partially updates the active config and persists it."""
-    # Exclude unset fields so we only merge what was sent
-    update_data = payload.dict(exclude_unset=True)
+    # Only merge fields that were sent with a value; an explicit null means "no change"
+    update_data = payload.model_dump(exclude_none=True)
     if not update_data:
         return {"status": "ignored", "message": "No valid data provided."}
         

@@ -89,3 +89,27 @@ def test_non_json_body_is_a_400_not_a_server_error():
     assert response.status_code == 400
     assert response.json()["detail"][0]["loc"] == ["body"]
     assert 1 not in PENDING_APPROVALS
+
+
+def test_null_threshold_and_unknown_theme_are_not_persisted(restore_settings):
+    client = TestClient(app)
+    before = settings_manager.load_config()
+
+    null_threshold = client.post(UPDATE, json={"cpu_threshold": None})
+    bad_theme = client.post(UPDATE, json={"theme": "banana"})
+    out_of_range = client.post(UPDATE, json={"ram_threshold": 150})
+
+    assert null_threshold.json()["status"] == "ignored"
+    assert bad_theme.status_code == 400
+    assert out_of_range.status_code == 400
+    assert settings_manager.load_config() == before
+
+
+def test_corrupt_settings_file_values_fall_back_to_defaults(restore_settings):
+    with open(settings_manager.CONFIG_PATH, "w", encoding="utf-8") as f:
+        json.dump({"cpu_threshold": None, "ram_threshold": "high", "disk_threshold": 80,
+                   "theme": "banana", "sound_alerts": "yes", "unknown": 1}, f)
+
+    config = settings_manager.load_config()
+
+    assert config == {**settings_manager.DEFAULT_CONFIG, "disk_threshold": 80}
