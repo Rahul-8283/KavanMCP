@@ -21,6 +21,7 @@ async def init_db():
         
         # Connect to the SQLite database (creates it if it doesn't exist)
         async with aiosqlite.connect(DB_PATH) as db:
+            await db.execute("PRAGMA journal_mode=WAL")
             await db.execute(CREATE_AUDIT_LOG_TABLE)
             await db.execute(CREATE_SYSTEM_BASELINES_TABLE)
             await db.commit()
