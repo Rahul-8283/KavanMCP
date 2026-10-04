@@ -21,7 +21,9 @@ app = FastAPI(title="KavanMCP WebSocket Server")
 
 @app.exception_handler(RequestValidationError)
 async def validation_exception_handler(request, exc):
-    return JSONResponse(status_code=400, content={"detail": exc.errors()})
+    # exc.errors() can carry the raw request body as bytes, which is not JSON serialisable
+    detail = [{"type": e.get("type"), "loc": list(e.get("loc", ())), "msg": e.get("msg")} for e in exc.errors()]
+    return JSONResponse(status_code=400, content={"detail": detail})
 
 # Only the Tauri window may call this API. Any other origin (e.g. a web page open in
 # the browser) would otherwise be able to reach the kill endpoints on localhost.
