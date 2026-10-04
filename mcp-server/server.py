@@ -23,9 +23,11 @@ async def analyze_system() -> str:
 
 @mcp.tool()
 @safe_mcp_tool
-async def list_processes(filter_name: str = None) -> str:
-    """Lists active processes, optionally filtered by name."""
-    return await asyncio.to_thread(list_processes_logic, filter_name)
+async def list_processes(filter_name: str = None, include_tier_1: bool = False) -> str:
+    """Lists active processes, optionally filtered by name. Tier 1 critical OS processes can never be terminated, so they are left out unless you pass include_tier_1=true or search for one by name."""
+    # Searching by name is an explicit request, so a Tier 1 match is still shown
+    show_tier_1 = include_tier_1 or bool(filter_name)
+    return await asyncio.to_thread(list_processes_logic, filter_name, show_tier_1)
 
 @mcp.tool()
 @safe_mcp_tool

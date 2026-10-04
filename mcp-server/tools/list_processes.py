@@ -6,10 +6,11 @@ from integrations.monitor import get_all_processes
 from utils.schemas import ProcessSchema
 
 
-def list_processes_logic(filter_name: str | None = None) -> str:
+def list_processes_logic(filter_name: str | None = None, include_tier_1: bool = True) -> str:
     """
-    Core logic for the list_processes MCP tool.
+    Core logic for the list_processes MCP tool and the REST process table.
     Returns a JSON string of active processes, optionally filtered by name.
+    include_tier_1=False drops the untouchable OS components from the result.
     """
     # Fetch all running processes using our safe wrapper
     all_processes = get_all_processes()
@@ -31,6 +32,9 @@ def list_processes_logic(filter_name: str | None = None) -> str:
     for proc in all_processes:
         # If a filter is provided, skip processes that don't match (case-insensitive)
         if filter_name and filter_name.lower() not in proc['name'].lower():
+            continue
+
+        if not include_tier_1 and proc['tier'] == 1:
             continue
             
         # Validate through the Pydantic schema

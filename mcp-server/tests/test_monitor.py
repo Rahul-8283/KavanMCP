@@ -93,3 +93,22 @@ def test_scan_tools_do_not_block_the_mcp_event_loop():
         ticks, elapsed = asyncio.run(run(tool, *args))
         # A blocked loop yields ~0 ticks; a free one ticks roughly every 50ms
         assert ticks >= (elapsed / 0.05) * 0.5, (tool, ticks, elapsed)
+
+
+def test_mcp_listing_hides_tier_1_unless_requested():
+    import asyncio
+
+    from server import list_processes
+    from tools.list_processes import list_processes_logic
+
+    fn = getattr(list_processes, "fn", list_processes)
+
+    default = json.loads(asyncio.run(fn()))
+    requested = json.loads(asyncio.run(fn(None, True)))
+    by_name = json.loads(asyncio.run(fn("svchost")))
+    rest = json.loads(list_processes_logic())  # The dashboard table still needs Tier 1 rows
+
+    assert default and all(p["tier"] != 1 for p in default)
+    assert any(p["tier"] == 1 for p in requested)
+    assert by_name and all(p["tier"] == 1 for p in by_name)
+    assert any(p["tier"] == 1 for p in rest)
