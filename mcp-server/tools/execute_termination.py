@@ -1,38 +1,24 @@
 import json
 
-from handlers.approval_handler import PENDING_APPROVALS, is_approved
-from handlers.termination_handler import terminate_process
+from handlers.termination_handler import execute_approved_termination
 from utils.logger import logger
 
 
 async def execute_termination_logic(pids: list[int], reasoning: str = "User confirmed termination") -> str:
     """
     Core logic for the execute_termination MCP tool.
-    Enforces Phase 5 safety gates before calling the OS kill switch.
+    Every PID goes through the shared safety gates in execute_approved_termination.
     """
     logger.info(f"LLM executing termination for PIDs: {pids}")
-    
+
     results = []
     for pid in pids:
-        # CRITICAL GATE: Verify stateful approval
-        if not is_approved(pid):
-            error_msg = f"Execution blocked for PID {pid}. PID was not found in the pending approvals list, or the approval timed out."
-            logger.warning(error_msg)
-            results.append({"pid": pid, "status": "blocked", "error": error_msg})
-            continue
-            
-        # Execute the termination
-        try:
-            termination_result = await terminate_process(pid, reasoning)
-            
-            # Remove from pending approvals to prevent double-kills
-            if pid in PENDING_APPROVALS:
-                del PENDING_APPROVALS[pid]
-                
-            results.append({"pid": pid, "result": termination_result})
-            
-        except Exception as e:
-            logger.error(f"Failed to terminate PID {pid}: {e}")
-            results.append({"pid": pid, "status": "error", "error": str(e)})
-            
+        result = await execute_approved_termination(pid, reasoning)
+        if result["status"] != "success":
+            logger.warning(result["error"])
+        # The LLM contract from V1 reports every safety-gate refusal as "blocked"
+        if result["status"] in ("not_approved", "pid_reused", "tier1_blocked"):
+            result = {**result, "status": "blocked"}
+        results.append({"pid": pid, **result})
+
     return json.dumps(results, indent=2)
