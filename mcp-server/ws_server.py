@@ -117,6 +117,7 @@ class PidRequest(BaseModel):
 # Maps termination statuses to HTTP codes. The UI reads `detail.code` for its messages.
 KILL_HTTP_STATUS = {
     "tier1_blocked": 403,
+    "self_protected": 403,
     "access_denied": 403,
     "not_approved": 409,
     "pid_reused": 409,

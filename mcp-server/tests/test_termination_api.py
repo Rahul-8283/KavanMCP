@@ -173,3 +173,24 @@ def test_cors_allows_tauri_origin_only():
 
     assert allowed.headers.get("access-control-allow-origin") == "http://localhost:1420"
     assert "access-control-allow-origin" not in blocked.headers
+
+
+def test_server_refuses_to_stage_itself_or_its_launcher():
+    for pid in (os.getpid(), os.getppid()):
+        response = _post(CONFIRM, pid)
+
+        assert response.status_code == 403
+        assert _code(response) == "self_protected"
+        assert pid not in PENDING_APPROVALS
+
+
+def test_execute_refuses_own_pid_even_if_an_approval_exists():
+    from handlers.approval_handler import request_approval
+
+    me = psutil.Process(os.getpid())
+    request_approval(me.pid, me.name(), 3, create_time=me.create_time())
+
+    response = _post(EXECUTE, me.pid)
+
+    assert response.status_code == 403
+    assert _code(response) == "self_protected"

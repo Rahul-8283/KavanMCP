@@ -17,7 +17,7 @@ async def execute_termination_logic(pids: list[int], reasoning: str = "User conf
         if result["status"] != "success":
             logger.warning(result["error"])
         # The LLM contract from V1 reports every safety-gate refusal as "blocked"
-        if result["status"] in ("not_approved", "pid_reused", "tier1_blocked"):
+        if result["status"] in ("not_approved", "pid_reused", "tier1_blocked", "self_protected"):
             result = {**result, "status": "blocked"}
         results.append({"pid": pid, **result})
 

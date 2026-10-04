@@ -1,4 +1,5 @@
 import asyncio
+import os
 import time
 
 import psutil
@@ -53,6 +54,23 @@ def take_approval(pid: int) -> dict | None:
         return None
     return entry
 
+def protected_pids() -> set[int]:
+    """
+    The server's own process and the chain of processes that launched it.
+    Killing any of them shuts KavanMCP down mid-request, before the audit entry is written.
+    """
+    me = psutil.Process(os.getpid())
+    try:
+        return {me.pid, *(parent.pid for parent in me.parents())}
+    except psutil.Error:
+        return {me.pid}
+
+def self_protection_error(pid: int) -> dict:
+    return {
+        "status": "self_protected",
+        "error": f"PID {pid} is KavanMCP itself or the process that launched it. Terminating it would shut KavanMCP down."
+    }
+
 def _inspect_process(pid: int) -> dict:
     """Blocking psutil reads. Must run in a worker thread, never on the event loop."""
     proc = psutil.Process(pid)
@@ -79,8 +97,11 @@ async def stage_termination(pid: int, source: str = "LLM") -> dict:
     Classifies a PID and, unless it is Tier 1, places it in the pending approval state.
     Shared by the MCP confirm_termination tool and the REST /api/confirm_termination route.
 
-    Returned status: "pending" | "tier1_blocked" | "not_found" | "error".
+    Returned status: "pending" | "tier1_blocked" | "self_protected" | "not_found" | "error".
     """
+    if pid in protected_pids():
+        return self_protection_error(pid)
+
     try:
         info = await asyncio.to_thread(_inspect_process, pid)
     except psutil.NoSuchProcess:
