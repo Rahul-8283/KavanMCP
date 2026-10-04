@@ -1,5 +1,7 @@
 import psutil
 
+from integrations.windows import get_windowed_pids, is_headless
+
 # PID 0 is the "System Idle Process": its CPU figure is idle time, not load, and it cannot be killed.
 IDLE_PID = 0
 
@@ -30,6 +32,7 @@ def get_all_processes() -> list:
     Returns a list of dictionaries matching ProcessSchema.
     """
     processes = []
+    windowed_pids = get_windowed_pids()
     # Explicitly request the fields we need to avoid multiple system calls per process
     for proc in psutil.process_iter(['pid', 'name', 'cpu_percent', 'memory_info', 'status']):
         try:
@@ -43,7 +46,8 @@ def get_all_processes() -> list:
                 "name": proc.info['name'] or "unknown",
                 "cpu_percent": proc.info['cpu_percent'] or 0.0,
                 "memory_mb": round(memory_mb, 2),
-                "status": proc.info['status'] or "running"
+                "status": proc.info['status'] or "running",
+                "is_headless": is_headless(proc.info['pid'], windowed_pids)
             })
         except (psutil.NoSuchProcess, psutil.AccessDenied, psutil.ZombieProcess):
             # Pass silently: Operating systems are volatile. If a process dies

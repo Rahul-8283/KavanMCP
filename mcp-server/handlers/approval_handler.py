@@ -5,6 +5,7 @@ import psutil
 
 from database.db import log_blocked_action
 from handlers.classification_handler import classify_process
+from integrations.windows import get_windowed_pids, is_headless
 
 # Global state dictionary
 # Format: { pid: {"name": str, "tier": int, "timestamp": float, "create_time": float | None} }
@@ -70,6 +71,7 @@ def _inspect_process(pid: int) -> dict:
         "cpu_percent": cpu_pct,
         "memory_mb": mem_mb,
         "create_time": proc.create_time(),
+        "is_headless": is_headless(pid, get_windowed_pids()),
     }
 
 async def stage_termination(pid: int, source: str = "LLM") -> dict:
@@ -91,7 +93,7 @@ async def stage_termination(pid: int, source: str = "LLM") -> dict:
         process_name=name,
         cpu_percent=info["cpu_percent"],
         memory_mb=info["memory_mb"],
-        is_headless=False # Assuming false for safety checks
+        is_headless=info["is_headless"]
     )
 
     if tier == 1:

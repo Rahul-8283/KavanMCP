@@ -9,6 +9,7 @@ class ProcessSchema(BaseModel):
     memory_mb: float
     status: str
     tier: int = 3
+    is_headless: bool = False
     anomaly_flags: list[str] = []
 
 class SystemReportSchema(BaseModel):
