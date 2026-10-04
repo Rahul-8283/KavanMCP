@@ -27,28 +27,25 @@ export class ErrorBoundary extends Component<Props, State> {
   public render() {
     if (this.state.hasError) {
       return (
-        <div className="flex flex-col items-center justify-center min-h-screen bg-bg-primary text-text-primary p-6 selection:bg-accent selection:text-white">
-          <div className="flex flex-col items-center max-w-xl text-center space-y-6">
-            <div className="p-4 bg-red-500/10 rounded-full border border-red-500/20">
-              <AlertTriangle className="w-12 h-12 text-red-500" />
+        <div className="app-canvas flex min-h-screen flex-col items-center justify-center bg-canvas p-6 text-ink">
+          <div className="flex w-full max-w-lg flex-col items-center text-center">
+            <div className="flex h-14 w-14 items-center justify-center rounded-full border border-crimson bg-crimson-wash text-crimson-ink">
+              <AlertTriangle className="h-6 w-6" strokeWidth={1.75} />
             </div>
-            
-            <h1 className="text-2xl font-bold tracking-tight text-text-primary">Application Crashed</h1>
-            
-            <p className="text-text-secondary text-base">
+
+            <h1 className="mt-6 font-display text-[1.375rem] font-semibold tracking-[-0.01em] text-ink">Application Crashed</h1>
+
+            <p className="mt-2 text-[0.8125rem] leading-6 text-ink-soft">
               A critical error occurred in the React rendering tree. Our global boundary intercepted the crash to prevent the window from freezing.
             </p>
-            
-            <div className="w-full text-left bg-input-bg p-4 rounded-md border border-border overflow-auto max-h-48 text-sm font-mono text-red-500">
+
+            <div className="mt-6 max-h-48 w-full overflow-auto rounded-md border border-line bg-sunken p-4 text-left font-mono text-xs leading-5 text-crimson-ink">
               {this.state.error?.toString()}
             </div>
-            
-            <button
-              onClick={() => window.location.reload()}
-              className="flex items-center space-x-2 bg-accent hover:bg-accent-hover text-white px-6 py-3 rounded-md transition-colors border border-transparent mt-4 cursor-pointer"
-            >
-              <RefreshCw className="w-4 h-4" />
-              <span>Reload Application</span>
+
+            <button onClick={() => window.location.reload()} className="btn btn-primary mt-6 h-9 px-5">
+              <RefreshCw className="h-4 w-4" />
+              Reload Application
             </button>
           </div>
         </div>
