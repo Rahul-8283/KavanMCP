@@ -18,13 +18,14 @@ mcp = FastMCP("KavanMCP", version="1.0.0")
 @safe_mcp_tool
 async def analyze_system() -> str:
     """Use this tool to diagnose system lag. It returns the current CPU/RAM totals and the top resource hogs categorized by Security Tiers (1-4)."""
-    return analyze_system_logic()
+    # The process scan blocks for seconds; keep it off the event loop that serves the MCP stream
+    return await asyncio.to_thread(analyze_system_logic)
 
 @mcp.tool()
 @safe_mcp_tool
 async def list_processes(filter_name: str = None) -> str:
     """Lists active processes, optionally filtered by name."""
-    return list_processes_logic(filter_name)
+    return await asyncio.to_thread(list_processes_logic, filter_name)
 
 @mcp.tool()
 @safe_mcp_tool
