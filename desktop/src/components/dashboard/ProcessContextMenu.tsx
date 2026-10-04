@@ -1,19 +1,32 @@
-import { useEffect, useRef } from 'react';
+import { useEffect, useLayoutEffect, useRef, useState } from 'react';
 import { createPortal } from 'react-dom';
+import { OctagonX } from 'lucide-react';
+import type { Process } from '../../context/ProcessContext';
 
 interface ProcessContextMenuProps {
   x: number;
   y: number;
+  process: Process;
   onTerminate: () => void;
   onClose: () => void;
 }
 
-// Approximate size used to keep the menu inside the window
-const MENU_WIDTH = 192;
-const MENU_HEIGHT = 44;
+const WINDOW_MARGIN = 8;
 
-export function ProcessContextMenu({ x, y, onTerminate, onClose }: ProcessContextMenuProps) {
+export function ProcessContextMenu({ x, y, process, onTerminate, onClose }: ProcessContextMenuProps) {
   const menuRef = useRef<HTMLDivElement>(null);
+  const [position, setPosition] = useState<{ left: number; top: number } | null>(null);
+
+  // Measured rather than assumed: the menu's size follows the user's zoom level
+  useLayoutEffect(() => {
+    const menu = menuRef.current;
+    if (!menu) return;
+    const { width, height } = menu.getBoundingClientRect();
+    setPosition({
+      left: Math.max(WINDOW_MARGIN, Math.min(x, window.innerWidth - width - WINDOW_MARGIN)),
+      top: Math.max(WINDOW_MARGIN, Math.min(y, window.innerHeight - height - WINDOW_MARGIN)),
+    });
+  }, [x, y]);
 
   useEffect(() => {
     const handlePointerDown = (e: PointerEvent) => {
@@ -39,23 +52,27 @@ export function ProcessContextMenu({ x, y, onTerminate, onClose }: ProcessContex
     };
   }, [onClose]);
 
-  const left = Math.max(8, Math.min(x, window.innerWidth - MENU_WIDTH - 8));
-  const top = Math.max(8, Math.min(y, window.innerHeight - MENU_HEIGHT - 8));
-
   return createPortal(
     <div
       ref={menuRef}
       role="menu"
-      style={{ left, top }}
-      className="fixed z-50 w-48 py-1 bg-bg-secondary border border-border rounded-md shadow-lg"
+      style={{ left: position?.left ?? x, top: position?.top ?? y, visibility: position ? 'visible' : 'hidden' }}
+      className="animate-fade-in fixed z-50 w-56 overflow-hidden rounded-lg border border-line-strong bg-raised shadow-pop"
     >
-      <button
-        role="menuitem"
-        onClick={onTerminate}
-        className="w-full text-left px-4 py-2 text-sm font-medium text-red-600 dark:text-red-400 hover:bg-hover-bg transition-colors cursor-pointer"
-      >
-        Terminate Process
-      </button>
+      <div className="border-b border-line px-3 py-2.5">
+        <p className="truncate text-[0.8125rem] font-medium text-ink" title={process.name}>{process.name}</p>
+        <p className="tnum mt-0.5 font-mono text-[0.6875rem] text-ink-faint">PID {process.pid}</p>
+      </div>
+      <div className="p-1">
+        <button
+          role="menuitem"
+          onClick={onTerminate}
+          className="flex h-8 w-full items-center gap-2.5 rounded-md px-2 text-left text-[0.8125rem] font-medium text-crimson-ink transition-colors hover:bg-crimson-wash"
+        >
+          <OctagonX size={15} strokeWidth={1.75} />
+          Terminate Process
+        </button>
+      </div>
     </div>,
     document.body
   );
