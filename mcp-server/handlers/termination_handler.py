@@ -1,16 +1,23 @@
 import asyncio
+import json
 import os
 import subprocess
 
 import psutil
 
+from config.whitelist import TIER_1_WHITELIST
 from database.db import get_last_terminated_process, log_rollback, log_termination
-from handlers.approval_handler import take_approval
+from handlers.approval_handler import (
+    protected_pids,
+    self_protection_error,
+    take_approval,
+)
 from handlers.classification_handler import classify_process
 from utils.logger import logger
 
 ACCESS_DENIED_MESSAGE = "Permission Denied. Please restart KavanMCP as Administrator."
 MB = 1024 * 1024
+FORCE_KILL_WAIT_SECONDS = 2
 
 
 def _terminate_blocking(pid: int) -> dict:
@@ -21,14 +28,26 @@ def _terminate_blocking(pid: int) -> dict:
     try:
         proc = psutil.Process(pid)
 
-        # Snapshot metrics before death
+        # TRD 6.1: the hard block sits at the lowest layer, directly in front of the OS call,
+        # so no caller can reach terminate() for a critical process whatever checks it skipped.
         name = proc.name()
+        if name.lower() in TIER_1_WHITELIST:
+            return {
+                "status": "tier1_blocked",
+                "error": f"CRITICAL ERROR: {name} (PID: {pid}) is a Tier 1 process. Termination is STRICTLY PROHIBITED."
+            }
+
+        # Snapshot metrics before death
         mem_mb = proc.memory_info().rss / MB
         cpu_pct = proc.cpu_percent(interval=0.1)
         try:
             path = proc.exe()
         except psutil.AccessDenied:
             path = None # Termination can still succeed without the path; only rollback needs it
+        try:
+            cmdline = proc.cmdline()
+        except psutil.AccessDenied:
+            cmdline = []
 
         # Attempt graceful termination first
         proc.terminate()
@@ -37,10 +56,15 @@ def _terminate_blocking(pid: int) -> dict:
         except psutil.TimeoutExpired:
             try:
                 proc.kill() # Force kill if it hangs
+                proc.wait(timeout=FORCE_KILL_WAIT_SECONDS)
             except psutil.NoSuchProcess:
                 pass # Exited between wait and kill: that is the outcome we wanted
+            except psutil.TimeoutExpired:
+                # Never report (or audit) a kill that did not happen
+                return {"status": "error", "error": f"{name} (PID: {pid}) did not exit after a forced kill."}
 
-        return {"status": "success", "name": name, "path": path, "freed_mb": mem_mb, "freed_cpu": cpu_pct}
+        return {"status": "success", "name": name, "path": path, "freed_mb": mem_mb, "freed_cpu": cpu_pct,
+                "cmdline": cmdline}
 
     except psutil.NoSuchProcess:
         return {"status": "not_found", "error": "Process already closed."}
@@ -52,8 +76,11 @@ async def terminate_process(pid: int, reasoning: str) -> dict:
     result = await asyncio.to_thread(_terminate_blocking, pid)
 
     if result["status"] == "success":
+        # The argv is only needed by the audit record; callers get the same fields as before
+        cmdline = result.pop("cmdline")
         # Record to Phase 4 Database
-        await log_termination(result["name"], pid, result["path"], result["freed_mb"], result["freed_cpu"], reasoning)
+        await log_termination(result["name"], pid, result["path"], result["freed_mb"], result["freed_cpu"], reasoning,
+                              command_line=json.dumps(cmdline) if cmdline else None)
 
     return result
 
@@ -65,7 +92,7 @@ async def execute_approved_termination(pid: int, reasoning: str) -> dict:
     (the process must be the same one that was confirmed), and the Tier 1 hard block.
 
     Returned status: "success" | "not_approved" | "pid_reused" | "tier1_blocked"
-                     | "not_found" | "access_denied" | "error".
+                     | "self_protected" | "not_found" | "access_denied" | "error".
     """
     entry = take_approval(pid)
     if entry is None:
@@ -73,6 +100,9 @@ async def execute_approved_termination(pid: int, reasoning: str) -> dict:
             "status": "not_approved",
             "error": f"Execution blocked for PID {pid}. PID was not found in the pending approvals list, or the approval timed out."
         }
+
+    if pid in protected_pids():
+        return self_protection_error(pid)
 
     try:
         proc = psutil.Process(pid)
@@ -98,6 +128,20 @@ async def execute_approved_termination(pid: int, reasoning: str) -> dict:
 
     return await terminate_process(pid, reasoning)
 
+def _relaunch_argv(exe_path: str, stored_command_line: str | None) -> list[str]:
+    """
+    Rebuilds the argv a terminated process was started with. The executable always comes
+    from the audited path; only the arguments are taken from the stored command line.
+    Records written before arguments were captured relaunch with the executable alone.
+    """
+    try:
+        argv = json.loads(stored_command_line) if stored_command_line else []
+    except ValueError:
+        argv = []
+    if not isinstance(argv, list) or not all(isinstance(arg, str) for arg in argv):
+        argv = []
+    return [exe_path, *argv[1:]]
+
 async def rollback_process(pid_or_name: str) -> dict:
     """
     The Undo Button. Queries the database for a recently killed process and relaunches it.
@@ -116,10 +160,10 @@ async def rollback_process(pid_or_name: str) -> dict:
     try:
         # Launch as a completely independent background process
         # DETACHED_PROCESS = 0x00000008
-        subprocess.Popen([exe_path], creationflags=0x00000008)
-        
+        relaunched = subprocess.Popen(_relaunch_argv(exe_path, row.get("command_line")), creationflags=0x00000008)
+
         # Log the resurrection
-        await log_rollback(process_name, exe_path)
+        await log_rollback(process_name, relaunched.pid, exe_path)
         logger.info(f"Successfully rolled back process: {process_name}")
         return {"status": "success", "message": f"Successfully rolled back (relaunched) {process_name}."}
         

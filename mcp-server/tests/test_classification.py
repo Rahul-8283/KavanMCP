@@ -31,3 +31,29 @@ def test_tier_3_standard_background():
     """Test that a normal, low-impact background process falls into Tier 3."""
     tier = classify_process("braveupdate.exe", cpu_percent=0.5, memory_mb=10.0, is_headless=True)
     assert tier == 3, "Standard low-impact process must be classified as Tier 3"
+
+
+def test_session_critical_processes_are_tier_1():
+    """Killing these logs the user out or bugchecks the machine."""
+    for name in ("winlogon.exe", "dwm.exe", "Registry", "Memory Compression", "lsaiso.exe", "fontdrvhost.exe"):
+        assert classify_process(name, cpu_percent=90.0, memory_mb=10.0, is_headless=True) == 1, name
+
+
+def test_whitelist_fails_closed_when_file_is_missing_or_corrupt(tmp_path, monkeypatch):
+    from config import whitelist
+
+    def load_from(resources_dir):
+        # The loader resolves <base>/resources/tier_1_processes.json from its own location
+        fake_module = tmp_path / resources_dir / "config" / "whitelist.py"
+        monkeypatch.setattr(whitelist, "__file__", str(fake_module))
+        return whitelist.load_tier_1_whitelist()
+
+    missing = load_from("missing")
+
+    corrupt_dir = tmp_path / "corrupt" / "resources"
+    corrupt_dir.mkdir(parents=True)
+    (corrupt_dir / "tier_1_processes.json").write_text("{ not json", encoding="utf-8")
+    corrupt = load_from("corrupt")
+
+    for loaded in (missing, corrupt):
+        assert {"explorer.exe", "lsass.exe", "csrss.exe", "winlogon.exe", "system"} <= loaded

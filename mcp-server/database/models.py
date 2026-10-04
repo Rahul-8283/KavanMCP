@@ -14,9 +14,15 @@ CREATE TABLE IF NOT EXISTS audit_log (
     memory_freed_mb REAL,
     cpu_freed_pct REAL,
     llm_reasoning TEXT,
-    user_approved BOOLEAN
+    user_approved BOOLEAN,
+    command_line TEXT -- JSON array of the original argv, used to relaunch on rollback
 );
 """
+
+# Columns added after the first release. init_db adds any that an existing database lacks.
+AUDIT_LOG_MIGRATIONS = {
+    "command_line": "ALTER TABLE audit_log ADD COLUMN command_line TEXT",
+}
 
 CREATE_SYSTEM_BASELINES_TABLE = """
 CREATE TABLE IF NOT EXISTS system_baselines (

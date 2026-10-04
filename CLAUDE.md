@@ -24,7 +24,7 @@
                      │
 ┌────────────────────▼────────────────────────────────┐
 │ Layer C: FastMCP Backend (Python)                   │
-│ • 6 MCP Tools (analyze, list, confirm, execute...)  │
+│ • 7 MCP Tools (analyze, list, explain, kill...)     │
 │ • FastAPI/WebSocket server on 127.0.0.1:8000        │
 │ • psutil system inspection + pywin32 deep hooks     │
 └────────────────────┬────────────────────────────────┘
@@ -42,7 +42,7 @@
 KavanMCP/
 ├── mcp-server/                          # Python FastMCP backend
 │   ├── main.py                          # Entry point; boots server + WS + TTL sweeper
-│   ├── server.py                        # 6 MCP tool definitions
+│   ├── server.py                        # 7 MCP tool definitions
 │   ├── ws_server.py                     # FastAPI app (metrics, kill endpoints)
 │   ├── handlers/
 │   │   ├── approval_handler.py          # PENDING_APPROVALS TTL state
@@ -466,30 +466,42 @@ Each phase has detailed requirements in `phases_v2/Phase{N}_v2.md`.
 
 ## Known Issues & Tech Debt
 
-### Phase 8 (Kill Flow) — Merged to main
+### Resolved on `feat/upgrade` (V1/V2 audit)
 
-✅ **Resolved:**
-1. Kill endpoints implemented: `/api/confirm_termination` and `/api/execute_termination`
-2. PID reuse protection: Approvals store `process.create_time` and verify it matches at execute
-3. Single-use approvals: Dict.pop() semantics prevent replay and double-click kills
-4. CORS locked down to Tauri origins only
-5. Event loop blocking fixed: Process scan runs in worker thread
+**Safety**
+1. Tier 1 hard block now also sits in `_terminate_blocking`, directly in front of the OS call (TRD 6.1)
+2. Whitelist fails closed: a built-in list is merged in, so a missing/corrupt JSON cannot leave it empty
+3. Whitelist covers session-critical processes (`winlogon.exe`, `dwm.exe`, `Registry`, `lsaiso.exe`, …)
+4. The server refuses to terminate its own process or the process that launched it (`self_protected`)
+5. A forced kill that does not take effect is reported as an error instead of a success
+6. Foreign web origins and DNS-rebinding hosts are rejected for both HTTP and WebSocket
 
-📋 **Remaining Known Issues:**
+**Correctness**
+7. Tier 4 is reachable: headless state is computed from visible top-level windows and shared by the
+   listing, `analyze_system` and the confirm gate, so all three agree on a tier
+8. Rollback is written to the audit log (the insert violated NOT NULL and always failed) and
+   relaunches with the original arguments, stored in `audit_log.command_line`
+9. Audit log filters by time window in SQL instead of after a 100-row cap
+10. Audit writes no longer lost to "database is locked" (busy timeout + `synchronous=NORMAL`)
+11. Invalid settings are rejected rather than persisted; `payload.dict()` → `model_dump()`
+12. Metrics keep streaming during a threshold alert; `on_event` → `lifespan`
+13. `System Idle Process` is no longer reported as the top CPU consumer
 
-### Medium Priority
+**Completeness / performance**
+14. `explain_process` implemented (PRD 7, TRD 5.2) — it was specified but missing
+15. `list_processes` omits Tier 1 by default, per TRD 5.1
+16. MCP scans run off the event loop; the scan itself is ~3x faster (dropped per-process `status`)
+17. A second instance (Claude Desktop's own `main.py`) runs MCP-only when port 8000 is taken
 
-4. **CORS Permissive:** `allow_origins=["*"]` on unauthenticated localhost. OK for now, risky once kill endpoints go live. Should restrict to `http://localhost:1420` (Tauri window).
-5. **Pydantic V1 Syntax:** `payload.dict()` should be `payload.model_dump()` (Pydantic v2).
-6. **Deprecated FastAPI Event:** `@app.on_event("startup")` should use `@app.lifespan()` context manager.
-7. **Metrics Freeze on Alert:** WebSocket sends `threshold_alert` instead of `metrics_update` when threshold trips. Gauges stop updating during alerts.
-8. **Config Stale Reference:** `ACTIVE_CONFIG` imported by name; may go stale if `update_config()` rebinds it. Check `settings_manager.py`.
+### Remaining Known Issues
 
-### Low Priority
-
-9. **Rollback Loses Args:** Relaunched processes get no command-line arguments. `subprocess.Popen([exe_path], creationflags=0x00000008)` should try to restore original args.
-10. **Housekeeping:** Stray file `desktop/src-tauri/2`, duplicate docs (`API_v1.md`). `.gitignore` excludes `data/` (good—audit DB not committed).
-11. **No Frontend Tests:** Tests exist for Python backend (approval, classification, DB, stress). No unit/integration tests for React components or hooks.
+1. **No Frontend Tests:** The Python backend has 62 tests. There are no unit/integration tests for
+   React components or hooks; the UI is still verified manually.
+2. **Tier 2 List Hardcoded:** `TIER_2_ESSENTIAL` lives in `classification_handler.py`. The TRD
+   describes user-defined essential apps, so it should move to JSON config like the Tier 1 list.
+3. **`is_approved()` Unused in Production:** `take_approval()` superseded it; only tests call it now.
+4. **Baselines Table Unused:** `system_baselines` is created but never written, so anomaly detection
+   compares against fixed thresholds rather than a learned per-process baseline (TRD 4.1).
 
 ---
 

@@ -3,11 +3,20 @@
   "svchost.exe",
   "csrss.exe",
   "wininit.exe",
+  "winlogon.exe",
   "services.exe",
   "lsass.exe",
+  "lsaiso.exe",
   "smss.exe",
   "system",
   "system idle process",
+  "registry",
+  "memory compression",
+  "secure system",
+  "dwm.exe",
+  "fontdrvhost.exe",
+  "sihost.exe",
   "spoolsv.exe",
-  "taskmgr.exe"
+  "taskmgr.exe",
+  "msmpeng.exe"
 ]

@@ -3,8 +3,6 @@ import sqlite3
 import subprocess
 import sys
 
-import pytest
-
 sys.path.append(os.path.dirname(os.path.dirname(os.path.abspath(__file__))))
 
 from database.db import DB_PATH
@@ -72,3 +70,25 @@ def test_two_writers_and_reader_do_not_hit_database_locked(tmp_path):
     rows = check.execute("SELECT COUNT(*) FROM audit_log").fetchone()[0]
     check.close()
     assert rows == 600
+
+
+def test_second_instance_skips_the_http_server_when_the_port_is_taken(monkeypatch):
+    """Phase 10 2.1: Claude Desktop launches its own main.py next to the standalone server."""
+    import socket
+
+    import ws_server
+
+    holder = socket.socket()
+    holder.bind(("127.0.0.1", 0))
+    holder.listen(1)
+    monkeypatch.setattr(ws_server, "PORT", holder.getsockname()[1])
+    started = []
+    monkeypatch.setattr(ws_server.uvicorn, "run", lambda *a, **k: started.append(True))
+    try:
+        ws_server.run_ws_server()
+        assert started == []          # Port held by the first instance: do not try to bind
+    finally:
+        holder.close()
+
+    ws_server.run_ws_server()
+    assert started == [True]          # Port free: serve as usual

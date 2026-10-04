@@ -14,7 +14,7 @@ from config.whitelist import TIER_1_WHITELIST
 from handlers.approval_handler import PENDING_APPROVALS
 from ws_server import app
 
-client = TestClient(app)
+client = TestClient(app, base_url="http://127.0.0.1:8000")
 
 CONFIRM = "/api/confirm_termination"
 EXECUTE = "/api/execute_termination"
@@ -173,3 +173,108 @@ def test_cors_allows_tauri_origin_only():
 
     assert allowed.headers.get("access-control-allow-origin") == "http://localhost:1420"
     assert "access-control-allow-origin" not in blocked.headers
+
+
+def test_server_refuses_to_stage_itself_or_its_launcher():
+    for pid in (os.getpid(), os.getppid()):
+        response = _post(CONFIRM, pid)
+
+        assert response.status_code == 403
+        assert _code(response) == "self_protected"
+        assert pid not in PENDING_APPROVALS
+
+
+def test_execute_refuses_own_pid_even_if_an_approval_exists():
+    from handlers.approval_handler import request_approval
+
+    me = psutil.Process(os.getpid())
+    request_approval(me.pid, me.name(), 3, create_time=me.create_time())
+
+    response = _post(EXECUTE, me.pid)
+
+    assert response.status_code == 403
+    assert _code(response) == "self_protected"
+
+
+def test_foreign_origin_cannot_stage_a_kill(dummy_process):
+    response = client.post(CONFIRM, json={"pid": dummy_process.pid}, headers={"Origin": "https://evil.example"})
+
+    assert response.status_code == 403
+    assert _code(response) == "forbidden_origin"
+    assert dummy_process.pid not in PENDING_APPROVALS
+
+
+def test_dns_rebinding_host_is_rejected(dummy_process):
+    """A rebound page is same-origin, so the only tell is a Host that is not localhost."""
+    response = client.post(CONFIRM, json={"pid": dummy_process.pid}, headers={"Host": "evil.example:8000"})
+
+    assert response.status_code == 403
+    assert dummy_process.pid not in PENDING_APPROVALS
+
+
+def test_tauri_origin_and_originless_local_clients_are_allowed(dummy_process):
+    from_app = client.post(CONFIRM, json={"pid": dummy_process.pid}, headers={"Origin": "http://tauri.localhost"})
+    PENDING_APPROVALS.clear()
+    from_cli = client.post(CONFIRM, json={"pid": dummy_process.pid})
+
+    assert from_app.status_code == 200
+    assert from_cli.status_code == 200
+
+
+def test_websocket_rejects_foreign_origin():
+    from starlette.websockets import WebSocketDisconnect
+
+    # The test client ignores base_url for sockets, so the local address is spelled out
+    ws_url = "ws://127.0.0.1:8000/ws"
+
+    with TestClient(app, base_url="http://127.0.0.1:8000") as live:  # Runs the lifespan, so metrics flow
+        with pytest.raises(WebSocketDisconnect):
+            with live.websocket_connect(ws_url, headers={"Origin": "https://evil.example"}):
+                pass
+
+        with live.websocket_connect(ws_url, headers={"Origin": "http://localhost:1420"}) as ws:
+            assert ws.receive_json()["type"] == "metrics_update"
+
+
+def test_kill_that_does_not_take_effect_is_not_reported_or_audited():
+    from handlers import termination_handler
+
+    class Unkillable:
+        def name(self): return "stubborn.exe"
+        def memory_info(self): return type("M", (), {"rss": 50 * 1024 * 1024})()
+        def cpu_percent(self, interval=None): return 1.0
+        def exe(self): return "C:/stubborn.exe"
+        def cmdline(self): return ["C:/stubborn.exe"]
+        def terminate(self): pass
+        def kill(self): pass
+        def wait(self, timeout=None): raise psutil.TimeoutExpired(timeout)
+
+    with patch.object(termination_handler.psutil, "Process", return_value=Unkillable()), \
+         patch.object(termination_handler, "log_termination") as audit:
+        import asyncio
+        result = asyncio.run(termination_handler.terminate_process(MISSING_PID, "test"))
+
+    assert result["status"] == "error"
+    assert "did not exit" in result["error"]
+    audit.assert_not_called()
+
+
+def test_lowest_layer_refuses_tier_1_before_any_os_call():
+    """TRD 6.1. Uses a fake process: a real Tier 1 process must never be at risk in a test."""
+    from handlers import termination_handler
+
+    calls = []
+
+    class FakeCritical:
+        def name(self): return "LSASS.EXE"
+        def terminate(self): calls.append("terminate")
+        def kill(self): calls.append("kill")
+
+    with patch.object(termination_handler.psutil, "Process", return_value=FakeCritical()), \
+         patch.object(termination_handler, "log_termination") as audit:
+        import asyncio
+        result = asyncio.run(termination_handler.terminate_process(MISSING_PID, "direct call, no approval"))
+
+    assert result["status"] == "tier1_blocked"
+    assert calls == []
+    audit.assert_not_called()

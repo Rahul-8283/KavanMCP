@@ -61,3 +61,33 @@ async def test_execute_termination_blocks_unapproved_pid():
     assert results[0]["pid"] == 7777
     assert results[0]["status"] == "blocked"
     assert "Execution blocked" in results[0]["error"]
+
+
+def test_sweeper_removes_only_expired_approvals():
+    from handlers.approval_handler import APPROVAL_TIMEOUT_SECONDS, sweep_expired
+
+    PENDING_APPROVALS.clear()
+    PENDING_APPROVALS[1] = {"name": "old.exe", "tier": 3, "timestamp": 0.0, "create_time": None}
+    PENDING_APPROVALS[2] = {"name": "new.exe", "tier": 3, "timestamp": 1000.0, "create_time": None}
+
+    removed = sweep_expired(now=1000.0 + APPROVAL_TIMEOUT_SECONDS - 1)
+
+    assert removed == 1
+    assert list(PENDING_APPROVALS) == [2]
+    PENDING_APPROVALS.clear()
+
+
+def test_sweeper_survives_an_entry_consumed_mid_sweep(monkeypatch):
+    """A kill can consume an approval while the sweeper thread is iterating."""
+    from handlers import approval_handler
+
+    class VanishingDict(dict):
+        def items(self):
+            snapshot = list(super().items())
+            self.clear()  # Every entry is taken by a concurrent execute before the sweep acts
+            return snapshot
+
+    racing = VanishingDict({5: {"name": "x.exe", "tier": 3, "timestamp": 0.0, "create_time": None}})
+    monkeypatch.setattr(approval_handler, "PENDING_APPROVALS", racing)
+
+    assert approval_handler.sweep_expired(now=10_000.0) == 0
