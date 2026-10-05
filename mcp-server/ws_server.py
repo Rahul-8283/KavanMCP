@@ -30,7 +30,13 @@ from handlers.history_recorder import (
     EpisodeTracker,
     MinuteAggregator,
 )
-from handlers.process_watch import TOP_PROCESS_FIELDS, lookup_top_process
+from handlers.process_watch import (
+    PROCESS_WATCH_INTERVAL,
+    TOP_PROCESS_FIELDS,
+    ProcessWatcher,
+    lookup_top_process,
+    scan_processes,
+)
 from handlers.termination_handler import execute_approved_termination
 from tools.list_processes import list_processes_logic
 from utils.logger import logger
@@ -41,9 +47,10 @@ from utils.timefmt import utc_text
 async def lifespan(app: FastAPI):
     # The first cpu_percent(interval=None) call only sets the baseline and returns 0.0
     psutil.cpu_percent(interval=None)
-    broadcaster = asyncio.create_task(metrics_broadcaster())
+    tasks = [asyncio.create_task(metrics_broadcaster()), asyncio.create_task(process_watch())]
     yield
-    broadcaster.cancel()
+    for task in tasks:
+        task.cancel()
     await flush_history()
 
 app = FastAPI(title="KavanMCP WebSocket Server", lifespan=lifespan)
@@ -270,6 +277,10 @@ def build_messages(values: dict, config: dict, last_alert_time: dict, now: float
 
 aggregator = MinuteAggregator()
 episodes = EpisodeTracker()
+watcher = ProcessWatcher()
+
+# The most recent sample, for the readings stored with an episode that the process watch starts
+latest_values = {"cpu": 0.0, "ram": 0.0, "disk": 0.0}
 
 # Tasks that outlive the cycle which started them. Held here so they are not garbage collected.
 background_tasks: set[asyncio.Task] = set()
@@ -323,6 +334,7 @@ async def record_sample(values: dict, now: float) -> None:
     Never raises: a failed write must not stop the gauges.
     """
     try:
+        latest_values.update(values)
         row = aggregator.add(values, now)
         await store_episode_changes(episodes.update(values, ACTIVE_CONFIG, now))
         if row:
@@ -337,9 +349,30 @@ async def flush_history() -> None:
         row = aggregator.flush()
         if row:
             await record_metrics_minute(row)
-        await store_episode_peaks(episodes.open_episodes())
+        await store_episode_peaks(episodes.open_episodes() + watcher.open_episodes())
     except Exception as e:
         logger.error(f"Failed to flush metrics history: {e}")
+
+async def watch_processes_once(now: float) -> None:
+    """One scan of the process watch: Tier 4 processes become 'process' alert episodes."""
+    processes = await scan_processes()
+    await store_episode_changes(watcher.update(processes, latest_values, now))
+    await store_episode_peaks(watcher.open_episodes())
+
+async def process_watch():
+    """
+    Background task that scans the processes on a timer. It notices suspicious processes
+    without the dashboard open, and keeps every per-process CPU reading recent enough
+    for the top-process lookup of a system alert.
+    """
+    logger.info("Process watch background task started.")
+    while True:
+        try:
+            await watch_processes_once(time.time())
+        except Exception as e:
+            logger.error(f"Error in process watch: {e}")
+
+        await asyncio.sleep(PROCESS_WATCH_INTERVAL)
 
 async def metrics_broadcaster():
     """Background task to poll psutil, record the history and broadcast to WS clients."""
