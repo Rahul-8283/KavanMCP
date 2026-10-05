@@ -145,3 +145,28 @@ async def get_recent_logs(limit: int = 50, hours_back: float | None = None) -> l
     except Exception as e:
         logger.error(f"Failed to fetch recent logs: {e}")
     return logs
+
+# A restart in the middle of a minute produces a second partial row for the same key,
+# so the write merges with what is stored: weighted averages, larger peaks, summed samples.
+RECORD_METRICS_MINUTE = """
+INSERT INTO metrics_history (minute, cpu_avg, cpu_max, ram_avg, ram_max, disk_avg, samples)
+VALUES (:minute, :cpu_avg, :cpu_max, :ram_avg, :ram_max, :disk_avg, :samples)
+ON CONFLICT(minute) DO UPDATE SET
+    cpu_avg = (cpu_avg * samples + excluded.cpu_avg * excluded.samples) / (samples + excluded.samples),
+    ram_avg = (ram_avg * samples + excluded.ram_avg * excluded.samples) / (samples + excluded.samples),
+    disk_avg = (disk_avg * samples + excluded.disk_avg * excluded.samples) / (samples + excluded.samples),
+    cpu_max = MAX(cpu_max, excluded.cpu_max),
+    ram_max = MAX(ram_max, excluded.ram_max),
+    samples = samples + excluded.samples
+"""
+
+async def record_metrics_minute(row: dict) -> bool:
+    """Stores one minute of metrics, as produced by MinuteAggregator. Returns False if the write failed."""
+    try:
+        async with _connect() as db:
+            await db.execute(RECORD_METRICS_MINUTE, row)
+            await db.commit()
+        return True
+    except Exception as e:
+        logger.error(f"Failed to record metrics for {row.get('minute')}: {e}")
+        return False
