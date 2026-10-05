@@ -14,7 +14,9 @@ from fastapi.responses import JSONResponse
 from pydantic import BaseModel, Field
 
 from config.settings_manager import ACTIVE_CONFIG, load_config, update_config
+from database.db import record_metrics_minute
 from handlers.approval_handler import stage_termination
+from handlers.history_recorder import MinuteAggregator
 from handlers.termination_handler import execute_approved_termination
 from tools.list_processes import list_processes_logic
 from utils.logger import logger
@@ -27,6 +29,7 @@ async def lifespan(app: FastAPI):
     broadcaster = asyncio.create_task(metrics_broadcaster())
     yield
     broadcaster.cancel()
+    await flush_history()
 
 app = FastAPI(title="KavanMCP WebSocket Server", lifespan=lifespan)
 
@@ -258,8 +261,31 @@ def build_messages(values: dict, config: dict, last_alert_time: dict, now: float
     }
     return [metrics_update, *build_alerts(values, config, last_alert_time, now)]
 
+aggregator = MinuteAggregator()
+
+async def record_sample(values: dict, now: float) -> None:
+    """
+    Adds one sample to the history. Runs every cycle, window or no window.
+    Never raises: a failed write must not stop the gauges.
+    """
+    try:
+        row = aggregator.add(values, now)
+        if row:
+            await record_metrics_minute(row)
+    except Exception as e:
+        logger.error(f"Failed to record metrics history: {e}")
+
+async def flush_history() -> None:
+    """Writes the partial minute on shutdown, so a clean stop loses nothing."""
+    try:
+        row = aggregator.flush()
+        if row:
+            await record_metrics_minute(row)
+    except Exception as e:
+        logger.error(f"Failed to flush metrics history: {e}")
+
 async def metrics_broadcaster():
-    """Background task to poll psutil and broadcast to WS clients."""
+    """Background task to poll psutil, record the history and broadcast to WS clients."""
     logger.info("Metrics broadcaster background task started.")
     last_alert_time: dict = {}
 
@@ -267,8 +293,10 @@ async def metrics_broadcaster():
         try:
             # Sample every cycle, even with no clients, so the CPU average always covers one interval
             values = collect_metrics()
+            now = time.time()
+            await record_sample(values, now)
             if manager.active_connections:
-                for message in build_messages(values, ACTIVE_CONFIG, last_alert_time, time.time()):
+                for message in build_messages(values, ACTIVE_CONFIG, last_alert_time, now):
                     await manager.broadcast(message)
         except Exception as e:
             logger.error(f"Error in metrics broadcaster: {e}")
