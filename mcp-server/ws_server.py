@@ -16,7 +16,9 @@ from pydantic import BaseModel, Field
 from config.settings_manager import ACTIVE_CONFIG, load_config, update_config
 from database.db import (
     close_alert_event,
+    close_orphaned_alert_events,
     open_alert_event,
+    prune_history,
     record_metrics_minute,
     set_alert_top_process,
     update_alert_event,
@@ -47,7 +49,13 @@ from utils.timefmt import utc_text
 async def lifespan(app: FastAPI):
     # The first cpu_percent(interval=None) call only sets the baseline and returns 0.0
     psutil.cpu_percent(interval=None)
-    tasks = [asyncio.create_task(metrics_broadcaster()), asyncio.create_task(process_watch())]
+    # Only the instance that owns the port reaches this, so it is the only one recording
+    orphaned = await close_orphaned_alert_events()
+    if orphaned:
+        logger.info(f"Closed {orphaned} alert episode(s) left open by a previous run.")
+
+    tasks = [asyncio.create_task(metrics_broadcaster()), asyncio.create_task(process_watch()),
+             asyncio.create_task(history_pruner())]
     yield
     for task in tasks:
         task.cancel()
@@ -231,6 +239,9 @@ async def execute_termination(payload: PidRequest):
 
 ALERT_COOLDOWN = 3.0  # seconds between repeated alerts for the same metric
 BROADCAST_INTERVAL = 2.0  # seconds
+# About 10,000 rows, which SQLite reads in milliseconds and is long enough to see a daily pattern
+METRICS_RETENTION_DAYS = 7
+PRUNE_INTERVAL = 3600  # seconds
 
 def collect_metrics() -> dict:
     """Non-blocking snapshot. CPU is the average since the previous call."""
@@ -358,6 +369,17 @@ async def watch_processes_once(now: float) -> None:
     processes = await scan_processes()
     await store_episode_changes(watcher.update(processes, latest_values, now))
     await store_episode_peaks(watcher.open_episodes())
+
+async def history_pruner():
+    """Drops history past its retention, once at start-up and then every hour."""
+    while True:
+        try:
+            # Phase 7 adds alert_retention_days to the settings; until then this is the default
+            await prune_history(METRICS_RETENTION_DAYS, ACTIVE_CONFIG.get("alert_retention_days", 30))
+        except Exception as e:
+            logger.error(f"Error in history pruner: {e}")
+
+        await asyncio.sleep(PRUNE_INTERVAL)
 
 async def process_watch():
     """
