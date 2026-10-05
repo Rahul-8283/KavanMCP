@@ -15,7 +15,11 @@ from handlers.history_recorder import (
     EpisodeTracker,
     MinuteAggregator,
 )
-from handlers.process_watch import PROCESS_WATCH_INTERVAL, ProcessWatcher, find_top_process
+from handlers.process_watch import (
+    PROCESS_WATCH_INTERVAL,
+    ProcessWatcher,
+    find_top_process,
+)
 from utils.timefmt import minute_text, utc_text
 
 # A time that is exactly on a minute boundary, so sample counts per minute are predictable
