@@ -14,12 +14,27 @@ from fastapi.responses import JSONResponse
 from pydantic import BaseModel, Field
 
 from config.settings_manager import ACTIVE_CONFIG, load_config, update_config
-from database.db import record_metrics_minute
+from database.db import (
+    close_alert_event,
+    open_alert_event,
+    record_metrics_minute,
+    set_alert_top_process,
+    update_alert_event,
+)
 from handlers.approval_handler import stage_termination
-from handlers.history_recorder import MinuteAggregator
+from handlers.history_recorder import (
+    ALERT_METRICS,
+    CRITICAL_LEVEL,
+    Episode,
+    EpisodeChange,
+    EpisodeTracker,
+    MinuteAggregator,
+)
+from handlers.process_watch import TOP_PROCESS_FIELDS, lookup_top_process
 from handlers.termination_handler import execute_approved_termination
 from tools.list_processes import list_processes_logic
 from utils.logger import logger
+from utils.timefmt import utc_text
 
 
 @asynccontextmanager
@@ -209,14 +224,6 @@ async def execute_termination(payload: PidRequest):
 
 ALERT_COOLDOWN = 3.0  # seconds between repeated alerts for the same metric
 BROADCAST_INTERVAL = 2.0  # seconds
-CRITICAL_LEVEL = 95
-
-# (metric key, config key, label shown to the user)
-ALERT_METRICS = (
-    ("cpu", "cpu_threshold", "CPU"),
-    ("ram", "ram_threshold", "Memory"),
-    ("disk", "disk_threshold", "Disk"),
-)
 
 def collect_metrics() -> dict:
     """Non-blocking snapshot. CPU is the average since the previous call."""
@@ -262,6 +269,53 @@ def build_messages(values: dict, config: dict, last_alert_time: dict, now: float
     return [metrics_update, *build_alerts(values, config, last_alert_time, now)]
 
 aggregator = MinuteAggregator()
+episodes = EpisodeTracker()
+
+# Tasks that outlive the cycle which started them. Held here so they are not garbage collected.
+background_tasks: set[asyncio.Task] = set()
+
+async def attach_top_process(episode: Episode) -> None:
+    """Scans for the largest consumer of the episode's metric and stores it on the row."""
+    try:
+        top = await lookup_top_process(episode.metric)
+        if top:
+            episode.top_process = top
+            await set_alert_top_process(episode.id, top["name"], top["pid"], top["value"])
+    except Exception as e:
+        logger.error(f"Failed to find the top process for a {episode.metric} alert: {e}")
+
+async def store_episode_start(episode: Episode) -> None:
+    episode.id = await open_alert_event(
+        episode.metric, episode.level, episode.threshold, utc_text(episode.started_at),
+        episode.peak_value, episode.readings, episode.top_process,
+    )
+    if episode.id:
+        episode.peak_changed = False
+        if episode.metric in TOP_PROCESS_FIELDS and episode.top_process is None:
+            # The scan takes over a second. Its own task keeps the 2-second sampling loop on time.
+            task = asyncio.create_task(attach_top_process(episode))
+            background_tasks.add(task)
+            task.add_done_callback(background_tasks.discard)
+
+async def store_episode_changes(changes: list[EpisodeChange]) -> None:
+    """Writes episode starts and ends as they happen. Higher peaks wait for store_episode_peaks."""
+    for change in changes:
+        episode = change.episode
+        if change.kind == "started":
+            await store_episode_start(episode)
+        elif change.kind == "ended":
+            if episode.id is None:
+                await store_episode_start(episode)  # Its start could not be written at the time
+            if episode.id:
+                await close_alert_event(episode.id, utc_text(episode.ended_at), episode.peak_value, episode.level)
+
+async def store_episode_peaks(open_episodes: list[Episode]) -> None:
+    """Writes the peaks that moved. Called once a minute, not per sample, to keep writes low."""
+    for episode in open_episodes:
+        if episode.id is None:
+            await store_episode_start(episode)
+        elif episode.peak_changed and await update_alert_event(episode.id, episode.peak_value, episode.level):
+            episode.peak_changed = False
 
 async def record_sample(values: dict, now: float) -> None:
     """
@@ -270,17 +324,20 @@ async def record_sample(values: dict, now: float) -> None:
     """
     try:
         row = aggregator.add(values, now)
+        await store_episode_changes(episodes.update(values, ACTIVE_CONFIG, now))
         if row:
             await record_metrics_minute(row)
+            await store_episode_peaks(episodes.open_episodes())
     except Exception as e:
         logger.error(f"Failed to record metrics history: {e}")
 
 async def flush_history() -> None:
-    """Writes the partial minute on shutdown, so a clean stop loses nothing."""
+    """Writes the partial minute and the latest peaks on shutdown, so a clean stop loses nothing."""
     try:
         row = aggregator.flush()
         if row:
             await record_metrics_minute(row)
+        await store_episode_peaks(episodes.open_episodes())
     except Exception as e:
         logger.error(f"Failed to flush metrics history: {e}")
 
