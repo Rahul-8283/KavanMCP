@@ -170,3 +170,50 @@ async def record_metrics_minute(row: dict) -> bool:
     except Exception as e:
         logger.error(f"Failed to record metrics for {row.get('minute')}: {e}")
         return False
+
+async def open_alert_event(metric: str, level: str, threshold: float, started_at: str, peak_value: float,
+                           readings: dict, top_process: dict | None = None) -> str | None:
+    """
+    Stores the start of an alert episode and returns its id, or None if the write failed.
+    readings holds cpu, ram and disk at that moment; top_process holds name, pid and value.
+    """
+    event_id = str(uuid.uuid4())
+    top = top_process or {}
+    try:
+        async with _connect() as db:
+            await db.execute(
+                "INSERT INTO alert_events (id, metric, level, threshold, started_at, peak_value, cpu_at_start, "
+                "ram_at_start, disk_at_start, top_process, top_process_pid, top_process_value) "
+                "VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)",
+                (event_id, metric, level, threshold, started_at, peak_value, readings["cpu"], readings["ram"],
+                 readings["disk"], top.get("name"), top.get("pid"), top.get("value"))
+            )
+            await db.commit()
+        return event_id
+    except Exception as e:
+        logger.error(f"Failed to store the start of a {metric} alert: {e}")
+        return None
+
+async def _update_alert_event(event_id: str, assignments: str, params: tuple, action: str) -> bool:
+    try:
+        async with _connect() as db:
+            await db.execute(f"UPDATE alert_events SET {assignments} WHERE id = ?", (*params, event_id))
+            await db.commit()
+        return True
+    except Exception as e:
+        logger.error(f"Failed to {action} for alert {event_id}: {e}")
+        return False
+
+async def update_alert_event(event_id: str, peak_value: float, level: str) -> bool:
+    """Stores a higher peak, and the level it reached, for an open episode."""
+    return await _update_alert_event(event_id, "peak_value = ?, level = ?", (peak_value, level), "store the peak")
+
+async def set_alert_top_process(event_id: str, name: str, pid: int, value: float) -> bool:
+    """Records the largest consumer of the metric at the time the episode started."""
+    return await _update_alert_event(event_id, "top_process = ?, top_process_pid = ?, top_process_value = ?",
+                                     (name, pid, value), "store the top process")
+
+async def close_alert_event(event_id: str, ended_at: str, peak_value: float, level: str) -> bool:
+    """Ends an episode."""
+    return await _update_alert_event(event_id, "ended_at = ?, peak_value = ?, level = ?",
+                                     (ended_at, peak_value, level), "store the end")
