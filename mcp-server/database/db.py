@@ -6,7 +6,10 @@ import aiosqlite
 
 from database.models import (
     AUDIT_LOG_MIGRATIONS,
+    CREATE_ALERT_EVENTS_INDEX,
+    CREATE_ALERT_EVENTS_TABLE,
     CREATE_AUDIT_LOG_TABLE,
+    CREATE_METRICS_HISTORY_TABLE,
     CREATE_SYSTEM_BASELINES_TABLE,
 )
 from utils.logger import logger
@@ -43,6 +46,9 @@ async def init_db():
             await db.execute("PRAGMA journal_mode=WAL")
             await db.execute(CREATE_AUDIT_LOG_TABLE)
             await db.execute(CREATE_SYSTEM_BASELINES_TABLE)
+            await db.execute(CREATE_METRICS_HISTORY_TABLE)
+            await db.execute(CREATE_ALERT_EVENTS_TABLE)
+            await db.execute(CREATE_ALERT_EVENTS_INDEX)
 
             # Bring a database created by an older version up to the current schema
             async with db.execute("PRAGMA table_info(audit_log)") as cursor:
