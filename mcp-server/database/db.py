@@ -217,3 +217,40 @@ async def close_alert_event(event_id: str, ended_at: str, peak_value: float, lev
     """Ends an episode."""
     return await _update_alert_event(event_id, "ended_at = ?, peak_value = ?, level = ?",
                                      (ended_at, peak_value, level), "store the end")
+
+# The last minute of recorded metrics is the best evidence of when the backend was last alive.
+CLOSE_ORPHANED_EPISODES = """
+UPDATE alert_events
+SET ended_at = MAX(started_at, COALESCE((SELECT MAX(minute) FROM metrics_history), started_at))
+WHERE ended_at IS NULL
+"""
+
+async def close_orphaned_alert_events() -> int:
+    """
+    Ends the episodes a crash left open and returns how many. Called once at start-up by the
+    instance that owns the dashboard port, never from init_db: the MCP-only instance runs that
+    too, and would close episodes the live instance still has open.
+    """
+    try:
+        async with _connect() as db:
+            cursor = await db.execute(CLOSE_ORPHANED_EPISODES)
+            await db.commit()
+            return cursor.rowcount
+    except Exception as e:
+        logger.error(f"Failed to close orphaned alert episodes: {e}")
+        return 0
+
+async def prune_history(metrics_days: int, alert_days: int) -> None:
+    """
+    Drops history past its retention. An open episode is never pruned, however old:
+    it is still in progress, and its row is the only record of it.
+    """
+    try:
+        async with _connect() as db:
+            await db.execute("DELETE FROM metrics_history WHERE minute < datetime('now', ?)",
+                             (f"-{metrics_days} days",))
+            await db.execute("DELETE FROM alert_events WHERE ended_at IS NOT NULL AND started_at < datetime('now', ?)",
+                             (f"-{alert_days} days",))
+            await db.commit()
+    except Exception as e:
+        logger.error(f"Failed to prune history: {e}")
