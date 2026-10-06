@@ -115,6 +115,31 @@ export interface AlertsResponse {
   truncated: boolean;
 }
 
+export type HistoryRange = '1h' | '6h' | '24h' | '7d';
+
+export interface MetricsPoint {
+  /** Start of the bucket */
+  t: string;
+  cpu_avg: number;
+  cpu_max: number;
+  ram_avg: number;
+  ram_max: number;
+  disk_avg: number;
+  /** The share of the bucket the backend was sampling for, 0 to 1 */
+  coverage: number;
+}
+
+export interface MetricsHistory {
+  from: string;
+  to: string;
+  bucket_seconds: number;
+  /** The oldest recorded minute, or null while nothing has been recorded */
+  recording_since: string | null;
+  thresholds: { cpu: number | null; ram: number | null; disk: number | null };
+  /** Buckets with no data are left out */
+  points: MetricsPoint[];
+}
+
 // 4.3 Service Definitions
 export const SystemAPI = {
   fetchProcesses: () =>
@@ -126,5 +151,10 @@ export const SystemAPI = {
   fetchConfig: () => apiClient.get('/api/get_config'),
   updateThresholds: (payload: Record<string, any>) => apiClient.post('/api/update_thresholds', payload),
   fetchAlerts: (filters: AlertFilters) =>
-    apiClient.get<AlertsResponse, AlertsResponse>('/api/alerts', { params: filters })
+    apiClient.get<AlertsResponse, AlertsResponse>('/api/alerts', { params: filters }),
+  /** A preset range ending now, or an exact window. The server picks the bucket size. */
+  fetchMetricsHistory: (window: HistoryRange | { from: string; to: string }) =>
+    apiClient.get<MetricsHistory, MetricsHistory>('/api/metrics/history', {
+      params: typeof window === 'string' ? { range: window } : window,
+    })
 };

@@ -32,3 +32,21 @@ export function formatWhen(iso: string, now: Date = new Date()): string {
 export function formatExact(iso: string): string {
   return new Date(iso).toLocaleString(undefined, { dateStyle: 'medium', timeStyle: 'medium' });
 }
+
+/** "4 Oct 14:00": a day and a time to the minute, for naming a window. */
+export function formatDayTime(ms: number): string {
+  const date = new Date(ms);
+  return `${date.getDate()} ${MONTHS[date.getMonth()]} ${pad(date.getHours())}:${pad(date.getMinutes())}`;
+}
+
+/** "14:00": a time to the minute. */
+export function formatClock(ms: number): string {
+  const date = new Date(ms);
+  return `${pad(date.getHours())}:${pad(date.getMinutes())}`;
+}
+
+/** "4 Oct": a day. */
+export function formatDay(ms: number): string {
+  const date = new Date(ms);
+  return `${date.getDate()} ${MONTHS[date.getMonth()]}`;
+}
