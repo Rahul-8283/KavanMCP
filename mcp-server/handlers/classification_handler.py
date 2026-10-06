@@ -14,6 +14,10 @@ TIER_2_ESSENTIAL = {
     "obs64.exe"
 }
 
+# A headless process above this CPU reading is Tier 4. The figure is massive for a
+# background task on a multi-core CPU.
+TIER_4_CPU_THRESHOLD = 25.0
+
 def classify_process(process_name: str, cpu_percent: float, memory_mb: float, is_headless: bool) -> int:
     """
     The core decision matrix for the KavanMCP security engine.
@@ -33,8 +37,7 @@ def classify_process(process_name: str, cpu_percent: float, memory_mb: float, is
         return 2
 
     # 3. Tier 4 (Suspicious Anomaly): High-risk background task hogging CPU
-    # 25.0% CPU is massive for a headless background process on a multi-core CPU.
-    if cpu_percent > 25.0 and is_headless:
+    if cpu_percent > TIER_4_CPU_THRESHOLD and is_headless:
         return 4
 
     # 4. Tier 3 (Standard Background Task): Optional / Updaters. Dual confirmation.
