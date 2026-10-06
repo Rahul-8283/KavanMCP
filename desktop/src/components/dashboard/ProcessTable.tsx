@@ -7,7 +7,9 @@ import { ProcessContextMenu } from './ProcessContextMenu';
 import { KillConfirmModal } from './KillConfirmModal';
 import { useProcessManager } from '../../hooks/useProcessManager';
 import { useVirtualizer } from '@tanstack/react-virtual';
-import { ReactNode, useRef, useMemo, useState, useCallback } from 'react';
+import { EmptyState } from '../common/EmptyState';
+import { SegmentedControl, type SegmentOption } from '../common/SegmentedControl';
+import { useRef, useMemo, useState, useCallback } from 'react';
 
 interface MenuState {
   x: number;
@@ -29,6 +31,11 @@ const COLUMNS: Column[] = [
   { key: 'tier', label: 'Security Tier', isNumeric: false },
 ];
 
+const TIER_FILTER_OPTIONS: SegmentOption<number | 'ALL'>[] = [
+  { value: 'ALL', label: 'All' },
+  ...TIER_NUMBERS.map((tier) => ({ value: tier, label: tierInfo(tier).label, title: `Tier ${tier}` })),
+];
+
 const ROW_HEIGHT = 36; // Pixel height of one row, as the virtualizer positions rows in pixels
 const MIN_BAR_RATIO = 0.08; // Below this a bar is a few pixels wide and reads as a stray dot
 
@@ -44,16 +51,6 @@ function Magnitude({ text, ratio }: { text: string; ratio: number }) {
         <span className="block h-full rounded-[1px] bg-ink-faint" style={{ width: `${width * 100}%` }} />
       </span>
       <span className="tnum min-w-0 flex-1 text-right text-ink">{text}</span>
-    </div>
-  );
-}
-
-function EmptyState({ icon, message, children }: { icon?: ReactNode; message: string; children?: ReactNode }) {
-  return (
-    <div className="flex flex-1 flex-col items-center justify-center gap-4 p-12 text-center">
-      {icon && <div className="text-ink-faint">{icon}</div>}
-      <p className="max-w-sm text-[0.8125rem] text-ink-soft">{message}</p>
-      {children}
     </div>
   );
 }
@@ -277,23 +274,7 @@ export function ProcessTable({ onRefresh }: { onRefresh: () => void }) {
           )}
         </div>
 
-        <div role="radiogroup" aria-label="Filter by security tier" className="flex h-8 items-center gap-0.5 rounded-md border border-line bg-sunken p-0.5">
-          {(['ALL', ...TIER_NUMBERS] as const).map((tier) => {
-            const isSelected = filterTier === tier;
-            return (
-              <button
-                key={tier}
-                role="radio"
-                aria-checked={isSelected}
-                onClick={() => setFilterTier(tier)}
-                title={tier === 'ALL' ? undefined : `Tier ${tier}`}
-                className={`h-full rounded px-2.5 text-xs font-medium transition-colors ${isSelected ? 'bg-raised text-ink shadow-[0_0_0_1px_var(--line-strong)]' : 'text-ink-soft hover:text-ink'}`}
-              >
-                {tier === 'ALL' ? 'All' : tierInfo(tier).label}
-              </button>
-            );
-          })}
-        </div>
+        <SegmentedControl options={TIER_FILTER_OPTIONS} value={filterTier} onChange={setFilterTier} ariaLabel="Filter by security tier" />
 
         <div className="relative w-52">
           <Search size={14} className="pointer-events-none absolute left-2.5 top-1/2 -translate-y-1/2 text-ink-faint" />
