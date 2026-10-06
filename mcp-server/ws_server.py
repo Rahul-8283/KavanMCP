@@ -32,6 +32,7 @@ from handlers.history_recorder import (
     EpisodeChange,
     EpisodeTracker,
     MinuteAggregator,
+    SAMPLE_INTERVAL_SECONDS,
 )
 from handlers.process_watch import (
     PROCESS_WATCH_INTERVAL,
@@ -244,7 +245,7 @@ async def execute_termination(payload: PidRequest):
     return {"pid": payload.pid, **result}
 
 ALERT_COOLDOWN = 3.0  # seconds between repeated alerts for the same metric
-BROADCAST_INTERVAL = 2.0  # seconds
+BROADCAST_INTERVAL = SAMPLE_INTERVAL_SECONDS
 # About 10,000 rows, which SQLite reads in milliseconds and is long enough to see a daily pattern
 METRICS_RETENTION_DAYS = 7
 PRUNE_INTERVAL = 3600  # seconds

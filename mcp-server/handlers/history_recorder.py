@@ -16,6 +16,8 @@ ALERT_METRICS = (
     ("disk", "disk_threshold", "Disk"),
 )
 
+# How often the metrics are sampled. Coverage of a stored minute is counted against this.
+SAMPLE_INTERVAL_SECONDS = 2.0
 # A metric hovering at its threshold must not open and close an episode on every sample
 EPISODE_CLOSE_SECONDS = 30
 # Samples arrive every 2 seconds. A longer silence means the machine slept or the loop stalled.
