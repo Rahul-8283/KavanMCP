@@ -302,7 +302,7 @@
 
   @container (max-width: 50rem) {
     .alert-grid {
-      grid-template-columns: 8rem 6rem 6.5rem 8rem 9rem minmax(6rem, 1fr);
+      grid-template-columns: 8rem 7.5rem 6.5rem 8rem 9.5rem minmax(6rem, 1fr);
       column-gap: 0.875rem;
     }
   }
