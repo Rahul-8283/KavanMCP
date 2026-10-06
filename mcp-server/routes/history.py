@@ -1,12 +1,12 @@
 """Read-only routes over the history tables. Attached to the dashboard app in ws_server.py."""
 import time
 from datetime import datetime, timezone
-from typing import Literal
+from typing import Annotated, Literal
 
 from fastapi import APIRouter, HTTPException, Query
 
 from database.db import get_alert_events
-from utils.timefmt import STORED_FORMAT, to_iso_utc, utc_text
+from utils.timefmt import parse_utc, to_iso_utc, utc_text
 
 router = APIRouter()
 
@@ -23,7 +23,7 @@ def _stored_text(moment: datetime) -> str:
 
 
 def _seconds_between(start: str, end: str) -> int:
-    return int((datetime.strptime(end, STORED_FORMAT) - datetime.strptime(start, STORED_FORMAT)).total_seconds())
+    return int((parse_utc(end) - parse_utc(start)).total_seconds())
 
 
 def serialize_alert(row: dict) -> dict:
@@ -51,11 +51,11 @@ def serialize_alert(row: dict) -> dict:
 
 @router.get("/api/alerts")
 async def list_alerts(
-    start: datetime | None = Query(None, alias="from"),
-    end: datetime | None = Query(None, alias="to"),
+    start: Annotated[datetime | None, Query(alias="from")] = None,
+    end: Annotated[datetime | None, Query(alias="to")] = None,
     metric: Literal["cpu", "ram", "disk", "process"] | None = None,
     level: Literal["warning", "critical"] | None = None,
-    limit: int = Query(DEFAULT_ALERT_LIMIT, ge=1, le=MAX_ALERT_LIMIT),
+    limit: Annotated[int, Query(ge=1, le=MAX_ALERT_LIMIT)] = DEFAULT_ALERT_LIMIT,
 ):
     """Alert episodes that started inside the window: ongoing ones first, then newest first."""
     now = time.time()
