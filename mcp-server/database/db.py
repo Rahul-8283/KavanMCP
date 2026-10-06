@@ -254,3 +254,37 @@ async def prune_history(metrics_days: int, alert_days: int) -> None:
             await db.commit()
     except Exception as e:
         logger.error(f"Failed to prune history: {e}")
+
+# Every condition is in the WHERE clause, so the limit is applied to rows that already match.
+# Filtering after the fetch would return fewer rows than exist once the limit is reached.
+SELECT_ALERT_EVENTS = """
+SELECT * FROM alert_events
+WHERE started_at >= ? AND started_at < ?
+  AND (? IS NULL OR metric = ?)
+  AND (? IS NULL OR level = ?)
+ORDER BY (ended_at IS NULL) DESC, started_at DESC
+LIMIT ?
+"""
+
+async def get_alert_events(start: str, end: str, metric: str | None, level: str | None, limit: int) -> list[dict]:
+    """
+    Alert episodes that started in [start, end): ongoing ones first, then newest first.
+    Unlike the write functions this raises on failure. Returning an empty list would tell
+    the user that nothing happened, when the truth is that the history could not be read.
+    """
+    async with _connect() as db:
+        db.row_factory = aiosqlite.Row
+        async with db.execute(SELECT_ALERT_EVENTS, (start, end, metric, metric, level, level, limit)) as cursor:
+            return [dict(row) async for row in cursor]
+
+async def get_alert_event(event_id: str) -> dict | None:
+    """One alert episode as stored, or None if there is no such row or it could not be read."""
+    try:
+        async with _connect() as db:
+            db.row_factory = aiosqlite.Row
+            async with db.execute("SELECT * FROM alert_events WHERE id = ?", (event_id,)) as cursor:
+                row = await cursor.fetchone()
+                return dict(row) if row else None
+    except Exception as e:
+        logger.error(f"Failed to read alert {event_id}: {e}")
+        return None

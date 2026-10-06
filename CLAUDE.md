@@ -495,7 +495,7 @@ Each phase has detailed requirements in `phases_v2/Phase{N}_v2.md`.
 
 ### Remaining Known Issues
 
-1. **No Frontend Tests:** The Python backend has 62 tests. There are no unit/integration tests for
+1. **No Frontend Tests:** The Python backend has 115 tests. There are no unit/integration tests for
    React components or hooks; the UI is still verified manually.
 2. **Tier 2 List Hardcoded:** `TIER_2_ESSENTIAL` lives in `classification_handler.py`. The TRD
    describes user-defined essential apps, so it should move to JSON config like the Tier 1 list.
@@ -623,6 +623,29 @@ git push origin feat/phase-8-kill-flow
 
 ---
 
+## Phase-Completion Docs Commit
+
+The README header carries two hand-kept badges. The repository is private, so the live
+shields.io `last-commit` badge cannot read it and showed "repo not found"; both badges are
+static and are updated by hand.
+
+**When a phase is finished** (all of its commits are pushed, before the PR), make one last
+commit on the phase branch that updates only these:
+
+1. **Tests badge** in `README.md`, and the `# N passed` line under "Run the test suite".
+   Get the number from `cd mcp-server && python -m pytest -q`, never from memory.
+   - All green: `Tests-N%20passing-brightgreen`
+   - Any failure: `Tests-N%20passing%20%C2%B7%20F%20failing-yellow`. Never hide a failure.
+2. **Last commit badge** in `README.md`: the date (`YYYY--MM--DD`, hyphens doubled for
+   shields.io) and short hash of the phase's last commit *before* this docs commit, and the
+   same hash in its link. The docs commit cannot name itself.
+3. **`CLAUDE.md`**: the test count in "Remaining Known Issues", and the footer
+   (Last Updated, Current Phase, Next Priority).
+
+Commit message: `docs: update test count and last commit for <phase>`. No other changes.
+
+---
+
 ## Final Reminders
 
 1. **Always ask before committing.** Show the plan. Wait for approval.
@@ -633,9 +656,10 @@ git push origin feat/phase-8-kill-flow
 6. **Safety first.** The 4-Tier engine is sacred. Never weaken Tier 1 protections.
 7. **Keep it simple.** Prefer composition over inheritance. Use React Context, not Redux.
 8. **Test manually.** For a system utility, manual testing (stress, offline, edge cases) is essential.
+9. **Close each phase with the docs commit** described in "Phase-Completion Docs Commit".
 
 ---
 
-**Last Updated:** October 4, 2026 (Phase 8 merged to main)
-**Current Phase:** 8 (Kill Flow — ✅ Complete & Merged)
-**Next Priority:** Phase 9 (Comprehensive Feature Testing)
+**Last Updated:** October 6, 2026 (V2.1 Phase 2, Alert History, complete on branch `v2_1_2`)
+**Current Phase:** V2.1 Phase 2 (✅ Complete, PR pending). Plans are in `phase_v2_1/`
+**Next Priority:** V2.1 Phase 3 (Performance Graphs)

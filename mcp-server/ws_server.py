@@ -17,6 +17,7 @@ from config.settings_manager import ACTIVE_CONFIG, load_config, update_config
 from database.db import (
     close_alert_event,
     close_orphaned_alert_events,
+    get_alert_event,
     open_alert_event,
     prune_history,
     record_metrics_minute,
@@ -40,6 +41,8 @@ from handlers.process_watch import (
     scan_processes,
 )
 from handlers.termination_handler import execute_approved_termination
+from routes import history
+from routes.history import serialize_alert
 from tools.list_processes import list_processes_logic
 from utils.logger import logger
 from utils.timefmt import utc_text
@@ -125,6 +128,9 @@ app.add_middleware(
 )
 # Added last so it is the outermost layer and runs before CORS and routing
 app.add_middleware(LocalOnlyMiddleware)
+
+# Middleware belongs to the app, so routes on a router are guarded exactly like the ones below
+app.include_router(history.router)
 
 class ConnectionManager:
     def __init__(self):
@@ -251,9 +257,15 @@ def collect_metrics() -> dict:
         "disk": psutil.disk_usage('/').percent,
     }
 
-def build_alerts(values: dict, config: dict, last_alert_time: dict, now: float) -> list[dict]:
-    """Phase 6: one threshold_alert per metric over its threshold, rate-limited per metric."""
+def build_alerts(values: dict, config: dict, last_alert_time: dict, now: float,
+                 episode_ids: dict | None = None) -> list[dict]:
+    """
+    Phase 6: one threshold_alert per metric over its threshold, rate-limited per metric.
+    episode_ids maps a metric to its open episode, so a client can tell the first alert
+    of an episode from its repeats.
+    """
     alerts = []
+    episode_ids = episode_ids or {}
     for metric, config_key, label in ALERT_METRICS:
         threshold = config.get(config_key)
         current = values[metric]
@@ -266,16 +278,27 @@ def build_alerts(values: dict, config: dict, last_alert_time: dict, now: float) 
             "type": "threshold_alert",
             "level": "critical" if current >= CRITICAL_LEVEL else "warning",
             "message": f"{label} exceeded {threshold}% threshold. Current: {current}%.",
-            "timestamp": int(now)
+            "timestamp": int(now),
+            "metric": metric,
+            "episode_id": episode_ids.get(metric),
         })
     return alerts
 
-def build_messages(values: dict, config: dict, last_alert_time: dict, now: float) -> list[dict]:
-    """
-    Every cycle carries a metrics_update, followed by any alerts. Alerts must never
-    replace the update: the gauges have to keep moving while a threshold is exceeded.
-    """
-    metrics_update = {
+def build_process_alert(episode: Episode, now: float) -> dict:
+    """The one alert a suspicious-process episode raises, when it starts."""
+    process = episode.top_process
+    return {
+        "type": "threshold_alert",
+        "level": episode.level,
+        "message": f"Suspicious process: {process['name']} (PID {process['pid']}) is using "
+                   f"{process['value']:.0f}% CPU with no window.",
+        "timestamp": int(now),
+        "metric": episode.metric,
+        "episode_id": episode.id,
+    }
+
+def build_metrics_update(values: dict) -> dict:
+    return {
         "type": "metrics_update",
         "data": {
             "cpu_percent": values["cpu"],
@@ -284,7 +307,6 @@ def build_messages(values: dict, config: dict, last_alert_time: dict, now: float
             "timestamp": datetime.now(timezone.utc).isoformat()
         }
     }
-    return [metrics_update, *build_alerts(values, config, last_alert_time, now)]
 
 aggregator = MinuteAggregator()
 episodes = EpisodeTracker()
@@ -296,13 +318,29 @@ latest_values = {"cpu": 0.0, "ram": 0.0, "disk": 0.0}
 # Tasks that outlive the cycle which started them. Held here so they are not garbage collected.
 background_tasks: set[asyncio.Task] = set()
 
+async def announce_alert(event: str, episode: Episode) -> None:
+    """
+    Tells connected windows that a stored episode changed, so the history page needs no polling.
+    The row is read back and sent in the API's shape: clients see what is stored, not what was meant.
+    Never raises: the history is already written, and a window that missed this reloads on reconnect.
+    """
+    if not manager.active_connections or episode.id is None:
+        return
+    try:
+        row = await get_alert_event(episode.id)
+        if row:
+            await manager.broadcast({"type": "alert_event", "event": event, "alert": serialize_alert(row)})
+    except Exception as e:
+        logger.error(f"Failed to announce a {episode.metric} alert: {e}")
+
 async def attach_top_process(episode: Episode) -> None:
     """Scans for the largest consumer of the episode's metric and stores it on the row."""
     try:
         top = await lookup_top_process(episode.metric)
         if top:
             episode.top_process = top
-            await set_alert_top_process(episode.id, top["name"], top["pid"], top["value"])
+            if await set_alert_top_process(episode.id, top["name"], top["pid"], top["value"]):
+                await announce_alert("updated", episode)
     except Exception as e:
         logger.error(f"Failed to find the top process for a {episode.metric} alert: {e}")
 
@@ -313,6 +351,7 @@ async def store_episode_start(episode: Episode) -> None:
     )
     if episode.id:
         episode.peak_changed = False
+        await announce_alert("started", episode)
         if episode.metric in TOP_PROCESS_FIELDS and episode.top_process is None:
             # The scan takes over a second. Its own task keeps the 2-second sampling loop on time.
             task = asyncio.create_task(attach_top_process(episode))
@@ -328,8 +367,9 @@ async def store_episode_changes(changes: list[EpisodeChange]) -> None:
         elif change.kind == "ended":
             if episode.id is None:
                 await store_episode_start(episode)  # Its start could not be written at the time
-            if episode.id:
-                await close_alert_event(episode.id, utc_text(episode.ended_at), episode.peak_value, episode.level)
+            if episode.id and await close_alert_event(
+                    episode.id, utc_text(episode.ended_at), episode.peak_value, episode.level):
+                await announce_alert("ended", episode)
 
 async def store_episode_peaks(open_episodes: list[Episode]) -> None:
     """Writes the peaks that moved. Called once a minute, not per sample, to keep writes low."""
@@ -338,6 +378,7 @@ async def store_episode_peaks(open_episodes: list[Episode]) -> None:
             await store_episode_start(episode)
         elif episode.peak_changed and await update_alert_event(episode.id, episode.peak_value, episode.level):
             episode.peak_changed = False
+            await announce_alert("updated", episode)
 
 async def record_sample(values: dict, now: float) -> None:
     """
@@ -367,8 +408,12 @@ async def flush_history() -> None:
 async def watch_processes_once(now: float) -> None:
     """One scan of the process watch: Tier 4 processes become 'process' alert episodes."""
     processes = await scan_processes()
-    await store_episode_changes(watcher.update(processes, latest_values, now))
+    changes = watcher.update(processes, latest_values, now)
+    await store_episode_changes(changes)
     await store_episode_peaks(watcher.open_episodes())
+    for change in changes:
+        if change.kind == "started":
+            await manager.broadcast(build_process_alert(change.episode, now))
 
 async def history_pruner():
     """Drops history past its retention, once at start-up and then every hour."""
@@ -396,6 +441,23 @@ async def process_watch():
 
         await asyncio.sleep(PROCESS_WATCH_INTERVAL)
 
+async def run_cycle(values: dict, now: float, last_alert_time: dict) -> None:
+    """
+    One sample: update the gauges, record the history, then raise any alerts.
+    Every cycle carries a metrics_update, whatever else happens: the gauges have to keep
+    moving while a threshold is exceeded. It goes first so they never wait behind a history
+    write, and the alerts go last so each can carry the id of the episode that write stored.
+    """
+    if manager.active_connections:
+        await manager.broadcast(build_metrics_update(values))
+
+    await record_sample(values, now)
+
+    if manager.active_connections:
+        episode_ids = {episode.metric: episode.id for episode in episodes.open_episodes()}
+        for alert in build_alerts(values, ACTIVE_CONFIG, last_alert_time, now, episode_ids):
+            await manager.broadcast(alert)
+
 async def metrics_broadcaster():
     """Background task to poll psutil, record the history and broadcast to WS clients."""
     logger.info("Metrics broadcaster background task started.")
@@ -406,10 +468,7 @@ async def metrics_broadcaster():
             # Sample every cycle, even with no clients, so the CPU average always covers one interval
             values = collect_metrics()
             now = time.time()
-            await record_sample(values, now)
-            if manager.active_connections:
-                for message in build_messages(values, ACTIVE_CONFIG, last_alert_time, now):
-                    await manager.broadcast(message)
+            await run_cycle(values, now, last_alert_time)
         except Exception as e:
             logger.error(f"Error in metrics broadcaster: {e}")
 

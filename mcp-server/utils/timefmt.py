@@ -18,7 +18,11 @@ def minute_text(epoch: float) -> str:
     return utc_text(epoch - epoch % SECONDS_PER_MINUTE)
 
 
+def parse_utc(text: str) -> datetime:
+    """Stored text to an aware UTC datetime."""
+    return datetime.strptime(text, STORED_FORMAT).replace(tzinfo=timezone.utc)
+
+
 def to_iso_utc(text: str) -> str:
     """Stored text to ISO 8601 with a Z suffix, for API responses."""
-    stored = datetime.strptime(text, STORED_FORMAT).replace(tzinfo=timezone.utc)
-    return stored.strftime("%Y-%m-%dT%H:%M:%SZ")
+    return parse_utc(text).strftime("%Y-%m-%dT%H:%M:%SZ")
