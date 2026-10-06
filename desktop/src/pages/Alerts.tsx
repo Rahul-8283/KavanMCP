@@ -1,11 +1,22 @@
 import { useEffect, useState } from 'react';
 import { Loader2, RefreshCw, Unplug } from 'lucide-react';
-import { useAlertHistory, ALERT_LIMIT } from '../context/AlertHistoryContext';
+import { useAlertHistory, ALERT_LIMIT, DEFAULT_ALERT_FILTERS, type DateRange } from '../context/AlertHistoryContext';
+import { useNavigation } from '../context/NavigationContext';
 import { AlertFilters } from '../components/alerts/AlertFilters';
 import { AlertTable } from '../components/alerts/AlertTable';
 import { EmptyState } from '../components/common/EmptyState';
 
+const DAY_MS = 24 * 3600_000;
+
+/** The shortest date preset that still reaches back to an alert that started at this time. */
+function rangeReaching(startedAt: string): DateRange {
+  const age = Date.now() - new Date(startedAt).getTime();
+  if (age < DAY_MS) return '24h';
+  return age < 7 * DAY_MS ? '7d' : '30d';
+}
+
 export function Alerts() {
+  const { target, clearTarget } = useNavigation();
   const { alerts, truncated, filters, setFilters, isLoading, error, hasLoaded, reload } = useAlertHistory();
   const [selectedId, setSelectedId] = useState<string | null>(null);
 
@@ -13,6 +24,14 @@ export function Alerts() {
   useEffect(() => {
     void reload();
   }, [reload]);
+
+  // Arriving from a marker on the graphs: show that alert, whatever the filters were hiding
+  useEffect(() => {
+    if (target?.kind !== 'alert') return;
+    setFilters({ ...DEFAULT_ALERT_FILTERS, range: rangeReaching(target.startedAt) });
+    setSelectedId(target.alertId);
+    clearTarget();
+  }, [target, clearTarget, setFilters]);
 
   // Escape closes the expanded row
   useEffect(() => {

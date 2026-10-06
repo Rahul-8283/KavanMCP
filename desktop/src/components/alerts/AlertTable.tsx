@@ -39,6 +39,21 @@ export function AlertTable({ alerts, selectedId, onSelect }: AlertTableProps) {
     overscan: 10,
   });
 
+  // A row selected from another page may be far down the list. It is brought into view once.
+  const revealedId = useRef<string | null>(null);
+  useEffect(() => {
+    if (selectedId === null) {
+      revealedId.current = null;
+      return;
+    }
+    if (revealedId.current === selectedId) return;
+    const index = alerts.findIndex((alert) => alert.id === selectedId);
+    if (index >= 0) {
+      revealedId.current = selectedId;
+      rowVirtualizer.scrollToIndex(index, { align: 'auto' });
+    }
+  }, [selectedId, alerts, rowVirtualizer]);
+
   // The server already sorts ongoing alerts first, then newest first, so the rows are not re-sorted
   return (
     <div className="flex min-h-0 flex-1 flex-col overflow-x-auto">
