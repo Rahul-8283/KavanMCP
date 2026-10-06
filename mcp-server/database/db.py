@@ -288,3 +288,41 @@ async def get_alert_event(event_id: str) -> dict | None:
     except Exception as e:
         logger.error(f"Failed to read alert {event_id}: {e}")
         return None
+
+# Minutes are merged into buckets aligned to the epoch. The average is weighted by the samples
+# behind each minute, so a minute the backend only half covered counts for half. The peak is
+# the largest peak: averaging peaks would hide the spikes the graphs exist to show.
+# A bucket with no rows is simply absent. No value is ever invented for it.
+SELECT_METRICS_HISTORY = """
+SELECT
+    CAST(strftime('%s', minute) AS INTEGER) / :bucket * :bucket AS bucket_start,
+    SUM(cpu_avg * samples) / SUM(samples) AS cpu_avg,
+    MAX(cpu_max) AS cpu_max,
+    SUM(ram_avg * samples) / SUM(samples) AS ram_avg,
+    MAX(ram_max) AS ram_max,
+    SUM(disk_avg * samples) / SUM(samples) AS disk_avg,
+    SUM(samples) AS samples
+FROM metrics_history
+WHERE minute >= :start AND minute < :end
+GROUP BY bucket_start
+ORDER BY bucket_start
+"""
+
+async def get_metrics_history(start: str, end: str, bucket_seconds: int) -> list[dict]:
+    """
+    Recorded metrics in [start, end), merged into buckets of bucket_seconds. bucket_start is
+    in epoch seconds. Raises on failure, like get_alert_events: an empty chart would claim
+    that nothing was recorded.
+    """
+    async with _connect() as db:
+        db.row_factory = aiosqlite.Row
+        params = {"bucket": bucket_seconds, "start": start, "end": end}
+        async with db.execute(SELECT_METRICS_HISTORY, params) as cursor:
+            return [dict(row) async for row in cursor]
+
+async def get_oldest_metrics_minute() -> str | None:
+    """The first minute ever recorded, or None while the history is empty."""
+    async with _connect() as db:
+        async with db.execute("SELECT MIN(minute) FROM metrics_history") as cursor:
+            row = await cursor.fetchone()
+            return row[0] if row else None
