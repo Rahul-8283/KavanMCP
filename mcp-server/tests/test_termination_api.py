@@ -12,6 +12,7 @@ sys.path.append(os.path.dirname(os.path.dirname(os.path.abspath(__file__))))
 
 from config.whitelist import TIER_1_WHITELIST
 from handlers.approval_handler import PENDING_APPROVALS
+from ws_helpers import next_metrics_update
 from ws_server import app
 
 client = TestClient(app, base_url="http://127.0.0.1:8000")
@@ -233,7 +234,7 @@ def test_websocket_rejects_foreign_origin():
                 pass
 
         with live.websocket_connect(ws_url, headers={"Origin": "http://localhost:1420"}) as ws:
-            assert ws.receive_json()["type"] == "metrics_update"
+            assert next_metrics_update(ws)["data"]["cpu_percent"] >= 0
 
 
 def test_kill_that_does_not_take_effect_is_not_reported_or_audited():
