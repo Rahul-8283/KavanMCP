@@ -8,10 +8,11 @@ from fastapi.testclient import TestClient
 
 sys.path.append(os.path.dirname(os.path.dirname(os.path.abspath(__file__))))
 
+from ws_helpers import next_metrics_update
+
 from config import settings_manager
 from config.whitelist import TIER_1_WHITELIST
-from handlers.approval_handler import PENDING_APPROVALS
-from ws_helpers import next_metrics_update
+from handlers.approval_handler import PENDING_APPROVALS, protected_pids
 from ws_server import app
 
 CONFIRM = "/api/confirm_termination"
@@ -69,7 +70,10 @@ def test_every_visible_tier1_process_is_unkillable_via_api():
 
         staged = client.post(CONFIRM, json={"pid": pid})
         assert staged.status_code == 403, name
-        assert staged.json()["detail"]["code"] == "tier1_blocked", name
+        # A Tier 1 process that launched this test run (explorer.exe, from a terminal) is also
+        # KavanMCP's own ancestor, and the self-protection gate answers first. Either refusal is correct.
+        expected = {"tier1_blocked", "self_protected"} if pid in protected_pids() else {"tier1_blocked"}
+        assert staged.json()["detail"]["code"] in expected, name
 
         executed = client.post(EXECUTE, json={"pid": pid})
         assert executed.status_code == 409, name
