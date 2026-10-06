@@ -85,6 +85,36 @@ export interface TerminationResult {
   freed_cpu: number;
 }
 
+export type AlertMetric = 'cpu' | 'ram' | 'disk' | 'process';
+export type AlertLevel = 'warning' | 'critical';
+
+export interface AlertEvent {
+  id: string;
+  metric: AlertMetric;
+  level: AlertLevel;
+  threshold: number;
+  started_at: string;
+  ended_at: string | null;
+  duration_seconds: number | null;
+  peak_value: number;
+  readings: { cpu: number; ram: number; disk: number };
+  top_process: { name: string; pid: number; value: number } | null;
+  muted: boolean;
+}
+
+export interface AlertFilters {
+  from?: string;
+  to?: string;
+  metric?: AlertMetric;
+  level?: AlertLevel;
+  limit?: number;
+}
+
+export interface AlertsResponse {
+  alerts: AlertEvent[];
+  truncated: boolean;
+}
+
 // 4.3 Service Definitions
 export const SystemAPI = {
   fetchProcesses: () =>
@@ -94,5 +124,7 @@ export const SystemAPI = {
   executeKill: (pid: number) =>
     apiClient.post<TerminationResult, TerminationResult>('/api/execute_termination', { pid }, { timeout: TERMINATION_TIMEOUT_MS }),
   fetchConfig: () => apiClient.get('/api/get_config'),
-  updateThresholds: (payload: Record<string, any>) => apiClient.post('/api/update_thresholds', payload)
+  updateThresholds: (payload: Record<string, any>) => apiClient.post('/api/update_thresholds', payload),
+  fetchAlerts: (filters: AlertFilters) =>
+    apiClient.get<AlertsResponse, AlertsResponse>('/api/alerts', { params: filters })
 };
