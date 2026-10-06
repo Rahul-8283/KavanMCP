@@ -6,7 +6,10 @@ import aiosqlite
 
 from database.models import (
     AUDIT_LOG_MIGRATIONS,
+    CREATE_ALERT_EVENTS_INDEX,
+    CREATE_ALERT_EVENTS_TABLE,
     CREATE_AUDIT_LOG_TABLE,
+    CREATE_METRICS_HISTORY_TABLE,
     CREATE_SYSTEM_BASELINES_TABLE,
 )
 from utils.logger import logger
@@ -43,6 +46,9 @@ async def init_db():
             await db.execute("PRAGMA journal_mode=WAL")
             await db.execute(CREATE_AUDIT_LOG_TABLE)
             await db.execute(CREATE_SYSTEM_BASELINES_TABLE)
+            await db.execute(CREATE_METRICS_HISTORY_TABLE)
+            await db.execute(CREATE_ALERT_EVENTS_TABLE)
+            await db.execute(CREATE_ALERT_EVENTS_INDEX)
 
             # Bring a database created by an older version up to the current schema
             async with db.execute("PRAGMA table_info(audit_log)") as cursor:
@@ -139,3 +145,112 @@ async def get_recent_logs(limit: int = 50, hours_back: float | None = None) -> l
     except Exception as e:
         logger.error(f"Failed to fetch recent logs: {e}")
     return logs
+
+# A restart in the middle of a minute produces a second partial row for the same key,
+# so the write merges with what is stored: weighted averages, larger peaks, summed samples.
+RECORD_METRICS_MINUTE = """
+INSERT INTO metrics_history (minute, cpu_avg, cpu_max, ram_avg, ram_max, disk_avg, samples)
+VALUES (:minute, :cpu_avg, :cpu_max, :ram_avg, :ram_max, :disk_avg, :samples)
+ON CONFLICT(minute) DO UPDATE SET
+    cpu_avg = (cpu_avg * samples + excluded.cpu_avg * excluded.samples) / (samples + excluded.samples),
+    ram_avg = (ram_avg * samples + excluded.ram_avg * excluded.samples) / (samples + excluded.samples),
+    disk_avg = (disk_avg * samples + excluded.disk_avg * excluded.samples) / (samples + excluded.samples),
+    cpu_max = MAX(cpu_max, excluded.cpu_max),
+    ram_max = MAX(ram_max, excluded.ram_max),
+    samples = samples + excluded.samples
+"""
+
+async def record_metrics_minute(row: dict) -> bool:
+    """Stores one minute of metrics, as produced by MinuteAggregator. Returns False if the write failed."""
+    try:
+        async with _connect() as db:
+            await db.execute(RECORD_METRICS_MINUTE, row)
+            await db.commit()
+        return True
+    except Exception as e:
+        logger.error(f"Failed to record metrics for {row.get('minute')}: {e}")
+        return False
+
+async def open_alert_event(metric: str, level: str, threshold: float, started_at: str, peak_value: float,
+                           readings: dict, top_process: dict | None = None) -> str | None:
+    """
+    Stores the start of an alert episode and returns its id, or None if the write failed.
+    readings holds cpu, ram and disk at that moment; top_process holds name, pid and value.
+    """
+    event_id = str(uuid.uuid4())
+    top = top_process or {}
+    try:
+        async with _connect() as db:
+            await db.execute(
+                "INSERT INTO alert_events (id, metric, level, threshold, started_at, peak_value, cpu_at_start, "
+                "ram_at_start, disk_at_start, top_process, top_process_pid, top_process_value) "
+                "VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)",
+                (event_id, metric, level, threshold, started_at, peak_value, readings["cpu"], readings["ram"],
+                 readings["disk"], top.get("name"), top.get("pid"), top.get("value"))
+            )
+            await db.commit()
+        return event_id
+    except Exception as e:
+        logger.error(f"Failed to store the start of a {metric} alert: {e}")
+        return None
+
+async def _update_alert_event(event_id: str, assignments: str, params: tuple, action: str) -> bool:
+    try:
+        async with _connect() as db:
+            await db.execute(f"UPDATE alert_events SET {assignments} WHERE id = ?", (*params, event_id))
+            await db.commit()
+        return True
+    except Exception as e:
+        logger.error(f"Failed to {action} for alert {event_id}: {e}")
+        return False
+
+async def update_alert_event(event_id: str, peak_value: float, level: str) -> bool:
+    """Stores a higher peak, and the level it reached, for an open episode."""
+    return await _update_alert_event(event_id, "peak_value = ?, level = ?", (peak_value, level), "store the peak")
+
+async def set_alert_top_process(event_id: str, name: str, pid: int, value: float) -> bool:
+    """Records the largest consumer of the metric at the time the episode started."""
+    return await _update_alert_event(event_id, "top_process = ?, top_process_pid = ?, top_process_value = ?",
+                                     (name, pid, value), "store the top process")
+
+async def close_alert_event(event_id: str, ended_at: str, peak_value: float, level: str) -> bool:
+    """Ends an episode."""
+    return await _update_alert_event(event_id, "ended_at = ?, peak_value = ?, level = ?",
+                                     (ended_at, peak_value, level), "store the end")
+
+# The last minute of recorded metrics is the best evidence of when the backend was last alive.
+CLOSE_ORPHANED_EPISODES = """
+UPDATE alert_events
+SET ended_at = MAX(started_at, COALESCE((SELECT MAX(minute) FROM metrics_history), started_at))
+WHERE ended_at IS NULL
+"""
+
+async def close_orphaned_alert_events() -> int:
+    """
+    Ends the episodes a crash left open and returns how many. Called once at start-up by the
+    instance that owns the dashboard port, never from init_db: the MCP-only instance runs that
+    too, and would close episodes the live instance still has open.
+    """
+    try:
+        async with _connect() as db:
+            cursor = await db.execute(CLOSE_ORPHANED_EPISODES)
+            await db.commit()
+            return cursor.rowcount
+    except Exception as e:
+        logger.error(f"Failed to close orphaned alert episodes: {e}")
+        return 0
+
+async def prune_history(metrics_days: int, alert_days: int) -> None:
+    """
+    Drops history past its retention. An open episode is never pruned, however old:
+    it is still in progress, and its row is the only record of it.
+    """
+    try:
+        async with _connect() as db:
+            await db.execute("DELETE FROM metrics_history WHERE minute < datetime('now', ?)",
+                             (f"-{metrics_days} days",))
+            await db.execute("DELETE FROM alert_events WHERE ended_at IS NOT NULL AND started_at < datetime('now', ?)",
+                             (f"-{alert_days} days",))
+            await db.commit()
+    except Exception as e:
+        logger.error(f"Failed to prune history: {e}")

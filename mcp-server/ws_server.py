@@ -14,19 +14,52 @@ from fastapi.responses import JSONResponse
 from pydantic import BaseModel, Field
 
 from config.settings_manager import ACTIVE_CONFIG, load_config, update_config
+from database.db import (
+    close_alert_event,
+    close_orphaned_alert_events,
+    open_alert_event,
+    prune_history,
+    record_metrics_minute,
+    set_alert_top_process,
+    update_alert_event,
+)
 from handlers.approval_handler import stage_termination
+from handlers.history_recorder import (
+    ALERT_METRICS,
+    CRITICAL_LEVEL,
+    Episode,
+    EpisodeChange,
+    EpisodeTracker,
+    MinuteAggregator,
+)
+from handlers.process_watch import (
+    PROCESS_WATCH_INTERVAL,
+    TOP_PROCESS_FIELDS,
+    ProcessWatcher,
+    lookup_top_process,
+    scan_processes,
+)
 from handlers.termination_handler import execute_approved_termination
 from tools.list_processes import list_processes_logic
 from utils.logger import logger
+from utils.timefmt import utc_text
 
 
 @asynccontextmanager
 async def lifespan(app: FastAPI):
     # The first cpu_percent(interval=None) call only sets the baseline and returns 0.0
     psutil.cpu_percent(interval=None)
-    broadcaster = asyncio.create_task(metrics_broadcaster())
+    # Only the instance that owns the port reaches this, so it is the only one recording
+    orphaned = await close_orphaned_alert_events()
+    if orphaned:
+        logger.info(f"Closed {orphaned} alert episode(s) left open by a previous run.")
+
+    tasks = [asyncio.create_task(metrics_broadcaster()), asyncio.create_task(process_watch()),
+             asyncio.create_task(history_pruner())]
     yield
-    broadcaster.cancel()
+    for task in tasks:
+        task.cancel()
+    await flush_history()
 
 app = FastAPI(title="KavanMCP WebSocket Server", lifespan=lifespan)
 
@@ -206,14 +239,9 @@ async def execute_termination(payload: PidRequest):
 
 ALERT_COOLDOWN = 3.0  # seconds between repeated alerts for the same metric
 BROADCAST_INTERVAL = 2.0  # seconds
-CRITICAL_LEVEL = 95
-
-# (metric key, config key, label shown to the user)
-ALERT_METRICS = (
-    ("cpu", "cpu_threshold", "CPU"),
-    ("ram", "ram_threshold", "Memory"),
-    ("disk", "disk_threshold", "Disk"),
-)
+# About 10,000 rows, which SQLite reads in milliseconds and is long enough to see a daily pattern
+METRICS_RETENTION_DAYS = 7
+PRUNE_INTERVAL = 3600  # seconds
 
 def collect_metrics() -> dict:
     """Non-blocking snapshot. CPU is the average since the previous call."""
@@ -258,8 +286,118 @@ def build_messages(values: dict, config: dict, last_alert_time: dict, now: float
     }
     return [metrics_update, *build_alerts(values, config, last_alert_time, now)]
 
+aggregator = MinuteAggregator()
+episodes = EpisodeTracker()
+watcher = ProcessWatcher()
+
+# The most recent sample, for the readings stored with an episode that the process watch starts
+latest_values = {"cpu": 0.0, "ram": 0.0, "disk": 0.0}
+
+# Tasks that outlive the cycle which started them. Held here so they are not garbage collected.
+background_tasks: set[asyncio.Task] = set()
+
+async def attach_top_process(episode: Episode) -> None:
+    """Scans for the largest consumer of the episode's metric and stores it on the row."""
+    try:
+        top = await lookup_top_process(episode.metric)
+        if top:
+            episode.top_process = top
+            await set_alert_top_process(episode.id, top["name"], top["pid"], top["value"])
+    except Exception as e:
+        logger.error(f"Failed to find the top process for a {episode.metric} alert: {e}")
+
+async def store_episode_start(episode: Episode) -> None:
+    episode.id = await open_alert_event(
+        episode.metric, episode.level, episode.threshold, utc_text(episode.started_at),
+        episode.peak_value, episode.readings, episode.top_process,
+    )
+    if episode.id:
+        episode.peak_changed = False
+        if episode.metric in TOP_PROCESS_FIELDS and episode.top_process is None:
+            # The scan takes over a second. Its own task keeps the 2-second sampling loop on time.
+            task = asyncio.create_task(attach_top_process(episode))
+            background_tasks.add(task)
+            task.add_done_callback(background_tasks.discard)
+
+async def store_episode_changes(changes: list[EpisodeChange]) -> None:
+    """Writes episode starts and ends as they happen. Higher peaks wait for store_episode_peaks."""
+    for change in changes:
+        episode = change.episode
+        if change.kind == "started":
+            await store_episode_start(episode)
+        elif change.kind == "ended":
+            if episode.id is None:
+                await store_episode_start(episode)  # Its start could not be written at the time
+            if episode.id:
+                await close_alert_event(episode.id, utc_text(episode.ended_at), episode.peak_value, episode.level)
+
+async def store_episode_peaks(open_episodes: list[Episode]) -> None:
+    """Writes the peaks that moved. Called once a minute, not per sample, to keep writes low."""
+    for episode in open_episodes:
+        if episode.id is None:
+            await store_episode_start(episode)
+        elif episode.peak_changed and await update_alert_event(episode.id, episode.peak_value, episode.level):
+            episode.peak_changed = False
+
+async def record_sample(values: dict, now: float) -> None:
+    """
+    Adds one sample to the history. Runs every cycle, window or no window.
+    Never raises: a failed write must not stop the gauges.
+    """
+    try:
+        latest_values.update(values)
+        row = aggregator.add(values, now)
+        await store_episode_changes(episodes.update(values, ACTIVE_CONFIG, now))
+        if row:
+            await record_metrics_minute(row)
+            await store_episode_peaks(episodes.open_episodes())
+    except Exception as e:
+        logger.error(f"Failed to record metrics history: {e}")
+
+async def flush_history() -> None:
+    """Writes the partial minute and the latest peaks on shutdown, so a clean stop loses nothing."""
+    try:
+        row = aggregator.flush()
+        if row:
+            await record_metrics_minute(row)
+        await store_episode_peaks(episodes.open_episodes() + watcher.open_episodes())
+    except Exception as e:
+        logger.error(f"Failed to flush metrics history: {e}")
+
+async def watch_processes_once(now: float) -> None:
+    """One scan of the process watch: Tier 4 processes become 'process' alert episodes."""
+    processes = await scan_processes()
+    await store_episode_changes(watcher.update(processes, latest_values, now))
+    await store_episode_peaks(watcher.open_episodes())
+
+async def history_pruner():
+    """Drops history past its retention, once at start-up and then every hour."""
+    while True:
+        try:
+            # Phase 7 adds alert_retention_days to the settings; until then this is the default
+            await prune_history(METRICS_RETENTION_DAYS, ACTIVE_CONFIG.get("alert_retention_days", 30))
+        except Exception as e:
+            logger.error(f"Error in history pruner: {e}")
+
+        await asyncio.sleep(PRUNE_INTERVAL)
+
+async def process_watch():
+    """
+    Background task that scans the processes on a timer. It notices suspicious processes
+    without the dashboard open, and keeps every per-process CPU reading recent enough
+    for the top-process lookup of a system alert.
+    """
+    logger.info("Process watch background task started.")
+    while True:
+        try:
+            await watch_processes_once(time.time())
+        except Exception as e:
+            logger.error(f"Error in process watch: {e}")
+
+        await asyncio.sleep(PROCESS_WATCH_INTERVAL)
+
 async def metrics_broadcaster():
-    """Background task to poll psutil and broadcast to WS clients."""
+    """Background task to poll psutil, record the history and broadcast to WS clients."""
     logger.info("Metrics broadcaster background task started.")
     last_alert_time: dict = {}
 
@@ -267,8 +405,10 @@ async def metrics_broadcaster():
         try:
             # Sample every cycle, even with no clients, so the CPU average always covers one interval
             values = collect_metrics()
+            now = time.time()
+            await record_sample(values, now)
             if manager.active_connections:
-                for message in build_messages(values, ACTIVE_CONFIG, last_alert_time, time.time()):
+                for message in build_messages(values, ACTIVE_CONFIG, last_alert_time, now):
                     await manager.broadcast(message)
         except Exception as e:
             logger.error(f"Error in metrics broadcaster: {e}")
