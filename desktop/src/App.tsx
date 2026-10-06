@@ -1,10 +1,11 @@
-import { useState, useEffect, type ComponentType } from "react";
+import { useEffect, type ComponentType } from "react";
 import { MainLayout } from "./components/layout/MainLayout";
 import type { View } from "./components/layout/views";
 import { useWebSocketConnection } from "./hooks/useWebSocketConnection";
 import { useTrayIntegration } from "./hooks/useTrayIntegration";
 import { useWindowLifecycle } from "./hooks/useWindowLifecycle";
 import { ToastContainer } from "./components/common/ToastContainer";
+import { useNavigation } from "./context/NavigationContext";
 import { Alerts } from "./pages/Alerts";
 import { Dashboard } from "./pages/Dashboard";
 import { Settings } from "./pages/Settings";
@@ -21,8 +22,8 @@ function App() {
   useTrayIntegration(); // Start the System Tray & IPC integrations
   useWindowLifecycle(); // Intercept window close to hide instead of kill
 
-  const [activeView, setActiveView] = useState<View>('dashboard');
-  const Page = PAGES[activeView];
+  const { view, navigate } = useNavigation();
+  const Page = PAGES[view];
 
   useEffect(() => {
     // Clear any lingering CSS zoom property from previous HMR states
@@ -54,7 +55,7 @@ function App() {
   }, []);
   return (
     <>
-      <MainLayout activeView={activeView} setActiveView={setActiveView}>
+      <MainLayout activeView={view} setActiveView={navigate}>
         <Page />
       </MainLayout>
       <ToastContainer />
