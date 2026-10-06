@@ -4,10 +4,10 @@
   <p><strong>AI-Powered System Optimizer · Dual-Interface · Ironclad Safety</strong></p>
   <p>
     <a href="https://github.com/Rahul-8283/KavanMCP/blob/main/LICENSE"><img src="https://img.shields.io/badge/License-MIT-green?style=flat-square" alt="License" /></a>
-    <a href="https://github.com/Rahul-8283/KavanMCP/commits/main"><img src="https://img.shields.io/github/last-commit/Rahul-8283/KavanMCP?style=flat-square" alt="Last Commit" /></a>
+    <a href="https://github.com/Rahul-8283/KavanMCP/commit/a96c00a"><img src="https://img.shields.io/badge/last%20commit-2026--10--06%20%C2%B7%20a96c00a-blue?style=flat-square" alt="Last Commit" /></a>
     <img src="https://img.shields.io/badge/V2-Production%20Grade-blue?style=flat-square" alt="V2 Production Grade" />
     <img src="https://img.shields.io/badge/Platform-Windows-0078D6?style=flat-square&logo=windows" alt="Windows" />
-    <img src="https://img.shields.io/badge/Tests-23%20Passing-brightgreen?style=flat-square" alt="Tests" />
+    <img src="https://img.shields.io/badge/Tests-115%20passing-brightgreen?style=flat-square" alt="Tests" />
   </p>
 </div>
 
@@ -449,7 +449,7 @@ Restart Claude Desktop. KavanMCP tools will appear automatically.
 ```powershell
 cd mcp-server
 python -m pytest -q
-# 23 passed
+# 115 passed
 ```
 
 ---

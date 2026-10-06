@@ -291,6 +291,22 @@
     }
   }
 
+  /* Alert history table: the header and every row share one column template */
+  .alert-grid {
+    display: grid;
+    grid-template-columns: 9.5rem 7rem 7.5rem 9rem 10rem minmax(8rem, 1fr);
+    align-items: center;
+    column-gap: 1.25rem;
+    padding: 0 1.25rem;
+  }
+
+  @container (max-width: 50rem) {
+    .alert-grid {
+      grid-template-columns: 8rem 7.5rem 6.5rem 8rem 9.5rem minmax(6rem, 1fr);
+      column-gap: 0.875rem;
+    }
+  }
+
   /* Threshold slider. --fill is the value as a percentage, set inline. */
   .range {
     appearance: none;

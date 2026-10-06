@@ -8,9 +8,11 @@ from fastapi.testclient import TestClient
 
 sys.path.append(os.path.dirname(os.path.dirname(os.path.abspath(__file__))))
 
+from ws_helpers import next_metrics_update
+
 from config import settings_manager
 from config.whitelist import TIER_1_WHITELIST
-from handlers.approval_handler import PENDING_APPROVALS
+from handlers.approval_handler import PENDING_APPROVALS, protected_pids
 from ws_server import app
 
 CONFIRM = "/api/confirm_termination"
@@ -28,9 +30,8 @@ def restore_settings():
 def test_websocket_streams_metrics_update():
     with TestClient(app, base_url="http://127.0.0.1:8000") as client:
         with client.websocket_connect("ws://127.0.0.1:8000/ws") as ws:
-            message = ws.receive_json()
+            message = next_metrics_update(ws)
 
-    assert message["type"] == "metrics_update"
     data = message["data"]
     assert 0 <= data["cpu_percent"] <= 100
     assert 0 <= data["ram_percent"] <= 100
@@ -69,7 +70,10 @@ def test_every_visible_tier1_process_is_unkillable_via_api():
 
         staged = client.post(CONFIRM, json={"pid": pid})
         assert staged.status_code == 403, name
-        assert staged.json()["detail"]["code"] == "tier1_blocked", name
+        # A Tier 1 process that launched this test run (explorer.exe, from a terminal) is also
+        # KavanMCP's own ancestor, and the self-protection gate answers first. Either refusal is correct.
+        expected = {"tier1_blocked", "self_protected"} if pid in protected_pids() else {"tier1_blocked"}
+        assert staged.json()["detail"]["code"] in expected, name
 
         executed = client.post(EXECUTE, json={"pid": pid})
         assert executed.status_code == 409, name
@@ -114,29 +118,27 @@ def test_corrupt_settings_file_values_fall_back_to_defaults(restore_settings):
     assert config == {**settings_manager.DEFAULT_CONFIG, "disk_threshold": 80}
 
 
-def test_gauges_keep_updating_while_a_threshold_is_exceeded():
-    from ws_server import ALERT_COOLDOWN, build_messages
+def test_alerts_repeat_only_after_the_cooldown():
+    from ws_server import ALERT_COOLDOWN, build_alerts
 
     values = {"cpu": 97.0, "ram": 50.0, "disk": 10.0}
     config = {"cpu_threshold": 90, "ram_threshold": 90, "disk_threshold": 95}
     last_alert: dict = {}
 
-    first = build_messages(values, config, last_alert, now=100.0)
-    during_cooldown = build_messages(values, config, last_alert, now=100.0 + ALERT_COOLDOWN - 1)
-    after_cooldown = build_messages(values, config, last_alert, now=100.0 + ALERT_COOLDOWN)
+    first = build_alerts(values, config, last_alert, now=100.0)
+    during_cooldown = build_alerts(values, config, last_alert, now=100.0 + ALERT_COOLDOWN - 1)
+    after_cooldown = build_alerts(values, config, last_alert, now=100.0 + ALERT_COOLDOWN)
 
-    # The metrics update is always first, alert or not
-    assert [m["type"] for m in first] == ["metrics_update", "threshold_alert"]
-    assert first[0]["data"]["cpu_percent"] == 97.0
-    assert first[1]["level"] == "critical"
-    assert [m["type"] for m in during_cooldown] == ["metrics_update"]
-    assert [m["type"] for m in after_cooldown] == ["metrics_update", "threshold_alert"]
+    assert [m["type"] for m in first] == ["threshold_alert"]
+    assert first[0]["level"] == "critical"
+    assert during_cooldown == []
+    assert [m["type"] for m in after_cooldown] == ["threshold_alert"]
 
 
 def test_no_alert_at_or_below_threshold():
-    from ws_server import build_messages
+    from ws_server import build_alerts
 
-    messages = build_messages({"cpu": 90.0, "ram": 10.0, "disk": 10.0},
-                              {"cpu_threshold": 90, "ram_threshold": 90, "disk_threshold": 95}, {}, now=1.0)
+    alerts = build_alerts({"cpu": 90.0, "ram": 10.0, "disk": 10.0},
+                          {"cpu_threshold": 90, "ram_threshold": 90, "disk_threshold": 95}, {}, now=1.0)
 
-    assert [m["type"] for m in messages] == ["metrics_update"]
+    assert alerts == []

@@ -2,6 +2,7 @@ import { useEffect, useRef } from 'react';
 import { useMetrics } from '../context/MetricsContext';
 import { useToast } from '../context/ToastContext';
 import { useConfig } from '../context/ConfigContext';
+import { useAlertHistory } from '../context/AlertHistoryContext';
 import { isPermissionGranted, requestPermission, sendNotification } from '@tauri-apps/plugin-notification';
 
 export enum ConnectionStatus {
@@ -53,9 +54,13 @@ export function useWebSocketConnection() {
   const { updateMetrics, setStatus } = useMetrics();
   const { addToast } = useToast();
   const { config } = useConfig();
+  const { applyEvent } = useAlertHistory();
   // The socket effect is created once, so it reads the sound setting through a ref
   const soundEnabledRef = useRef(true);
   soundEnabledRef.current = config?.sound_alerts !== false;
+  // The socket effect is created once, so it reaches the history through a ref as well
+  const applyEventRef = useRef(applyEvent);
+  applyEventRef.current = applyEvent;
   const wsRef = useRef<WebSocket | null>(null);
   const reconnectTimeoutRef = useRef<ReturnType<typeof setTimeout> | null>(null);
   const backoffRef = useRef(1000); // Start with 1 second backoff
@@ -97,6 +102,8 @@ export function useWebSocketConnection() {
               disk: payload.data.disk_percent,
               lastUpdated: payload.data.timestamp
             });
+          } else if (payload.type === 'alert_event' && payload.alert) {
+            applyEventRef.current(payload.alert);
           } else if (payload.type === 'threshold_alert') {
             // Render React Toast
             addToast(payload.message, payload.level);

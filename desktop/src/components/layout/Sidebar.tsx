@@ -1,5 +1,6 @@
 import { useState } from "react";
-import { LayoutDashboard, PanelLeftClose, PanelLeftOpen, SlidersHorizontal, type LucideIcon } from "lucide-react";
+import { Bell, LayoutDashboard, PanelLeftClose, PanelLeftOpen, SlidersHorizontal, type LucideIcon } from "lucide-react";
+import { useAlertHistory } from "../../context/AlertHistoryContext";
 import type { View } from "./views";
 
 interface SidebarProps {
@@ -9,11 +10,13 @@ interface SidebarProps {
 
 const NAV_ITEMS: { view: View; label: string; icon: LucideIcon }[] = [
   { view: 'dashboard', label: 'Dashboard', icon: LayoutDashboard },
+  { view: 'alerts', label: 'Alerts', icon: Bell },
   { view: 'settings', label: 'Settings', icon: SlidersHorizontal },
 ];
 
 export function Sidebar({ activeView, setActiveView }: SidebarProps) {
   const [isCollapsed, setIsCollapsed] = useState(false);
+  const { ongoingCount } = useAlertHistory();
   const ToggleIcon = isCollapsed ? PanelLeftOpen : PanelLeftClose;
 
   return (
@@ -32,6 +35,7 @@ export function Sidebar({ activeView, setActiveView }: SidebarProps) {
       <nav aria-label="Main" className="flex flex-1 flex-col gap-1 px-2.5 pt-2">
         {NAV_ITEMS.map(({ view, label, icon: Icon }) => {
           const isActive = activeView === view;
+          const hasOngoing = view === 'alerts' && ongoingCount > 0;
           return (
             <button
               key={view}
@@ -44,6 +48,14 @@ export function Sidebar({ activeView, setActiveView }: SidebarProps) {
               {isActive && <span className="absolute -left-2.5 top-1.5 bottom-1.5 w-[3px] rounded-r-sm bg-crimson" />}
               <Icon size={16} strokeWidth={1.75} className="shrink-0" />
               {!isCollapsed && <span className="truncate">{label}</span>}
+              {hasOngoing && (
+                <span
+                  role="img"
+                  aria-label={`${ongoingCount} ongoing`}
+                  title={`${ongoingCount} ongoing`}
+                  className={`h-1.5 w-1.5 rounded-full bg-crimson ${isCollapsed ? 'absolute right-2 top-2' : 'ml-auto'}`}
+                />
+              )}
             </button>
           );
         })}

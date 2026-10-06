@@ -1,12 +1,20 @@
-import { useState, useEffect } from "react";
+import { useState, useEffect, type ComponentType } from "react";
 import { MainLayout } from "./components/layout/MainLayout";
 import type { View } from "./components/layout/views";
 import { useWebSocketConnection } from "./hooks/useWebSocketConnection";
 import { useTrayIntegration } from "./hooks/useTrayIntegration";
 import { useWindowLifecycle } from "./hooks/useWindowLifecycle";
 import { ToastContainer } from "./components/common/ToastContainer";
+import { Alerts } from "./pages/Alerts";
 import { Dashboard } from "./pages/Dashboard";
 import { Settings } from "./pages/Settings";
+
+// One page per view. A new page is added here and to View.
+const PAGES: Record<View, ComponentType> = {
+  dashboard: Dashboard,
+  alerts: Alerts,
+  settings: Settings,
+};
 
 function App() {
   useWebSocketConnection(); // Start the WebSocket pipeline globally
@@ -14,6 +22,7 @@ function App() {
   useWindowLifecycle(); // Intercept window close to hide instead of kill
 
   const [activeView, setActiveView] = useState<View>('dashboard');
+  const Page = PAGES[activeView];
 
   useEffect(() => {
     // Clear any lingering CSS zoom property from previous HMR states
@@ -46,7 +55,7 @@ function App() {
   return (
     <>
       <MainLayout activeView={activeView} setActiveView={setActiveView}>
-        {activeView === 'dashboard' ? <Dashboard /> : <Settings />}
+        <Page />
       </MainLayout>
       <ToastContainer />
     </>
