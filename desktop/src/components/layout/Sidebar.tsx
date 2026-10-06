@@ -1,5 +1,5 @@
 import { useState } from "react";
-import { Bell, LayoutDashboard, PanelLeftClose, PanelLeftOpen, SlidersHorizontal, type LucideIcon } from "lucide-react";
+import { Bell, ChartLine, LayoutDashboard, PanelLeftClose, PanelLeftOpen, SlidersHorizontal, type LucideIcon } from "lucide-react";
 import { useAlertHistory } from "../../context/AlertHistoryContext";
 import type { View } from "./views";
 
@@ -11,6 +11,7 @@ interface SidebarProps {
 const NAV_ITEMS: { view: View; label: string; icon: LucideIcon }[] = [
   { view: 'dashboard', label: 'Dashboard', icon: LayoutDashboard },
   { view: 'alerts', label: 'Alerts', icon: Bell },
+  { view: 'trends', label: 'Trends', icon: ChartLine },
   { view: 'settings', label: 'Settings', icon: SlidersHorizontal },
 ];
 
