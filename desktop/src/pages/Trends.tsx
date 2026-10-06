@@ -77,7 +77,7 @@ export function Trends() {
   const { target, navigate, clearTarget } = useNavigation();
 
   // The context: everything loaded into the overview strip
-  const [range, setRange] = useState<HistoryRange>('24h');
+  const [range, setRange] = useState<HistoryRange>('1h');
   const [context, setContext] = useState<MetricsHistory | null>(null);
   const [alerts, setAlerts] = useState<AlertEvent[]>([]);
   const [loadedAt, setLoadedAt] = useState(() => Date.now());
