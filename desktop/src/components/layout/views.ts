@@ -1,4 +1,4 @@
-export type View = 'dashboard' | 'alerts' | 'settings';
+export type View = 'dashboard' | 'alerts' | 'trends' | 'settings';
 
 export const VIEW_META: Record<View, { title: string; description: string }> = {
   dashboard: {
@@ -8,6 +8,10 @@ export const VIEW_META: Record<View, { title: string; description: string }> = {
   alerts: {
     title: 'Alert History',
     description: 'Every alert Kavan has raised, including while the window was closed.',
+  },
+  trends: {
+    title: 'Performance Trends',
+    description: 'How CPU, memory and disk have behaved over time.',
   },
   settings: {
     title: 'Settings',

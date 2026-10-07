@@ -495,7 +495,7 @@ Each phase has detailed requirements in `phases_v2/Phase{N}_v2.md`.
 
 ### Remaining Known Issues
 
-1. **No Frontend Tests:** The Python backend has 115 tests. There are no unit/integration tests for
+1. **No Frontend Tests:** The Python backend has 154 tests. There are no unit/integration tests for
    React components or hooks; the UI is still verified manually.
 2. **Tier 2 List Hardcoded:** `TIER_2_ESSENTIAL` lives in `classification_handler.py`. The TRD
    describes user-defined essential apps, so it should move to JSON config like the Tier 1 list.
@@ -630,7 +630,7 @@ shields.io `last-commit` badge cannot read it and showed "repo not found"; both 
 static and are updated by hand.
 
 **When a phase is finished** (all of its commits are pushed, before the PR), make one last
-commit on the phase branch that updates only these:
+commit on the phase branch that does only these:
 
 1. **Tests badge** in `README.md`, and the `# N passed` line under "Run the test suite".
    Get the number from `cd mcp-server && python -m pytest -q`, never from memory.
@@ -639,10 +639,24 @@ commit on the phase branch that updates only these:
 2. **Last commit badge** in `README.md`: the date (`YYYY--MM--DD`, hyphens doubled for
    shields.io) and short hash of the phase's last commit *before* this docs commit, and the
    same hash in its link. The docs commit cannot name itself.
-3. **`CLAUDE.md`**: the test count in "Remaining Known Issues", and the footer
+3. **README audit.** Read the whole `README.md` against what is implemented now, and update
+   only what is stale or missing. Check every claim against the code, not against memory:
+   - Key Features: every user-facing feature the phase added
+   - Project Structure: new, renamed and removed files
+   - MCP Tool Reference and REST API tables: new tools, endpoints, parameters, WebSocket
+     messages and error codes, and sample responses that still match the real shape
+   - Diagrams: the database schema, the tier rules, the roadmap
+   - Getting Started: commands, ports and prerequisites that changed
+
+   Leave everything that is still true exactly as it is. Do not reword, restyle or reorder
+   sections that are correct. Never describe a feature that is planned but not built.
+4. **`CLAUDE.md`**: the test count in "Remaining Known Issues", and the footer
    (Last Updated, Current Phase, Next Priority).
 
-Commit message: `docs: update test count and last commit for <phase>`. No other changes.
+All of this is **one** commit. The README audit is never a commit of its own.
+
+Commit message: `docs: update the README, test count and last commit for <phase>`.
+Nothing else goes in this commit.
 
 ---
 
@@ -660,6 +674,6 @@ Commit message: `docs: update test count and last commit for <phase>`. No other 
 
 ---
 
-**Last Updated:** October 6, 2026 (V2.1 Phase 2, Alert History, complete on branch `v2_1_2`)
-**Current Phase:** V2.1 Phase 2 (✅ Complete, PR pending). Plans are in `phase_v2_1/`
-**Next Priority:** V2.1 Phase 3 (Performance Graphs)
+**Last Updated:** October 6, 2026 (V2.1 Phase 3, Performance Graphs, complete on branch `v2_1_3`)
+**Current Phase:** V2.1 Phase 3 (✅ Complete, PR pending). Plans are in `phase_v2_1/`
+**Next Priority:** V2.1 Phase 4 (Rollback Manager Backend)

@@ -4,10 +4,10 @@
   <p><strong>AI-Powered System Optimizer · Dual-Interface · Ironclad Safety</strong></p>
   <p>
     <a href="https://github.com/Rahul-8283/KavanMCP/blob/main/LICENSE"><img src="https://img.shields.io/badge/License-MIT-green?style=flat-square" alt="License" /></a>
-    <a href="https://github.com/Rahul-8283/KavanMCP/commit/a96c00a"><img src="https://img.shields.io/badge/last%20commit-2026--10--06%20%C2%B7%20a96c00a-blue?style=flat-square" alt="Last Commit" /></a>
+    <a href="https://github.com/Rahul-8283/KavanMCP/commit/c75744d"><img src="https://img.shields.io/badge/last%20commit-2026--10--06%20%C2%B7%20c75744d-blue?style=flat-square" alt="Last Commit" /></a>
     <img src="https://img.shields.io/badge/V2-Production%20Grade-blue?style=flat-square" alt="V2 Production Grade" />
     <img src="https://img.shields.io/badge/Platform-Windows-0078D6?style=flat-square&logo=windows" alt="Windows" />
-    <img src="https://img.shields.io/badge/Tests-115%20passing-brightgreen?style=flat-square" alt="Tests" />
+    <img src="https://img.shields.io/badge/Tests-154%20passing-brightgreen?style=flat-square" alt="Tests" />
   </p>
 </div>
 
@@ -163,13 +163,10 @@ flowchart TD
     T1 -->|NO| T2{Is it a known\nessential app?\nVSCode / Browser...}
 
     T2 -->|YES| Tier2[🟠 Tier 2\nEssential Work App\nSingle Confirmation]
-    T2 -->|NO| T3{Is it a background\nhelper / updater?}
-
-    T3 -->|YES| Tier3[🟡 Tier 3\nBackground Helper\nDual Confirmation]
-    T3 -->|NO| T4{High CPU/RAM\nwith unknown name?}
+    T2 -->|NO| T4{No visible window\nand over 25% CPU?}
 
     T4 -->|YES| Tier4[🔵 Tier 4\nSuspicious Anomaly\nHigh-Risk Alert + Dual Confirm]
-    T4 -->|NO| Tier3
+    T4 -->|NO| Tier3[🟡 Tier 3\nBackground Helper\nDual Confirmation]
 
     Tier2 --> Gate[Approval Cache\nTTL 5 min\nSingle-use pop]
     Tier3 --> Gate
@@ -223,33 +220,61 @@ stateDiagram-v2
 ```mermaid
 erDiagram
     AUDIT_LOG {
-        INTEGER id PK
+        TEXT id PK
+        DATETIME timestamp
         TEXT process_name
         INTEGER pid
         TEXT executable_path
-        REAL freed_memory_mb
-        REAL freed_cpu_percent
-        TEXT reasoning
-        TEXT action_type
-        DATETIME timestamp
+        TEXT action_type "TERMINATED, BLOCKED or ROLLBACK"
+        REAL memory_freed_mb
+        REAL cpu_freed_pct
+        TEXT llm_reasoning
+        BOOLEAN user_approved
+        TEXT command_line "original arguments, for rollback"
+    }
+
+    METRICS_HISTORY {
+        DATETIME minute PK "UTC, one row per minute"
+        REAL cpu_avg
+        REAL cpu_max
+        REAL ram_avg
+        REAL ram_max
+        REAL disk_avg
+        INTEGER samples "30 in a full minute"
+    }
+
+    ALERT_EVENTS {
+        TEXT id PK
+        TEXT metric "cpu, ram, disk or process"
+        TEXT level "warning or critical"
+        REAL threshold
+        DATETIME started_at
+        DATETIME ended_at "NULL while ongoing"
+        REAL peak_value
+        REAL cpu_at_start
+        REAL ram_at_start
+        REAL disk_at_start
+        TEXT top_process
+        INTEGER top_process_pid
+        REAL top_process_value
+        INTEGER muted
     }
 
     SYSTEM_BASELINES {
-        INTEGER id PK
-        REAL cpu_baseline
-        REAL ram_baseline
-        REAL disk_baseline
-        DATETIME recorded_at
+        TEXT process_name PK
+        REAL avg_cpu_pct
+        REAL avg_memory_mb
+        DATETIME last_updated
     }
-
-    AUDIT_LOG ||--o{ SYSTEM_BASELINES : "recorded at same time"
 ```
 
-### Phase Progression (V2 Roadmap)
+`metrics_history` is kept for 7 days and closed alerts for 30. `system_baselines` is created but not yet written to.
+
+### Phase Progression (V2 and V2.1 Roadmap)
 
 ```mermaid
 gantt
-    title KavanMCP V2 — Phase Completion
+    title KavanMCP V2 and V2.1 — Phase Completion
     dateFormat YYYY-MM-DD
     section Foundation
     Phase 0 · Tauri Setup          :done, 2026-09-10, 1d
@@ -267,6 +292,10 @@ gantt
     section QA
     Phase 9 · Feature Testing      :done, 2026-10-01, 2d
     Phase 10 · E2E + Claude Sync   :done, 2026-10-04, 1d
+    section V2.1 History
+    Phase 1 · Metrics + Alert Storage :done, 2026-10-05, 1d
+    Phase 2 · Alert History Page      :done, 2026-10-06, 1d
+    Phase 3 · Performance Graphs      :done, 2026-10-06, 1d
 ```
 
 ---
@@ -275,16 +304,20 @@ gantt
 
 | Feature | Detail |
 |---|---|
-| 🔴 **Tier 1 Hard Lock** | `explorer.exe`, `lsass.exe`, `svchost.exe` and others are physically un-killable — the UI disables the Confirm button and the backend rejects the request at two independent gates |
+| 🔴 **Tier 1 Hard Lock** | `explorer.exe`, `lsass.exe`, `svchost.exe` and others are physically un-killable — the UI disables the Confirm button and the backend rejects the request at three independent gates |
 | 🛡️ **PID Reuse Protection** | Approval stores the process `create_time` at staging time; if a different process recycles the same PID before execution, the kill is aborted |
 | 🎯 **Single-Use Approvals** | `dict.pop()` semantics mean a confirmed PID can only be executed once — double-clicks and replay attacks are blocked |
 | ⚡ **Non-Blocking Backend** | Long-running psutil scans run in worker threads via `asyncio.to_thread` so the event loop never freezes under a heavy process list |
 | 📊 **Real-Time Dashboard** | WebSocket pushes CPU/RAM/Disk metrics every 2 seconds with threshold-triggered alerts and colour-coded gauges |
 | 📋 **Virtualized Process Table** | `@tanstack/react-virtual` renders 800+ processes at 60fps — only visible rows are in the DOM |
-| ⚙️ **Persistent Settings** | Thresholds, theme, and sound toggle persist to `settings.json`; the UI rolls back on failed saves |
+| ⚙️ **Persistent Settings** | Thresholds and the sound toggle persist to `settings.json`, and the UI rolls back on failed saves; the theme is remembered by the app itself |
 | 🔔 **Native Notifications** | Tauri Notification API fires Windows Action Center alerts on CPU/RAM spikes even when the window is hidden |
 | 🗂️ **System Tray** | Left-click restores the window; right-click opens the menu; icon colour reflects the current alert state |
-| ↩️ **Undo (Rollback)** | The `rollback_last_action` tool relaunches a recently killed process from the audit log's stored executable path |
+| ↩️ **Undo (Rollback)** | The `rollback_last_action` tool relaunches a recently killed process from the audit log's stored executable path, with its original arguments |
+| 🗃️ **Continuous History** | The backend records one row of CPU/RAM/disk per minute and one row per alert episode, whether or not the window is open. Metrics are kept 7 days, alerts 30 |
+| 📜 **Alert History** | Every alert with when it started and ended, its peak, the readings at that moment and the top process at the time. Filter by date, type and severity; updates live without polling |
+| 📈 **Performance Trends** | CPU, memory and disk over 1 hour to 7 days, with the peak band, threshold line and alert regions. Drag the overview to pan and zoom; zooming loads finer detail. A period with no data is drawn as a gap |
+| 🕵️ **Suspicious-Process Watch** | A scan once a minute raises an alert for any process with no window using over 25% CPU, without the dashboard being open |
 | 🤝 **Dual-Interface Concurrency** | SQLite WAL mode allows the Tauri HTTP backend and Claude's stdio process to read/write simultaneously without lock errors |
 
 ---
@@ -296,15 +329,20 @@ KavanMCP/
 ├── mcp-server/                      # Python backend
 │   ├── main.py                      # Entry point: boots MCP server + FastAPI + TTL sweeper
 │   ├── server.py                    # 7 MCP tool definitions (FastMCP)
-│   ├── ws_server.py                 # FastAPI app: REST + WebSocket
+│   ├── ws_server.py                 # FastAPI app: REST + WebSocket, history recording loops
+│   ├── routes/
+│   │   └── history.py               # /api/alerts and /api/metrics/history
 │   ├── handlers/
 │   │   ├── approval_handler.py      # PENDING_APPROVALS TTL cache
 │   │   ├── classification_handler.py# 4-Tier classification logic
-│   │   ├── termination_handler.py   # psutil kill + WAL audit log
-│   │   └── alert_handler.py         # Threshold evaluation
+│   │   ├── termination_handler.py   # psutil kill + WAL audit log + rollback
+│   │   ├── alert_handler.py         # Per-process anomaly flags
+│   │   ├── history_recorder.py      # Minute aggregation + alert episode tracking
+│   │   └── process_watch.py         # Timed scan: Tier 4 alerts, top-process lookup
 │   ├── tools/
 │   │   ├── analyze_system.py        # Resource analysis MCP tool
 │   │   ├── list_processes.py        # Process enumeration MCP tool
+│   │   ├── explain_process.py       # Deep inspection of one process
 │   │   ├── confirm_termination.py   # Stage PIDs (MCP interface)
 │   │   ├── execute_termination.py   # Execute staged kills (MCP interface)
 │   │   ├── audit_tools.py           # Audit log viewer
@@ -317,14 +355,25 @@ KavanMCP/
 │   │   └── models.py                # SQL schema definitions
 │   ├── integrations/
 │   │   ├── monitor.py               # psutil metrics polling
-│   │   └── windows.py               # pywin32 deep inspection
+│   │   └── windows.py               # pywin32 window detection + deep inspection
+│   ├── utils/
+│   │   ├── logger.py                # File + stderr logging
+│   │   ├── schemas.py               # Pydantic models
+│   │   ├── error_handlers.py        # MCP tool error wrapper
+│   │   └── timefmt.py               # UTC timestamp conversions
 │   ├── tests/
-│   │   ├── test_approval.py         # Approval cache unit tests
-│   │   ├── test_classification.py   # Tier classification unit tests
-│   │   ├── test_db.py               # Database helpers unit tests
-│   │   ├── test_termination_api.py  # Phase 8 kill flow integration tests
-│   │   ├── test_phase9_backend.py   # Phase 9 WebSocket + persistence tests
-│   │   └── test_phase10_backend.py  # Phase 10 WAL concurrency tests
+│   │   ├── test_approval.py         # Approval cache
+│   │   ├── test_classification.py   # Tier classification
+│   │   ├── test_db.py               # Database helpers
+│   │   ├── test_monitor.py          # Process scan
+│   │   ├── test_explain_process.py  # explain_process tool
+│   │   ├── test_rollback.py         # Rollback with original arguments
+│   │   ├── test_termination_api.py  # Kill flow and API boundary
+│   │   ├── test_phase9_backend.py   # WebSocket + settings persistence
+│   │   ├── test_phase10_backend.py  # WAL concurrency
+│   │   ├── test_history_recorder.py # Aggregation, episodes, watch, retention
+│   │   ├── test_alerts_api.py       # /api/alerts and alert_event messages
+│   │   └── test_metrics_api.py      # /api/metrics/history
 │   ├── resources/
 │   │   └── tier_1_processes.json    # Hardcoded Tier 1 whitelist
 │   └── requirements.txt
@@ -335,41 +384,65 @@ KavanMCP/
 │   │   ├── capabilities/default.json# ACL permissions
 │   │   └── tauri.conf.json          # Window, tray, icon config
 │   └── src/
-│       ├── App.tsx                  # Root: hook initialization
+│       ├── App.tsx                  # Root: hook initialization, page lookup
 │       ├── pages/
 │       │   ├── Dashboard.tsx        # Gauges + process table
+│       │   ├── Alerts.tsx           # Alert history
+│       │   ├── Trends.tsx           # Performance graphs (loaded on demand)
 │       │   └── Settings.tsx         # Threshold sliders + toggles
 │       ├── components/
 │       │   ├── dashboard/
-│       │   │   ├── GaugeCard.tsx            # Recharts radial gauge
+│       │   │   ├── GaugeCard.tsx            # SVG ring dial with a threshold zone
 │       │   │   ├── ProcessTable.tsx          # Virtualized table + kill wiring
 │       │   │   ├── ProcessContextMenu.tsx    # Right-click menu (portal)
 │       │   │   ├── KillConfirmModal.tsx      # Tier-aware confirm dialog
 │       │   │   └── TierBadge.tsx             # Tier 1-4 visual chips
+│       │   ├── alerts/
+│       │   │   ├── AlertTable.tsx           # Virtualized alert list
+│       │   │   ├── AlertFilters.tsx         # Date, type and severity filters
+│       │   │   ├── AlertDetail.tsx          # Expanded row + "Show on graph"
+│       │   │   └── LevelBadge.tsx           # Warning / Critical chip
+│       │   ├── trends/
+│       │   │   ├── MetricChart.tsx          # One chart: line, peak band, limit, alerts
+│       │   │   ├── OverviewStrip.tsx        # Brush for pan and zoom
+│       │   │   └── ChartTooltip.tsx         # Bucket values + overlapping alerts
 │       │   ├── common/
 │       │   │   ├── Toast.tsx                # Single alert component
-│       │   │   └── ToastContainer.tsx        # Toast queue renderer
+│       │   │   ├── ToastContainer.tsx        # Toast queue renderer
+│       │   │   ├── EmptyState.tsx           # Loading / empty / failed state
+│       │   │   ├── SegmentedControl.tsx     # Radio-group filter
+│       │   │   ├── Switch.tsx               # Toggle
+│       │   │   └── ErrorBoundary.tsx        # Crash fallback
 │       │   └── layout/
 │       │       ├── Header.tsx               # Top bar + status dot
 │       │       ├── Sidebar.tsx              # Navigation rail
-│       │       └── MainLayout.tsx           # Page scaffold
+│       │       ├── MainLayout.tsx           # Page scaffold
+│       │       └── views.ts                 # Page names and titles
 │       ├── context/
-│       │   ├── ConfigContext.tsx     # Settings with ref-based closure safety
-│       │   ├── MetricsContext.tsx    # CPU/RAM/Disk live state
-│       │   ├── ProcessContext.tsx    # Process list state
-│       │   └── ToastContext.tsx      # Toast queue state
+│       │   ├── ConfigContext.tsx         # Settings with ref-based closure safety
+│       │   ├── MetricsContext.tsx        # CPU/RAM/Disk live state
+│       │   ├── ProcessContext.tsx        # Process list state
+│       │   ├── AlertHistoryContext.tsx   # Alert list, filters, live updates
+│       │   ├── NavigationContext.tsx     # Active page + cross-page target
+│       │   └── ToastContext.tsx          # Toast queue state
 │       ├── hooks/
 │       │   ├── useWebSocketConnection.ts  # Reconnect with exponential backoff
 │       │   ├── useProcessManager.ts       # Kill cascade logic
 │       │   ├── useTrayIntegration.ts      # Global tray with offline awareness
 │       │   └── useWindowLifecycle.ts      # Hide-on-close behaviour
-│       └── services/
-│           └── api.ts               # Axios client + typed endpoints
+│       ├── services/
+│       │   └── api.ts               # Axios client + typed endpoints
+│       ├── utils/
+│       │   ├── time.ts              # Duration and date formatting
+│       │   └── series.ts            # Gap filling and window statistics
+│       └── styles/
+│           └── index.css            # Design tokens for both themes
 │
-├── phases_v2/                       # Phase-by-phase build plans
-│   ├── Phase0_v2.md … Phase10_v2.md
+├── phases/                          # V1 build plans
+├── phases_v2/                       # V2 build plans (Phase0_v2.md … Phase10_v2.md)
+├── phase_v2_1/                      # V2.1 plan and its 8 phase files
 │
-├── docs/                            # Architecture & API docs
+├── docs/                            # PRD, TRD and API documents
 ├── CLAUDE.md                        # Claude Code development guide
 ├── kavan_logo.jpg
 └── README.md
@@ -449,7 +522,7 @@ Restart Claude Desktop. KavanMCP tools will appear automatically.
 ```powershell
 cd mcp-server
 python -m pytest -q
-# 115 passed
+# 154 passed
 ```
 
 ---
@@ -465,20 +538,30 @@ Returns global CPU/RAM totals and the top resource hogs classified by tier.
 
 // Response
 {
-  "global_cpu_percent": 15.2,
-  "global_memory_percent": 45.1,
-  "top_processes": [
-    { "pid": 1204, "name": "chrome.exe", "cpu_percent": 5.1, "memory_mb": 450.2, "tier": 3 }
-  ]
+  "total_cpu_percent": 15.2,
+  "total_memory_gb": 15.8,
+  "used_memory_gb": 7.1,
+  "top_cpu_hogs": [
+    { "pid": 1204, "name": "chrome.exe", "cpu_percent": 5.1, "memory_mb": 450.2,
+      "tier": 2, "is_headless": false, "anomaly_flags": [] }
+  ],
+  "top_memory_hogs": [ /* same shape */ ]
 }
 ```
 
 ### `list_processes`
-Lists all running processes with an optional name filter.
+Lists running processes with an optional name filter. Tier 1 processes are left out unless `include_tier_1` is true or a name is searched for.
 
 ```jsonc
-// Request (filter is optional)
-{ "filter_name": "chrome" }
+// Request (both are optional)
+{ "filter_name": "chrome", "include_tier_1": false }
+```
+
+### `explain_process`
+Deep inspection of one process before proposing to terminate it: command line, executable path, parent and children, third-party modules and safety notes.
+
+```jsonc
+{ "pid": 1204 }
 ```
 
 ### `confirm_termination`
@@ -503,7 +586,7 @@ Returns the recent termination history from the SQLite WAL database.
 ```
 
 ### `rollback_last_action`
-Relaunches the last-killed process from its stored executable path.
+Relaunches the last-killed process from its stored executable path, with its original arguments.
 
 ```jsonc
 { "process_identifier": "notepad.exe" }
@@ -513,7 +596,7 @@ Relaunches the last-killed process from its stored executable path.
 
 ## REST API Quick Reference
 
-All endpoints are on `http://127.0.0.1:8000`. CORS is restricted to Tauri window origins only.
+All endpoints are on `http://127.0.0.1:8000`. CORS is restricted to Tauri window origins, and a request from any other web origin is refused before it reaches a route.
 
 | Method | Path | Description |
 |---|---|---|
@@ -522,17 +605,22 @@ All endpoints are on `http://127.0.0.1:8000`. CORS is restricted to Tauri window
 | `POST` | `/api/update_thresholds` | Partially update config (cpu/ram/disk/theme/sound) |
 | `POST` | `/api/confirm_termination` | Stage a PID (rejects Tier 1 immediately) |
 | `POST` | `/api/execute_termination` | Execute a staged kill (verifies create\_time) |
-| `WS` | `/ws` | Real-time metrics stream (2s interval) |
+| `GET` | `/api/alerts` | Alert history. Filters: `from`, `to`, `metric`, `level`, `limit` |
+| `GET` | `/api/metrics/history` | CPU/RAM/disk over time. `range` (`1h`, `6h`, `24h`, `7d`) or `from` + `to` |
+| `WS` | `/ws` | `metrics_update` every 2s, `threshold_alert` when a limit is exceeded, `alert_event` when a stored alert starts, changes or ends |
 
 ### Error codes returned in `detail.code`
 
 | Code | HTTP | Meaning |
 |---|---|---|
 | `tier1_blocked` | 403 | Tier 1 system process — always rejected |
+| `self_protected` | 403 | The PID is KavanMCP itself or the process that launched it |
+| `forbidden_origin` | 403 | The request came from a web origin other than the app |
 | `access_denied` | 403 | Needs Administrator rights |
 | `not_approved` | 409 | PID not staged or approval expired |
 | `pid_reused` | 409 | A different process now holds this PID |
 | `not_found` | 404 | Process already exited |
+| `invalid_range`, `range_too_short`, `range_too_long` | 400 | A history window that is reversed, under 10 minutes or over 7 days |
 | `error` | 500 | Unexpected failure |
 
 ---
@@ -546,15 +634,15 @@ graph LR
     end
 
     subgraph Tier2["🟠 Tier 2 — Single Confirmation"]
-        t2p["VS Code · Chrome · Firefox\nTeams · Slack · IDE processes"]
+        t2p["VS Code · Visual Studio · Chrome\nEdge · Firefox · Slack\nDiscord · Spotify · OBS"]
     end
 
     subgraph Tier3["🟡 Tier 3 — Dual Confirmation"]
-        t3p["Background updaters\nUnused helper services\nKnown safe background apps"]
+        t3p["Everything else:\nbackground helpers,\nupdaters, other apps"]
     end
 
     subgraph Tier4["🔵 Tier 4 — High-Risk Alert"]
-        t4p["Unknown processes\nAnomaly: high CPU + headless\nPotential malware signatures"]
+        t4p["No visible window\nand over 25% CPU"]
     end
 
     Lock["🔒 Approval Cache\n5-min TTL · Single-use\nPID identity check"] --> Kill["🎯 Termination\nSIGTERM → SIGKILL"]
@@ -565,10 +653,11 @@ graph LR
     Tier4 --> Lock
 ```
 
-Tier 1 is enforced at **three independent layers**:
-1. `confirm_termination` — rejects at the staging step and never adds to the approval cache
+Tier 1 is enforced at **four independent layers**:
+1. `stage_termination` — rejects at the staging step, logs the attempt and never adds to the approval cache
 2. `execute_approved_termination` — re-checks tier at the kill gate (defence in depth)
-3. `KillConfirmModal` — disables the Confirm button in the UI so the request is never sent
+3. `_terminate_blocking` — checks once more directly in front of the OS call, so no caller can skip it
+4. `KillConfirmModal` — disables the Confirm button in the UI so the request is never sent
 
 ---
 
