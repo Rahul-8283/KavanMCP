@@ -15,13 +15,17 @@ CREATE TABLE IF NOT EXISTS audit_log (
     cpu_freed_pct REAL,
     llm_reasoning TEXT,
     user_approved BOOLEAN,
-    command_line TEXT -- JSON array of the original argv, used to relaunch on rollback
+    command_line TEXT, -- JSON array of the original argv, used to relaunch on rollback
+    tier INTEGER, -- TERMINATED rows: the tier the user confirmed. NULL for kills made before V2.1
+    rolled_back_at DATETIME -- TERMINATED rows: when the kill was restored. NULL means not restored
 );
 """
 
 # Columns added after the first release. init_db adds any that an existing database lacks.
 AUDIT_LOG_MIGRATIONS = {
     "command_line": "ALTER TABLE audit_log ADD COLUMN command_line TEXT",
+    "tier": "ALTER TABLE audit_log ADD COLUMN tier INTEGER",
+    "rolled_back_at": "ALTER TABLE audit_log ADD COLUMN rolled_back_at DATETIME",
 }
 
 CREATE_SYSTEM_BASELINES_TABLE = """
