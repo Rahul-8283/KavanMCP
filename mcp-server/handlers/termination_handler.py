@@ -6,7 +6,14 @@ import subprocess
 import psutil
 
 from config.whitelist import TIER_1_WHITELIST
-from database.db import get_last_terminated_process, log_rollback, log_termination
+from database.db import (
+    claim_rollback,
+    get_last_terminated_process,
+    get_termination_by_id,
+    log_rollback,
+    log_termination,
+    release_rollback,
+)
 from handlers.approval_handler import (
     protected_pids,
     self_protection_error,
@@ -72,15 +79,16 @@ def _terminate_blocking(pid: int) -> dict:
         return {"status": "access_denied", "error": ACCESS_DENIED_MESSAGE}
 
 
-async def terminate_process(pid: int, reasoning: str) -> dict:
+async def terminate_process(pid: int, reasoning: str, tier: int | None = None) -> dict:
     result = await asyncio.to_thread(_terminate_blocking, pid)
 
     if result["status"] == "success":
         # The argv is only needed by the audit record; callers get the same fields as before
         cmdline = result.pop("cmdline")
-        # Record to Phase 4 Database
-        await log_termination(result["name"], pid, result["path"], result["freed_mb"], result["freed_cpu"], reasoning,
-                              command_line=json.dumps(cmdline) if cmdline else None)
+        # Record to Phase 4 Database. audit_id lets a caller refer to this exact kill, to undo it.
+        result["audit_id"] = await log_termination(
+            result["name"], pid, result["path"], result["freed_mb"], result["freed_cpu"], reasoning,
+            command_line=json.dumps(cmdline) if cmdline else None, tier=tier)
 
     return result
 
@@ -126,7 +134,8 @@ async def execute_approved_termination(pid: int, reasoning: str) -> dict:
             "error": f"CRITICAL ERROR: {name} (PID: {pid}) is a Tier 1 process. Termination is STRICTLY PROHIBITED."
         }
 
-    return await terminate_process(pid, reasoning)
+    # The tier stored is the one the user saw and confirmed, not a fresh classification
+    return await terminate_process(pid, reasoning, tier=entry["tier"])
 
 def _relaunch_argv(exe_path: str, stored_command_line: str | None) -> list[str]:
     """
@@ -142,31 +151,77 @@ def _relaunch_argv(exe_path: str, stored_command_line: str | None) -> list[str]:
         argv = []
     return [exe_path, *argv[1:]]
 
-async def rollback_process(pid_or_name: str) -> dict:
+async def _restore(row: dict) -> dict:
     """
-    The Undo Button. Queries the database for a recently killed process and relaunches it.
+    Relaunches one recorded kill, at most once. The order is what makes it safe: the kill is
+    claimed before the launch, so two simultaneous requests cannot both start the program,
+    and the claim is released again if the launch fails so the user can retry.
+
+    Returned status: "success" | "no_path" | "exe_missing" | "already_restored"
+                     | "launch_failed" | "error".
     """
-    row = await get_last_terminated_process(pid_or_name)
-    
-    if not row:
-        return {"status": "error", "reason": f"Could not find a recent termination record for '{pid_or_name}'."}
-        
+    audit_id = row["id"]
+    name = row["process_name"]
     exe_path = row.get("executable_path")
-    process_name = row.get("process_name")
-    
-    if not exe_path or not os.path.exists(exe_path):
-        return {"status": "error", "reason": f"Executable path is invalid or missing: {exe_path}"}
-        
+
+    if not exe_path:
+        return {"status": "no_path", "message": f"{name} was killed without a recorded location, so it cannot be restored."}
+    if not os.path.exists(exe_path):
+        return {"status": "exe_missing", "message": f"{name} can no longer be found at its original location."}
+
+    try:
+        if not await claim_rollback(audit_id):
+            return {"status": "already_restored", "message": f"{name} has already been restored."}
+    except Exception as e:
+        logger.error(f"Could not claim rollback {audit_id}: {e}")
+        return {"status": "error", "message": "The audit database could not be updated."}
+
     try:
         # Launch as a completely independent background process
         # DETACHED_PROCESS = 0x00000008
         relaunched = subprocess.Popen(_relaunch_argv(exe_path, row.get("command_line")), creationflags=0x00000008)
-
-        # Log the resurrection
-        await log_rollback(process_name, relaunched.pid, exe_path)
-        logger.info(f"Successfully rolled back process: {process_name}")
-        return {"status": "success", "message": f"Successfully rolled back (relaunched) {process_name}."}
-        
     except Exception as e:
-        logger.error(f"Failed to rollback {process_name}: {e}")
-        return {"status": "error", "reason": f"Failed to relaunch: {e}"}
+        logger.error(f"Failed to rollback {name}: {e}")
+        try:
+            await release_rollback(audit_id)
+        except Exception as release_error:
+            logger.error(f"Could not release rollback {audit_id}: {release_error}")
+        return {"status": "launch_failed", "message": f"Failed to relaunch {name}: {e}"}
+
+    # Log the resurrection
+    await log_rollback(name, relaunched.pid, exe_path)
+    logger.info(f"Successfully rolled back process: {name}")
+    restored = await get_termination_by_id(audit_id)
+    return {
+        "status": "success", "id": audit_id, "name": name, "new_pid": relaunched.pid,
+        "rolled_back_at": restored["rolled_back_at"] if restored else None,
+        "message": f"Successfully rolled back (relaunched) {name}.",
+    }
+
+
+async def rollback_by_id(audit_id: str) -> dict:
+    """Restores the exact kill with this audit id. Statuses are those of _restore, plus "not_found"."""
+    try:
+        row = await get_termination_by_id(audit_id)
+    except Exception as e:
+        logger.error(f"Could not read kill {audit_id}: {e}")
+        return {"status": "error", "message": "The audit database could not be read."}
+    if row is None:
+        return {"status": "not_found", "message": "No terminated process has that id."}
+    return await _restore(row)
+
+
+async def rollback_process(pid_or_name: str) -> dict:
+    """
+    The Undo Button for the MCP tool. Restores the most recent kill matching a name or PID
+    that has not been restored yet.
+    """
+    row = await get_last_terminated_process(pid_or_name)
+
+    if not row:
+        return {"status": "error", "reason": f"Could not find a recent termination record for '{pid_or_name}' that has not already been restored."}
+
+    result = await _restore(row)
+    if result["status"] == "success":
+        return {"status": "success", "message": result["message"]}
+    return {"status": "error", "reason": result["message"]}
