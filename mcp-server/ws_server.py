@@ -42,7 +42,7 @@ from handlers.process_watch import (
     scan_processes,
 )
 from handlers.termination_handler import execute_approved_termination
-from routes import history
+from routes import history, kills
 from routes.history import serialize_alert
 from tools.list_processes import list_processes_logic
 from utils.logger import logger
@@ -132,6 +132,7 @@ app.add_middleware(LocalOnlyMiddleware)
 
 # Middleware belongs to the app, so routes on a router are guarded exactly like the ones below
 app.include_router(history.router)
+app.include_router(kills.router)
 
 class ConnectionManager:
     def __init__(self):
