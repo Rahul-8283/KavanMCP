@@ -157,9 +157,10 @@ Every commit message must follow this pattern (no task numbers, no "task 1-2" st
 type(scope): description
 
 Optional body paragraph(s)
-
-Co-Authored-By: Claude Haiku 4.5 <noreply@anthropic.com>
 ```
+
+Never add a `Co-Authored-By` line naming Claude or any other AI to a commit message or a PR
+description. The commit author is the user alone.
 
 #### Valid Types
 - `feat:` — New feature or component
@@ -176,25 +177,19 @@ Co-Authored-By: Claude Haiku 4.5 <noreply@anthropic.com>
 git commit -m "feat(ws_server): add /api/confirm_termination endpoint
 
 Implements Step 1 of Phase 8 kill flow. Validates PID, checks approval TTL, 
-rejects Tier 1 processes.
-
-Co-Authored-By: Claude Haiku 4.5 <noreply@anthropic.com>"
+rejects Tier 1 processes."
 
 # Bug fix
 git commit -m "fix(MetricsContext): prevent NaN when WebSocket disconnects
 
-Gracefully fall back to '--%' display instead of crashing.
-
-Co-Authored-By: Claude Haiku 4.5 <noreply@anthropic.com>"
+Gracefully fall back to '--%' display instead of crashing."
 
 # Phase milestone
 git commit -m "phase(6): complete toast alert system
 
 - Implement ToastContext + auto-dismissal
 - Wire WebSocket alerts to toast queue
-- Add native Tauri notifications
-
-Co-Authored-By: Claude Haiku 4.5 <noreply@anthropic.com>"
+- Add native Tauri notifications"
 ```
 
 ### Push Immediately After Each Commit
@@ -211,7 +206,7 @@ When creating/merging a PR:
    - ✅ `feat: kill flow & settings fixes & tray fixes (phase(8))`
    - ❌ `phase(8): kill flow & fixes` or `implement kill` or `Merge pull request #42...`
 
-2. **PR Description:** Include summary, test plan, and co-author line
+2. **PR Description:** Include summary and test plan
    ```markdown
    ## Summary
    - Adds right-click context menu to ProcessTable
@@ -223,8 +218,6 @@ When creating/merging a PR:
    - [ ] Verify Tier 1 process has disabled Confirm button
    - [ ] Verify successful kill removes row from table optimistically
    - [ ] Verify 403 error shows Toast with Admin message
-   
-   Co-Authored-By: Claude Haiku 4.5 <noreply@anthropic.com>
    ```
 
 3. **Merge Commit:** Use the PR title as the merge message (GitHub auto-fills this correctly if you don't override it).
@@ -608,14 +601,8 @@ git diff
 # Create a new feature branch
 git checkout -b feat/phase-8-kill-flow
 
-# Commit with co-author
-git commit -m "feat(ProcessTable): add right-click kill context menu
-
-$(cat <<'EOF'
-
-Co-Authored-By: Claude Haiku 4.5 <noreply@anthropic.com>
-EOF
-)"
+# Commit
+git commit -m "feat(ProcessTable): add right-click kill context menu"
 
 # Push immediately
 git push origin feat/phase-8-kill-flow
@@ -663,7 +650,7 @@ Nothing else goes in this commit.
 ## Final Reminders
 
 1. **Always ask before committing.** Show the plan. Wait for approval.
-2. **Use conventional commits.** No task numbers. Always co-author.
+2. **Use conventional commits.** No task numbers. Never add Claude as a co-author.
 3. **Push immediately.** Don't batch pushes to end-of-phase.
 4. **Reference phases.** Use `phase(N): description` for milestone commits.
 5. **Read phase docs.** Each phase has a Definition of Done. Hit all checks before marking complete.
