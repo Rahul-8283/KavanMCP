@@ -4,10 +4,10 @@
   <p><strong>AI-Powered System Optimizer · Dual-Interface · Ironclad Safety</strong></p>
   <p>
     <a href="https://github.com/Rahul-8283/KavanMCP/blob/main/LICENSE"><img src="https://img.shields.io/badge/License-MIT-green?style=flat-square" alt="License" /></a>
-    <a href="https://github.com/Rahul-8283/KavanMCP/commit/c75744d"><img src="https://img.shields.io/badge/last%20commit-2026--10--06%20%C2%B7%20c75744d-blue?style=flat-square" alt="Last Commit" /></a>
+    <a href="https://github.com/Rahul-8283/KavanMCP/commit/499f947"><img src="https://img.shields.io/badge/last%20commit-2026--10--13%20%C2%B7%20499f947-blue?style=flat-square" alt="Last Commit" /></a>
     <img src="https://img.shields.io/badge/V2-Production%20Grade-blue?style=flat-square" alt="V2 Production Grade" />
     <img src="https://img.shields.io/badge/Platform-Windows-0078D6?style=flat-square&logo=windows" alt="Windows" />
-    <img src="https://img.shields.io/badge/Tests-154%20passing-brightgreen?style=flat-square" alt="Tests" />
+    <img src="https://img.shields.io/badge/Tests-191%20passing-brightgreen?style=flat-square" alt="Tests" />
   </p>
 </div>
 
@@ -231,6 +231,8 @@ erDiagram
         TEXT llm_reasoning
         BOOLEAN user_approved
         TEXT command_line "original arguments, for rollback"
+        INTEGER tier "tier the user confirmed. NULL for kills before V2.1"
+        DATETIME rolled_back_at "when the kill was restored. NULL if not"
     }
 
     METRICS_HISTORY {
@@ -296,6 +298,7 @@ gantt
     Phase 1 · Metrics + Alert Storage :done, 2026-10-05, 1d
     Phase 2 · Alert History Page      :done, 2026-10-06, 1d
     Phase 3 · Performance Graphs      :done, 2026-10-06, 1d
+    Phase 4 · Rollback Manager Backend :done, 2026-10-13, 1d
 ```
 
 ---
@@ -313,7 +316,7 @@ gantt
 | ⚙️ **Persistent Settings** | Thresholds and the sound toggle persist to `settings.json`, and the UI rolls back on failed saves; the theme is remembered by the app itself |
 | 🔔 **Native Notifications** | Tauri Notification API fires Windows Action Center alerts on CPU/RAM spikes even when the window is hidden |
 | 🗂️ **System Tray** | Left-click restores the window; right-click opens the menu; icon colour reflects the current alert state |
-| ↩️ **Undo (Rollback)** | The `rollback_last_action` tool relaunches a recently killed process from the audit log's stored executable path, with its original arguments |
+| ↩️ **Undo (Rollback)** | A killed process is relaunched from the audit log's stored executable path, with its original arguments. `GET /api/kills` lists recent kills with their tier and whether each can still be restored, and `POST /api/rollback` restores one exact kill by its id. A kill is restored once, whether from the API or from the `rollback_last_action` tool |
 | 🗃️ **Continuous History** | The backend records one row of CPU/RAM/disk per minute and one row per alert episode, whether or not the window is open. Metrics are kept 7 days, alerts 30 |
 | 📜 **Alert History** | Every alert with when it started and ended, its peak, the readings at that moment and the top process at the time. Filter by date, type and severity; updates live without polling |
 | 📈 **Performance Trends** | CPU, memory and disk over 1 hour to 7 days, with the peak band, threshold line and alert regions. Drag the overview to pan and zoom; zooming loads finer detail. A period with no data is drawn as a gap |
@@ -331,7 +334,8 @@ KavanMCP/
 │   ├── server.py                    # 7 MCP tool definitions (FastMCP)
 │   ├── ws_server.py                 # FastAPI app: REST + WebSocket, history recording loops
 │   ├── routes/
-│   │   └── history.py               # /api/alerts and /api/metrics/history
+│   │   ├── history.py               # /api/alerts and /api/metrics/history
+│   │   └── kills.py                 # /api/kills and /api/rollback
 │   ├── handlers/
 │   │   ├── approval_handler.py      # PENDING_APPROVALS TTL cache
 │   │   ├── classification_handler.py# 4-Tier classification logic
@@ -360,6 +364,7 @@ KavanMCP/
 │   │   ├── logger.py                # File + stderr logging
 │   │   ├── schemas.py               # Pydantic models
 │   │   ├── error_handlers.py        # MCP tool error wrapper
+│   │   ├── privileges.py            # is_admin()
 │   │   └── timefmt.py               # UTC timestamp conversions
 │   ├── tests/
 │   │   ├── test_approval.py         # Approval cache
@@ -367,7 +372,9 @@ KavanMCP/
 │   │   ├── test_db.py               # Database helpers
 │   │   ├── test_monitor.py          # Process scan
 │   │   ├── test_explain_process.py  # explain_process tool
-│   │   ├── test_rollback.py         # Rollback with original arguments
+│   │   ├── test_rollback.py         # Rollback with original arguments, by id, and once
+│   │   ├── test_kills_api.py        # /api/kills and /api/rollback
+│   │   ├── kill_helpers.py          # Puts kill rows into the test database
 │   │   ├── test_termination_api.py  # Kill flow and API boundary
 │   │   ├── test_phase9_backend.py   # WebSocket + settings persistence
 │   │   ├── test_phase10_backend.py  # WAL concurrency
@@ -522,7 +529,7 @@ Restart Claude Desktop. KavanMCP tools will appear automatically.
 ```powershell
 cd mcp-server
 python -m pytest -q
-# 154 passed
+# 191 passed
 ```
 
 ---
@@ -586,7 +593,7 @@ Returns the recent termination history from the SQLite WAL database.
 ```
 
 ### `rollback_last_action`
-Relaunches the last-killed process from its stored executable path, with its original arguments.
+Relaunches the most recent kill of that name or PID that has not been restored yet, from its stored executable path and with its original arguments. A kill already restored through the REST API is skipped.
 
 ```jsonc
 { "process_identifier": "notepad.exe" }
@@ -604,9 +611,11 @@ All endpoints are on `http://127.0.0.1:8000`. CORS is restricted to Tauri window
 | `GET` | `/api/get_config` | Current thresholds and UI preferences |
 | `POST` | `/api/update_thresholds` | Partially update config (cpu/ram/disk/theme/sound) |
 | `POST` | `/api/confirm_termination` | Stage a PID (rejects Tier 1 immediately) |
-| `POST` | `/api/execute_termination` | Execute a staged kill (verifies create\_time) |
+| `POST` | `/api/execute_termination` | Execute a staged kill (verifies create\_time). The response carries `audit_id`, the id of the kill's audit row |
 | `GET` | `/api/alerts` | Alert history. Filters: `from`, `to`, `metric`, `level`, `limit` |
 | `GET` | `/api/metrics/history` | CPU/RAM/disk over time. `range` (`1h`, `6h`, `24h`, `7d`) or `from` + `to` |
+| `GET` | `/api/kills` | Processes killed in the last `hours` (1 to 168, default 24), newest first, each with `tier`, `can_restore` and `restore_blocked_reason`. Also `backend_elevated` |
+| `POST` | `/api/rollback` | Restore one kill: `{ "id": "<audit_id>" }`. Starts the recorded program with its recorded arguments, at most once |
 | `WS` | `/ws` | `metrics_update` every 2s, `threshold_alert` when a limit is exceeded, `alert_event` when a stored alert starts, changes or ends |
 
 ### Error codes returned in `detail.code`
@@ -619,7 +628,10 @@ All endpoints are on `http://127.0.0.1:8000`. CORS is restricted to Tauri window
 | `access_denied` | 403 | Needs Administrator rights |
 | `not_approved` | 409 | PID not staged or approval expired |
 | `pid_reused` | 409 | A different process now holds this PID |
-| `not_found` | 404 | Process already exited |
+| `not_found` | 404 | Process already exited, or no kill has that id |
+| `already_restored` | 409 | That kill was restored already |
+| `no_path`, `exe_missing` | 422 | The kill has no recorded executable, or it is no longer on disk |
+| `launch_failed` | 500 | Windows refused to start the program. The kill stays restorable, so it can be retried |
 | `invalid_range`, `range_too_short`, `range_too_long` | 400 | A history window that is reversed, under 10 minutes or over 7 days |
 | `error` | 500 | Unexpected failure |
 

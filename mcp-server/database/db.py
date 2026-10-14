@@ -65,17 +65,23 @@ async def init_db():
 
 # when a process is successfully killed
 async def log_termination(process_name: str, pid: int, path: str, mem_mb: float, cpu_pct: float, reasoning: str,
-                          command_line: str | None = None) -> None:
-    """Logs a process termination event. command_line is the JSON-encoded argv, kept for rollback."""
+                          command_line: str | None = None, tier: int | None = None) -> str | None:
+    """
+    Logs a process termination event and returns the new row's id, or None if the write failed.
+    command_line is the JSON-encoded argv, kept for rollback. tier is the tier the user confirmed.
+    """
+    audit_id = str(uuid.uuid4())
     try:
         async with _connect() as db:
             await db.execute(
-                "INSERT INTO audit_log (id, process_name, pid, executable_path, action_type, memory_freed_mb, cpu_freed_pct, llm_reasoning, user_approved, command_line) VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?)",
-                (str(uuid.uuid4()), process_name, pid, path, 'TERMINATED', mem_mb, cpu_pct, reasoning, True, command_line)
+                "INSERT INTO audit_log (id, process_name, pid, executable_path, action_type, memory_freed_mb, cpu_freed_pct, llm_reasoning, user_approved, command_line, tier) VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)",
+                (audit_id, process_name, pid, path, 'TERMINATED', mem_mb, cpu_pct, reasoning, True, command_line, tier)
             )
             await db.commit()
+        return audit_id
     except Exception as e:
         logger.error(f"Failed to log termination for {process_name}: {e}")
+        return None
 
 # when LLM makes a mistakes to kill a high level Tier 1 running process
 async def log_blocked_action(process_name: str, pid: int, reasoning: str) -> None:
@@ -91,18 +97,19 @@ async def log_blocked_action(process_name: str, pid: int, reasoning: str) -> Non
         logger.error(f"Failed to log blocked action for {process_name}: {e}")
 
 async def get_last_terminated_process(pid_or_name: str) -> dict:
-    """Finds the most recent terminated process matching a PID or name."""
+    """Finds the most recent terminated process matching a PID or name that has not been restored."""
     try:
         async with _connect() as db:
             db.row_factory = aiosqlite.Row
-            
+
+            # rowid breaks ties between kills made in the same second, so "latest" is exact
             if pid_or_name.isdigit():
-                query = "SELECT * FROM audit_log WHERE action_type = 'TERMINATED' AND pid = ? ORDER BY timestamp DESC LIMIT 1"
+                query = "SELECT * FROM audit_log WHERE action_type = 'TERMINATED' AND rolled_back_at IS NULL AND pid = ? ORDER BY timestamp DESC, rowid DESC LIMIT 1"
                 params = (int(pid_or_name),)
             else:
-                query = "SELECT * FROM audit_log WHERE action_type = 'TERMINATED' AND process_name = ? COLLATE NOCASE ORDER BY timestamp DESC LIMIT 1"
+                query = "SELECT * FROM audit_log WHERE action_type = 'TERMINATED' AND rolled_back_at IS NULL AND process_name = ? COLLATE NOCASE ORDER BY timestamp DESC, rowid DESC LIMIT 1"
                 params = (pid_or_name,)
-                
+
             async with db.execute(query, params) as cursor:
                 row = await cursor.fetchone()
                 if row:
@@ -110,6 +117,52 @@ async def get_last_terminated_process(pid_or_name: str) -> dict:
     except Exception as e:
         logger.error(f"Failed to query last terminated process for {pid_or_name}: {e}")
     return {}
+
+async def get_recent_kills(hours: int, limit: int) -> list[dict]:
+    """TERMINATED rows from the last `hours` hours, newest first."""
+    async with _connect() as db:
+        db.row_factory = aiosqlite.Row
+        async with db.execute(
+            "SELECT * FROM audit_log WHERE action_type = 'TERMINATED' AND timestamp >= datetime('now', ?) "
+            "ORDER BY timestamp DESC, rowid DESC LIMIT ?",
+            (f"-{int(hours)} hours", limit),
+        ) as cursor:
+            return [dict(row) async for row in cursor]
+
+
+async def get_termination_by_id(audit_id: str) -> dict | None:
+    """One TERMINATED row, or None. BLOCKED and ROLLBACK rows are never returned."""
+    async with _connect() as db:
+        db.row_factory = aiosqlite.Row
+        async with db.execute(
+            "SELECT * FROM audit_log WHERE id = ? AND action_type = 'TERMINATED'", (audit_id,)
+        ) as cursor:
+            row = await cursor.fetchone()
+            return dict(row) if row else None
+
+
+async def claim_rollback(audit_id: str) -> bool:
+    """
+    Marks a kill as restored if and only if it is not already. One atomic statement, and SQLite
+    serialises writers, so of two simultaneous restores exactly one gets True.
+    """
+    async with _connect() as db:
+        cursor = await db.execute(
+            "UPDATE audit_log SET rolled_back_at = CURRENT_TIMESTAMP "
+            "WHERE id = ? AND action_type = 'TERMINATED' AND rolled_back_at IS NULL",
+            (audit_id,),
+        )
+        await db.commit()
+        return cursor.rowcount == 1
+
+
+async def release_rollback(audit_id: str) -> None:
+    """Clears the restored mark after a launch that failed, so the user can try again."""
+    async with _connect() as db:
+        await db.execute("UPDATE audit_log SET rolled_back_at = NULL WHERE id = ? AND action_type = 'TERMINATED'",
+                         (audit_id,))
+        await db.commit()
+
 
 async def log_rollback(process_name: str, pid: int, executable_path: str) -> None:
     """Logs a rollback event into the audit database. pid is the relaunched process."""

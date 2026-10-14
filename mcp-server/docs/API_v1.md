@@ -138,7 +138,7 @@ Executes the physical termination of processes. Will violently reject any PID th
 ---
 
 ## 6. `rollback_last_action`
-The "Undo Button". Queries the database for a recently killed process and relaunches it as a detached background process.
+The "Undo Button". Queries the database for the most recent kill of that name or PID **that has not been restored yet** and relaunches it as a detached background process. A kill is restored once, whether it was restored from here or from the desktop app: asking twice for the same name restores the kill before it, and when none is left the tool returns an error and launches nothing.
 
 **Request Payload:**
 ```json

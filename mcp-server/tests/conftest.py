@@ -1,6 +1,7 @@
 import asyncio
 import os
 import sys
+from unittest.mock import patch
 
 import pytest
 
@@ -20,3 +21,13 @@ def isolated_audit_db(tmp_path_factory):
     asyncio.run(db.init_db())
     yield
     db.DB_PATH = original
+
+
+@pytest.fixture
+def fake_popen():
+    """Replaces the launch in a restore, so a test never starts a real application."""
+    from handlers import termination_handler
+
+    with patch.object(termination_handler.subprocess, "Popen") as popen:
+        popen.return_value.pid = 4242
+        yield popen

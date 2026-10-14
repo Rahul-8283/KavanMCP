@@ -488,7 +488,7 @@ Each phase has detailed requirements in `phases_v2/Phase{N}_v2.md`.
 
 ### Remaining Known Issues
 
-1. **No Frontend Tests:** The Python backend has 154 tests. There are no unit/integration tests for
+1. **No Frontend Tests:** The Python backend has 191 tests. There are no unit/integration tests for
    React components or hooks; the UI is still verified manually.
 2. **Tier 2 List Hardcoded:** `TIER_2_ESSENTIAL` lives in `classification_handler.py`. The TRD
    describes user-defined essential apps, so it should move to JSON config like the Tier 1 list.
@@ -661,6 +661,6 @@ Nothing else goes in this commit.
 
 ---
 
-**Last Updated:** October 6, 2026 (V2.1 Phase 3, Performance Graphs, complete on branch `v2_1_3`)
-**Current Phase:** V2.1 Phase 3 (✅ Complete, PR pending). Plans are in `phase_v2_1/`
-**Next Priority:** V2.1 Phase 4 (Rollback Manager Backend)
+**Last Updated:** October 13, 2026 (V2.1 Phase 4, Rollback Manager Backend, complete on branch `v2_1_4`)
+**Current Phase:** V2.1 Phase 4 (✅ Complete, PR pending). Plans are in `phase_v2_1/`
+**Next Priority:** V2.1 Phase 5 (Rollback Manager UI)

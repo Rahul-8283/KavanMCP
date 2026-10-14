@@ -1,21 +1,11 @@
 import asyncio
-import ctypes
 import sys
 
 from database.db import init_db
 from server import mcp
 from utils.logger import logger
+from utils.privileges import is_admin
 
-
-def is_admin() -> bool:
-    """
-    Checks if the current Python process has Administrator privileges via Windows API.
-    """
-    try:
-        return ctypes.windll.shell32.IsUserAnAdmin() != 0
-    except AttributeError:
-        # Fallback if somehow run on non-Windows
-        return False
 
 def print_banner():
     """Prints the KavanMCP startup banner."""
