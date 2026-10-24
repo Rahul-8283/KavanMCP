@@ -75,7 +75,7 @@ export function KillTable({ kills, restoringIds, failures, selectedId, onSelect,
 
   return (
     <div className="flex min-h-0 flex-1 flex-col overflow-x-auto">
-      <div className="flex min-h-0 min-w-[44rem] flex-1 flex-col">
+      <div className="flex min-h-0 min-w-[43rem] flex-1 flex-col">
         <div className="kill-grid h-9 shrink-0 border-b border-line bg-sunken pr-[calc(1.25rem+10px)]">
           {COLUMNS.map((label) => (
             <span key={label} className={`caps whitespace-nowrap ${label === 'Memory (MB)' ? 'text-right' : ''}`}>

@@ -78,7 +78,7 @@ export function RecentlyKilled() {
           onSelect={setSelectedId}
           onRestore={handleRestore}
         />
-        <p className="flex h-8 shrink-0 items-center border-t border-line px-5 text-xs text-ink-faint">
+        <p className="flex min-h-8 shrink-0 items-center border-t border-line px-5 py-1.5 text-xs text-ink-faint">
           Restoring starts the program again. It cannot bring back unsaved work.
         </p>
         {/* A restored program inherits Kavan's rights, so the user is told before the click, not after */}
