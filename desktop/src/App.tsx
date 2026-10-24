@@ -10,6 +10,7 @@ import { useNavigation } from "./context/NavigationContext";
 import { Loader2 } from "lucide-react";
 import { Alerts } from "./pages/Alerts";
 import { Dashboard } from "./pages/Dashboard";
+import { RecentlyKilled } from "./pages/RecentlyKilled";
 import { Settings } from "./pages/Settings";
 
 // The charting library is large and only this page uses it, so it is fetched when the page
@@ -21,6 +22,7 @@ const PAGES: Record<View, ComponentType> = {
   dashboard: Dashboard,
   alerts: Alerts,
   trends: Trends,
+  killed: RecentlyKilled,
   settings: Settings,
 };
 

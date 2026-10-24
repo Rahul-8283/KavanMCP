@@ -1,4 +1,4 @@
-export type View = 'dashboard' | 'alerts' | 'trends' | 'settings';
+export type View = 'dashboard' | 'alerts' | 'trends' | 'killed' | 'settings';
 
 export const VIEW_META: Record<View, { title: string; description: string }> = {
   dashboard: {
@@ -12,6 +12,10 @@ export const VIEW_META: Record<View, { title: string; description: string }> = {
   trends: {
     title: 'Performance Trends',
     description: 'How CPU, memory and disk have behaved over time.',
+  },
+  killed: {
+    title: 'Recently Killed',
+    description: 'Processes Kavan terminated, and a way to bring them back.',
   },
   settings: {
     title: 'Settings',
