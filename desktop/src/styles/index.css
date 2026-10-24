@@ -307,6 +307,22 @@
     }
   }
 
+  /* Recently killed table: the header and every row share one column template */
+  .kill-grid {
+    display: grid;
+    grid-template-columns: minmax(9rem, 1fr) 9.5rem 7.5rem 8.5rem 11rem;
+    align-items: center;
+    column-gap: 1.25rem;
+    padding: 0 1.25rem;
+  }
+
+  @container (max-width: 50rem) {
+    .kill-grid {
+      grid-template-columns: minmax(7rem, 1fr) 8rem 6.5rem 7.5rem 10rem;
+      column-gap: 0.875rem;
+    }
+  }
+
   /* Threshold slider. --fill is the value as a percentage, set inline. */
   .range {
     appearance: none;
