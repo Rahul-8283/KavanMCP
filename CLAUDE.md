@@ -661,6 +661,6 @@ Nothing else goes in this commit.
 
 ---
 
-**Last Updated:** October 24, 2026 (V2.1 Phase 4 follow-up on branch `v2_1_5`: API docs and a concurrency test)
-**Current Phase:** V2.1 Phase 4 (✅ Complete, PR pending). Plans are in `phase_v2_1/`
-**Next Priority:** V2.1 Phase 5 (Rollback Manager UI)
+**Last Updated:** October 24, 2026 (V2.1 Phase 5, Rollback Manager UI, complete on branch `v2_1_5`)
+**Current Phase:** V2.1 Phase 5 (✅ Complete, PR pending). Plans are in `phase_v2_1/`
+**Next Priority:** V2.1 Phase 6 (Whitelist & Auto-start Settings)
