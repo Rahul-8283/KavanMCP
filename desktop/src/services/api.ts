@@ -83,6 +83,40 @@ export interface TerminationResult {
   path: string | null;
   freed_mb: number;
   freed_cpu: number;
+  /** The id of the kill's audit row, which names it for an undo. Null if the audit write failed. */
+  audit_id: string | null;
+}
+
+export type RestoreBlockedReason = 'no_path' | 'exe_missing' | 'already_restored';
+
+export interface KillRecord {
+  id: string;
+  name: string;
+  pid: number;
+  /** Null for kills made before V2.1, when the tier was not recorded */
+  tier: number | null;
+  killed_at: string;
+  memory_freed_mb: number;
+  cpu_freed_pct: number;
+  executable_path: string | null;
+  reasoning: string | null;
+  rolled_back_at: string | null;
+  can_restore: boolean;
+  restore_blocked_reason: RestoreBlockedReason | null;
+}
+
+export interface KillsResponse {
+  /** A restored program inherits the backend's Administrator rights */
+  backend_elevated: boolean;
+  kills: KillRecord[];
+}
+
+export interface RollbackResult {
+  status: 'success';
+  id: string;
+  name: string;
+  new_pid: number;
+  rolled_back_at: string | null;
 }
 
 export type AlertMetric = 'cpu' | 'ram' | 'disk' | 'process';
@@ -148,6 +182,10 @@ export const SystemAPI = {
     apiClient.post<StagedTermination, StagedTermination>('/api/confirm_termination', { pid }, { timeout: TERMINATION_TIMEOUT_MS }),
   executeKill: (pid: number) =>
     apiClient.post<TerminationResult, TerminationResult>('/api/execute_termination', { pid }, { timeout: TERMINATION_TIMEOUT_MS }),
+  fetchKills: (hours: number) =>
+    apiClient.get<KillsResponse, KillsResponse>('/api/kills', { params: { hours } }),
+  rollbackKill: (id: string) =>
+    apiClient.post<RollbackResult, RollbackResult>('/api/rollback', { id }, { timeout: TERMINATION_TIMEOUT_MS }),
   fetchConfig: () => apiClient.get('/api/get_config'),
   updateThresholds: (payload: Record<string, any>) => apiClient.post('/api/update_thresholds', payload),
   fetchAlerts: (filters: AlertFilters) =>
