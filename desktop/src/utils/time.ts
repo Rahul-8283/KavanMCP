@@ -50,3 +50,23 @@ export function formatDay(ms: number): string {
   const date = new Date(ms);
   return `${date.getDate()} ${MONTHS[date.getMonth()]}`;
 }
+
+/** "Just now", "12 min ago" or "3 hours ago" for the same day, and formatWhen for anything older. */
+export function formatAgo(iso: string, now: Date = new Date()): string {
+  const date = new Date(iso);
+  const minutes = Math.floor((now.getTime() - date.getTime()) / 60_000);
+  if (minutes < 1) return 'Just now';
+  if (minutes < 60) return `${minutes} min ago`;
+  if (startOfDay(now) === startOfDay(date)) {
+    const hours = Math.floor(minutes / 60);
+    return `${hours} ${hours === 1 ? 'hour' : 'hours'} ago`;
+  }
+  return formatWhen(iso, now);
+}
+
+/** "09:43" for a moment today, and formatWhen ("Yesterday 22:14", "2 Oct 22:14") for an earlier day. */
+export function formatClockOrDay(iso: string, now: Date = new Date()): string {
+  const date = new Date(iso);
+  if (startOfDay(now) === startOfDay(date)) return `${pad(date.getHours())}:${pad(date.getMinutes())}`;
+  return formatWhen(iso, now);
+}

@@ -307,6 +307,24 @@
     }
   }
 
+  /* Recently killed table: the header and every row share one column template */
+  /* The two templates need 50rem and 42.5rem at the least. KillTable's min-width is set just above
+     the second, and the container query switches before the first would overflow. */
+  .kill-grid {
+    display: grid;
+    grid-template-columns: minmax(8rem, 1fr) 9rem 7rem 8rem 10.5rem;
+    align-items: center;
+    column-gap: 1.25rem;
+    padding: 0 1.25rem;
+  }
+
+  @container (max-width: 50rem) {
+    .kill-grid {
+      grid-template-columns: minmax(6.5rem, 1fr) 7.5rem 6rem 7rem 9.5rem;
+      column-gap: 0.875rem;
+    }
+  }
+
   /* Threshold slider. --fill is the value as a percentage, set inline. */
   .range {
     appearance: none;

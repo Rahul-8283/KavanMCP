@@ -2,6 +2,7 @@ import { useCallback } from 'react';
 import { useProcess, Process } from '../context/ProcessContext';
 import { useToast } from '../context/ToastContext';
 import { SystemAPI, ApiError } from '../services/api';
+import { describeRestoreError, restoreErrorLevel } from '../components/rollback/wording';
 
 function describeError(err: unknown): string {
   if (err instanceof Error) return err.message;
@@ -25,6 +26,16 @@ export function useProcessManager() {
     }
   }, [setProcesses, setIsLoading, setError]);
 
+  /** Starts a just-killed program again, from the Undo on the kill's toast. */
+  const undoKill = useCallback(async (auditId: string, name: string) => {
+    try {
+      await SystemAPI.rollbackKill(auditId);
+      addToast(`Relaunched ${name}.`, 'success');
+    } catch (err) {
+      addToast(describeRestoreError(err), restoreErrorLevel(err));
+    }
+  }, [addToast]);
+
   /**
    * Phase 8 kill cascade: confirm_termination (stage) then execute_termination (kill).
    * Resolves to an error message for the modal to display inline if staging is rejected,
@@ -47,7 +58,13 @@ export function useProcessManager() {
     try {
       const result = await SystemAPI.executeKill(proc.pid);
       removeProcess(proc.pid);
-      addToast(`Successfully terminated ${proc.name}. Freed ${Math.round(result.freed_mb)}MB.`, 'success');
+      // A kill that was not recorded has no id and cannot be restored, so it offers no Undo
+      const auditId = result.audit_id;
+      addToast(
+        `Successfully terminated ${proc.name}. Freed ${Math.round(result.freed_mb)}MB.`,
+        'success',
+        auditId ? { label: 'Undo', onAction: () => undoKill(auditId, proc.name) } : undefined,
+      );
     } catch (err) {
       if (err instanceof ApiError && err.code === 'not_found') {
         // The process exited between the user's click and the kill
@@ -59,7 +76,7 @@ export function useProcessManager() {
     }
 
     return null;
-  }, [removeProcess, addToast]);
+  }, [removeProcess, addToast, undoKill]);
 
   return { fetchProcesses, terminateProcess, isLoading };
 }

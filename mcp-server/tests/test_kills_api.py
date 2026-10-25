@@ -3,6 +3,7 @@ import asyncio
 import os
 import subprocess
 import sys
+import threading
 
 import psutil
 import pytest
@@ -11,7 +12,6 @@ from fastapi.testclient import TestClient
 sys.path.insert(0, os.path.dirname(os.path.dirname(os.path.abspath(__file__))))
 
 from database import db
-from handlers import termination_handler
 from handlers.approval_handler import PENDING_APPROVALS
 from kill_helpers import EXISTING_EXE, add_kill, read_row, row_ids, unique_name
 from ws_server import app
@@ -227,17 +227,27 @@ def test_the_same_kill_cannot_be_restored_twice(fake_popen):
     assert fake_popen.call_count == 1
 
 
-def test_two_restores_at_the_same_moment_start_one_program(fake_popen):
+@pytest.mark.parametrize("round_number", range(5))
+def test_simultaneous_restores_of_one_kill_start_one_program(fake_popen, round_number):
+    """Eight requests released together, each in its own thread with its own database connection."""
     audit_id = add_kill()
+    requests = 8
+    start_together = threading.Barrier(requests)
+    statuses = []
 
-    async def both():
-        return await asyncio.gather(termination_handler.rollback_by_id(audit_id),
-                                    termination_handler.rollback_by_id(audit_id))
+    def send():
+        start_together.wait(timeout=10)
+        statuses.append(restore(audit_id).status_code)
 
-    results = asyncio.run(both())
+    threads = [threading.Thread(target=send) for _ in range(requests)]
+    for thread in threads:
+        thread.start()
+    for thread in threads:
+        thread.join(timeout=30)
 
-    assert sorted(result["status"] for result in results) == ["already_restored", "success"]
+    assert sorted(statuses) == [200] + [409] * (requests - 1)
     assert fake_popen.call_count == 1
+    assert len(row_ids("ROLLBACK")) == len(set(row_ids("ROLLBACK")))
 
 
 def test_a_failed_launch_releases_the_kill_so_it_can_be_retried(fake_popen):

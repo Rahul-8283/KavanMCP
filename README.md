@@ -4,10 +4,10 @@
   <p><strong>AI-Powered System Optimizer · Dual-Interface · Ironclad Safety</strong></p>
   <p>
     <a href="https://github.com/Rahul-8283/KavanMCP/blob/main/LICENSE"><img src="https://img.shields.io/badge/License-MIT-green?style=flat-square" alt="License" /></a>
-    <a href="https://github.com/Rahul-8283/KavanMCP/commit/499f947"><img src="https://img.shields.io/badge/last%20commit-2026--10--13%20%C2%B7%20499f947-blue?style=flat-square" alt="Last Commit" /></a>
+    <a href="https://github.com/Rahul-8283/KavanMCP/commit/598af3a"><img src="https://img.shields.io/badge/last%20commit-2026--10--24%20%C2%B7%20598af3a-blue?style=flat-square" alt="Last Commit" /></a>
     <img src="https://img.shields.io/badge/V2-Production%20Grade-blue?style=flat-square" alt="V2 Production Grade" />
     <img src="https://img.shields.io/badge/Platform-Windows-0078D6?style=flat-square&logo=windows" alt="Windows" />
-    <img src="https://img.shields.io/badge/Tests-191%20passing-brightgreen?style=flat-square" alt="Tests" />
+    <img src="https://img.shields.io/badge/Tests-195%20passing-brightgreen?style=flat-square" alt="Tests" />
   </p>
 </div>
 
@@ -299,6 +299,7 @@ gantt
     Phase 2 · Alert History Page      :done, 2026-10-06, 1d
     Phase 3 · Performance Graphs      :done, 2026-10-06, 1d
     Phase 4 · Rollback Manager Backend :done, 2026-10-13, 1d
+    Phase 5 · Rollback Manager UI      :done, 2026-10-24, 1d
 ```
 
 ---
@@ -316,7 +317,7 @@ gantt
 | ⚙️ **Persistent Settings** | Thresholds and the sound toggle persist to `settings.json`, and the UI rolls back on failed saves; the theme is remembered by the app itself |
 | 🔔 **Native Notifications** | Tauri Notification API fires Windows Action Center alerts on CPU/RAM spikes even when the window is hidden |
 | 🗂️ **System Tray** | Left-click restores the window; right-click opens the menu; icon colour reflects the current alert state |
-| ↩️ **Undo (Rollback)** | A killed process is relaunched from the audit log's stored executable path, with its original arguments. `GET /api/kills` lists recent kills with their tier and whether each can still be restored, and `POST /api/rollback` restores one exact kill by its id. A kill is restored once, whether from the API or from the `rollback_last_action` tool |
+| ↩️ **Undo (Rollback)** | A killed process is relaunched from the audit log's stored executable path, with its original arguments. `GET /api/kills` lists recent kills with their tier and whether each can still be restored, and `POST /api/rollback` restores one exact kill by its id. A kill is restored once, whether from the API or from the `rollback_last_action` tool. In the app, the **Recently Killed** page lists the last 24 hours or 7 days with a one-click Restore on each row, and the toast after a kill offers **Undo** |
 | 🗃️ **Continuous History** | The backend records one row of CPU/RAM/disk per minute and one row per alert episode, whether or not the window is open. Metrics are kept 7 days, alerts 30 |
 | 📜 **Alert History** | Every alert with when it started and ended, its peak, the readings at that moment and the top process at the time. Filter by date, type and severity; updates live without polling |
 | 📈 **Performance Trends** | CPU, memory and disk over 1 hour to 7 days, with the peak band, threshold line and alert regions. Drag the overview to pan and zoom; zooming loads finer detail. A period with no data is drawn as a gap |
@@ -396,6 +397,7 @@ KavanMCP/
 │       │   ├── Dashboard.tsx        # Gauges + process table
 │       │   ├── Alerts.tsx           # Alert history
 │       │   ├── Trends.tsx           # Performance graphs (loaded on demand)
+│       │   ├── RecentlyKilled.tsx   # Kills of the last 24 hours or 7 days, with Restore
 │       │   └── Settings.tsx         # Threshold sliders + toggles
 │       ├── components/
 │       │   ├── dashboard/
@@ -413,6 +415,11 @@ KavanMCP/
 │       │   │   ├── MetricChart.tsx          # One chart: line, peak band, limit, alerts
 │       │   │   ├── OverviewStrip.tsx        # Brush for pan and zoom
 │       │   │   └── ChartTooltip.tsx         # Bucket values + overlapping alerts
+│       │   ├── rollback/
+│       │   │   ├── KillTable.tsx            # Kill list with an expandable row
+│       │   │   ├── RestoreCell.tsx          # Restore button, spinner, restored time or reason
+│       │   │   ├── rows.ts                  # Pure row updates after a restore
+│       │   │   └── wording.ts               # Restore failure codes to sentences
 │       │   ├── common/
 │       │   │   ├── Toast.tsx                # Single alert component
 │       │   │   ├── ToastContainer.tsx        # Toast queue renderer
@@ -434,7 +441,8 @@ KavanMCP/
 │       │   └── ToastContext.tsx          # Toast queue state
 │       ├── hooks/
 │       │   ├── useWebSocketConnection.ts  # Reconnect with exponential backoff
-│       │   ├── useProcessManager.ts       # Kill cascade logic
+│       │   ├── useProcessManager.ts       # Kill cascade logic, and Undo after a kill
+│       │   ├── useKillHistory.ts          # Recent kills and restoring them one at a time
 │       │   ├── useTrayIntegration.ts      # Global tray with offline awareness
 │       │   └── useWindowLifecycle.ts      # Hide-on-close behaviour
 │       ├── services/
@@ -529,7 +537,7 @@ Restart Claude Desktop. KavanMCP tools will appear automatically.
 ```powershell
 cd mcp-server
 python -m pytest -q
-# 191 passed
+# 195 passed
 ```
 
 ---

@@ -4,6 +4,8 @@ This document outlines the JSON schemas and payloads for the core FastMCP tools 
 
 All endpoints are wrapped in a global exception handler (`@safe_mcp_tool`) that guarantees a structured JSON error response if the OS denies access or a crash occurs.
 
+Section 8 documents the two REST endpoints the desktop app uses to list kills and restore one. They are not MCP tools.
+
 ---
 
 ## 1. `analyze_system`
@@ -172,19 +174,22 @@ Executes the physical termination of processes. Will violently reject any PID th
 [
   {
     "pid": 9999,
-    "result": {
-      "status": "success",
-      "freed_mb": 15.4,
-      "freed_cpu": 0.0
-    }
+    "status": "success",
+    "name": "Discord.exe",
+    "path": "C:\\Users\\...\\Discord.exe",
+    "freed_mb": 15.4,
+    "freed_cpu": 0.0,
+    "audit_id": "7d1f0c0e-6a55-4b1f-8e0a-3c1b7a5f2d90"
   }
 ]
 ```
 
+`audit_id` is the id of the kill's row in the audit log. It names that exact kill, and `POST /api/rollback` (section 8) takes it to restore that kill and no other. It is `null` if the audit write failed.
+
 ---
 
 ## 7. `rollback_last_action`
-The "Undo Button". Queries the database for a recently killed process and relaunches it as a detached background process.
+The "Undo Button". Queries the database for the most recent kill of that name or PID **that has not been restored yet** and relaunches it as a detached background process. A kill is restored once, whether it was restored from here or through `POST /api/rollback`: asking twice for the same name restores the kill before it, and when none is left the tool returns an error and launches nothing.
 
 **Request Payload:**
 ```json
@@ -200,6 +205,82 @@ The "Undo Button". Queries the database for a recently killed process and relaun
   "message": "Successfully rolled back (relaunched) notepad.exe."
 }
 ```
+
+---
+
+## 8. REST: Listing Kills and Restoring One (desktop app)
+These two endpoints are for the desktop app, on `http://127.0.0.1:8000`. They are not MCP tools. A request from any web origin other than the app is refused with `403 forbidden_origin`.
+
+### `GET /api/kills`
+Processes terminated in the last `hours` hours, newest first, at most 200. Only kills are listed, never blocked attempts or rollbacks.
+
+| Parameter | Type | Default | Rule |
+|---|---|---|---|
+| `hours` | integer | 24 | 1 to 168. Anything else is a `400` |
+
+**Example Response Payload:**
+```json
+{
+  "backend_elevated": true,
+  "kills": [
+    {
+      "id": "7d1f0c0e-6a55-4b1f-8e0a-3c1b7a5f2d90",
+      "name": "Discord.exe",
+      "pid": 3589,
+      "tier": 3,
+      "killed_at": "2026-10-05T09:41:07Z",
+      "memory_freed_mb": 344.0,
+      "cpu_freed_pct": 0.9,
+      "executable_path": "C:\\Users\\...\\Discord.exe",
+      "reasoning": "User confirmed termination via KavanMCP UI",
+      "rolled_back_at": null,
+      "can_restore": true,
+      "restore_blocked_reason": null
+    }
+  ]
+}
+```
+
+- `tier` is the tier the user confirmed when the kill was approved. It is `null` for kills made before V2.1, because it cannot be worked out afterwards.
+- `can_restore` is decided by the server for each kill. When it is `false`, `restore_blocked_reason` says why: `no_path` (the kill was recorded without an executable path), `exe_missing` (the executable is no longer on disk) or `already_restored`.
+- `backend_elevated` is `true` when KavanMCP runs as Administrator. A restored program inherits those rights, even if it was not elevated before it was killed.
+
+### `POST /api/rollback`
+Starts one killed process again, at most once. The request names only the audit row. The program and its arguments are the ones recorded when it was killed, so nothing else can be launched.
+
+**Request Payload:**
+```json
+{ "id": "7d1f0c0e-6a55-4b1f-8e0a-3c1b7a5f2d90" }
+```
+
+**Example Response Payload (Success):**
+```json
+{
+  "status": "success",
+  "id": "7d1f0c0e-6a55-4b1f-8e0a-3c1b7a5f2d90",
+  "name": "Discord.exe",
+  "new_pid": 18244,
+  "rolled_back_at": "2026-10-05T09:43:30Z"
+}
+```
+
+**Failure Response Payload:**
+```json
+{ "detail": { "code": "exe_missing", "message": "Discord.exe can no longer be found at its original location." } }
+```
+
+| `code` | HTTP | Meaning |
+|---|---|---|
+| `not_found` | 404 | No kill has that id. Blocked attempts and rollback rows cannot be restored |
+| `already_restored` | 409 | That kill was restored already, from here or by the MCP tool |
+| `no_path` | 422 | The kill was recorded without an executable path |
+| `exe_missing` | 422 | The executable is no longer on disk. The kill is not marked as restored |
+| `launch_failed` | 500 | Windows refused to start it. The kill is not marked as restored, so it can be tried again |
+| `error` | 500 | The audit database could not be read or updated |
+
+A malformed body, such as a missing or empty `id`, is a `400`.
+
+A restore starts the program again. It does not bring back unsaved work, open documents or the window's position.
 
 ---
 

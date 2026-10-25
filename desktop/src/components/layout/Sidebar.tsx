@@ -1,5 +1,5 @@
 import { useState } from "react";
-import { Bell, ChartLine, LayoutDashboard, PanelLeftClose, PanelLeftOpen, SlidersHorizontal, type LucideIcon } from "lucide-react";
+import { Bell, ChartLine, LayoutDashboard, PanelLeftClose, PanelLeftOpen, SlidersHorizontal, Undo2, type LucideIcon } from "lucide-react";
 import { useAlertHistory } from "../../context/AlertHistoryContext";
 import type { View } from "./views";
 
@@ -12,6 +12,7 @@ const NAV_ITEMS: { view: View; label: string; icon: LucideIcon }[] = [
   { view: 'dashboard', label: 'Dashboard', icon: LayoutDashboard },
   { view: 'alerts', label: 'Alerts', icon: Bell },
   { view: 'trends', label: 'Trends', icon: ChartLine },
+  { view: 'killed', label: 'Recently Killed', icon: Undo2 },
   { view: 'settings', label: 'Settings', icon: SlidersHorizontal },
 ];
 
