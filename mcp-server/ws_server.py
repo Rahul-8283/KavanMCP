@@ -13,7 +13,7 @@ from fastapi.middleware.cors import CORSMiddleware
 from fastapi.responses import JSONResponse
 from pydantic import BaseModel, Field
 
-from config.settings_manager import ACTIVE_CONFIG, load_config, update_config
+from config.settings_manager import ACTIVE_CONFIG, MAX_LIST_ENTRIES, load_config, update_config
 from database.db import (
     close_alert_event,
     close_orphaned_alert_events,
@@ -194,6 +194,8 @@ class ConfigUpdate(BaseModel):
     disk_threshold: Optional[int] = Field(None, ge=0, le=100)
     theme: Optional[Literal["dark", "light"]] = None
     sound_alerts: Optional[bool] = None
+    never_kill: Optional[list[str]] = Field(None, max_length=MAX_LIST_ENTRIES * 2)
+    never_alert: Optional[list[str]] = Field(None, max_length=MAX_LIST_ENTRIES * 2)
 
 @app.post("/api/update_thresholds")
 async def update_thresholds(payload: ConfigUpdate):

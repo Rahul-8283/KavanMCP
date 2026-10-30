@@ -63,3 +63,51 @@ def test_no_file_at_all_writes_the_defaults(tmp_path, monkeypatch):
 
     assert settings_manager.load_config() == settings_manager.DEFAULT_CONFIG
     assert json.loads(current.read_text(encoding="utf-8")) == settings_manager.DEFAULT_CONFIG
+
+
+def test_protected_lists_keep_only_clean_process_names():
+    cleaned = settings_manager._valid_entries({"never_kill": [
+        "  Notepad.EXE ", "notepad.exe", 42, "", "   ", "C:\Windows\notepad.exe", "/usr/bin/x", "a:b",
+        "x" * 261, "y" * 260, None, "Code.exe",
+    ]})["never_kill"]
+
+    assert cleaned == ["notepad.exe", "y" * 260, "code.exe"]
+
+
+def test_a_protected_list_that_is_not_a_list_is_dropped():
+    assert "never_alert" not in settings_manager._valid_entries({"never_alert": "obs64.exe"})
+
+
+def test_a_long_protected_list_is_cut_to_200_names():
+    names = [f"app{i}.exe" for i in range(300)]
+
+    cleaned = settings_manager._valid_entries({"never_kill": names})["never_kill"]
+
+    assert len(cleaned) == 200
+    assert cleaned == names[:200]
+
+
+def test_a_protected_list_replaces_the_stored_one_as_a_whole(tmp_path, monkeypatch):
+    monkeypatch.setattr(settings_manager, "CONFIG_PATH", str(tmp_path / "data" / "settings.json"))
+    monkeypatch.setattr(settings_manager, "ACTIVE_CONFIG", dict(settings_manager.DEFAULT_CONFIG))
+    settings_manager.update_config({"never_kill": ["a.exe", "b.exe"]})
+
+    settings_manager.update_config({"never_kill": ["c.exe"]})
+
+    assert settings_manager.ACTIVE_CONFIG["never_kill"] == ["c.exe"]
+    assert json.loads((tmp_path / "data" / "settings.json").read_text(encoding="utf-8"))["never_kill"] == ["c.exe"]
+
+
+def test_the_settings_endpoint_saves_the_cleaned_lists(monkeypatch, tmp_path):
+    from fastapi.testclient import TestClient
+
+    from ws_server import app
+
+    monkeypatch.setattr(settings_manager, "CONFIG_PATH", str(tmp_path / "data" / "settings.json"))
+    monkeypatch.setattr(settings_manager, "ACTIVE_CONFIG", dict(settings_manager.DEFAULT_CONFIG))
+    client = TestClient(app, base_url="http://127.0.0.1:8000")
+
+    response = client.post("/api/update_thresholds", json={"never_kill": ["  Code.EXE ", "code.exe", "C:/x.exe"]})
+
+    assert response.status_code == 200
+    assert response.json()["config"]["never_kill"] == ["code.exe"]

@@ -12,13 +12,35 @@ DEFAULT_CONFIG = {
     "ram_threshold": 90,
     "disk_threshold": 95,
     "theme": "dark",
-    "sound_alerts": True
+    "sound_alerts": True,
+    "never_kill": [],
+    "never_alert": []
 }
 
 THRESHOLD_KEYS = ("cpu_threshold", "ram_threshold", "disk_threshold")
 THEMES = ("dark", "light")
+LIST_KEYS = ("never_kill", "never_alert")
+MAX_LIST_ENTRIES = 200
+MAX_NAME_LENGTH = 260
+_FORBIDDEN_IN_NAME = ("\\", "/", ":")
 
 _lock = threading.Lock()
+
+def _clean_names(value: list) -> list[str]:
+    """
+    Process names for a protected list: trimmed, lower-cased, de-duplicated, and only names
+    (never paths). Entries that are not valid names are dropped, and the list is cut to its limit.
+    """
+    names: list[str] = []
+    for item in value:
+        if not isinstance(item, str):
+            continue
+        name = item.strip().lower()
+        if not 1 <= len(name) <= MAX_NAME_LENGTH or any(ch in name for ch in _FORBIDDEN_IN_NAME):
+            continue
+        if name not in names:
+            names.append(name)
+    return names[:MAX_LIST_ENTRIES]
 
 def _valid_entries(data: dict) -> dict:
     """Returns only the known keys of data whose values are valid."""
@@ -34,6 +56,9 @@ def _valid_entries(data: dict) -> dict:
         valid["theme"] = data["theme"]
     if isinstance(data.get("sound_alerts"), bool):
         valid["sound_alerts"] = data["sound_alerts"]
+    for key in LIST_KEYS:
+        if isinstance(data.get(key), list):
+            valid[key] = _clean_names(data[key])
     return valid
 
 def _sanitize(data: dict) -> dict:
