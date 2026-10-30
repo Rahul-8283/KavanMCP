@@ -9,6 +9,8 @@ export interface Process {
   is_headless?: boolean;
   anomaly_flags?: string[];
   create_time?: number;
+  /** On the user's never-kill list, from the backend */
+  protected?: boolean;
 }
 
 interface ProcessContextType {

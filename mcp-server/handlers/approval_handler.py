@@ -6,6 +6,7 @@ import psutil
 
 from database.db import log_blocked_action
 from handlers.classification_handler import classify_process
+from handlers.protection import is_user_protected, protected_message
 from integrations.windows import get_windowed_pids, is_headless
 
 # Global state dictionary
@@ -126,6 +127,10 @@ async def stage_termination(pid: int, source: str = "LLM") -> dict:
             "name": name,
             "error": f"CRITICAL ERROR: {name} (PID: {pid}) is a Tier 1 process. Termination is STRICTLY PROHIBITED and this attempt has been logged."
         }
+
+    if is_user_protected(name):
+        await log_blocked_action(name, pid, f"{source} attempted to terminate a process on the user's protected list.")
+        return {"status": "user_protected", "tier": tier, "name": name, "error": protected_message(name)}
 
     message = request_approval(pid, name, tier, info["create_time"])
     return {

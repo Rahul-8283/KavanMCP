@@ -7,12 +7,17 @@ export interface Config {
   disk_threshold: number;
   theme: string;
   sound_alerts: boolean;
+  /** Process names Kavan will never terminate, by anyone. Lower-cased by the backend. */
+  never_kill: string[];
+  /** Process names Kavan records but does not announce. */
+  never_alert: string[];
 }
 
 export type Theme = 'dark' | 'light';
 
 // Thresholds and the sound toggle live on the backend (it evaluates alerts).
-export type BackendSetting = 'cpu_threshold' | 'ram_threshold' | 'disk_threshold' | 'sound_alerts';
+export type BackendSetting = 'cpu_threshold' | 'ram_threshold' | 'disk_threshold' | 'sound_alerts' | 'never_kill' | 'never_alert';
+export type BackendSettingValue = number | boolean | string[];
 
 export const DEFAULT_THRESHOLDS = {
   cpu_threshold: 90,
@@ -26,7 +31,7 @@ interface ConfigContextType {
   configError: string | null;
   reloadConfig: () => void;
   // Resolves false when the server rejected the change; the local value is rolled back.
-  updateSetting: (key: BackendSetting, value: number | boolean) => Promise<boolean>;
+  updateSetting: (key: BackendSetting, value: BackendSettingValue) => Promise<boolean>;
   resetThresholds: () => Promise<boolean>;
   theme: Theme;
   setTheme: (theme: Theme) => void;
@@ -74,7 +79,7 @@ export function ConfigProvider({ children }: { children: React.ReactNode }) {
   const reloadConfig = useCallback(() => setLoadAttempt(n => n + 1), []);
 
   // Phase 5 Section 2.2: Backend Persistence (optimistic, rolled back on failure)
-  const updateSetting = useCallback(async (key: BackendSetting, value: number | boolean): Promise<boolean> => {
+  const updateSetting = useCallback(async (key: BackendSetting, value: BackendSettingValue): Promise<boolean> => {
     const previous = configRef.current?.[key];
     setConfig(prev => (prev ? { ...prev, [key]: value } : prev));
 

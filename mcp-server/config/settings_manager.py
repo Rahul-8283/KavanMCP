@@ -2,20 +2,45 @@ import json
 import os
 import threading
 
-CONFIG_PATH = os.path.join(os.path.dirname(__file__), "settings.json")
+_SERVER_DIR = os.path.dirname(os.path.dirname(os.path.abspath(__file__)))
+# The file git used to track. Its values are copied once into CONFIG_PATH, then it is ignored.
+LEGACY_CONFIG_PATH = os.path.join(os.path.dirname(os.path.abspath(__file__)), "settings.json")
+CONFIG_PATH = os.environ.get("KAVAN_SETTINGS_PATH") or os.path.join(_SERVER_DIR, "data", "settings.json")
 
 DEFAULT_CONFIG = {
     "cpu_threshold": 90,
     "ram_threshold": 90,
     "disk_threshold": 95,
     "theme": "dark",
-    "sound_alerts": True
+    "sound_alerts": True,
+    "never_kill": [],
+    "never_alert": []
 }
 
 THRESHOLD_KEYS = ("cpu_threshold", "ram_threshold", "disk_threshold")
 THEMES = ("dark", "light")
+LIST_KEYS = ("never_kill", "never_alert")
+MAX_LIST_ENTRIES = 200
+MAX_NAME_LENGTH = 260
+_FORBIDDEN_IN_NAME = ("\\", "/", ":")
 
 _lock = threading.Lock()
+
+def _clean_names(value: list) -> list[str]:
+    """
+    Process names for a protected list: trimmed, lower-cased, de-duplicated, and only names
+    (never paths). Entries that are not valid names are dropped, and the list is cut to its limit.
+    """
+    names: list[str] = []
+    for item in value:
+        if not isinstance(item, str):
+            continue
+        name = item.strip().lower()
+        if not 1 <= len(name) <= MAX_NAME_LENGTH or any(ch in name for ch in _FORBIDDEN_IN_NAME):
+            continue
+        if name not in names:
+            names.append(name)
+    return names[:MAX_LIST_ENTRIES]
 
 def _valid_entries(data: dict) -> dict:
     """Returns only the known keys of data whose values are valid."""
@@ -31,6 +56,9 @@ def _valid_entries(data: dict) -> dict:
         valid["theme"] = data["theme"]
     if isinstance(data.get("sound_alerts"), bool):
         valid["sound_alerts"] = data["sound_alerts"]
+    for key in LIST_KEYS:
+        if isinstance(data.get(key), list):
+            valid[key] = _clean_names(data[key])
     return valid
 
 def _sanitize(data: dict) -> dict:
@@ -40,22 +68,31 @@ def _sanitize(data: dict) -> dict:
     """
     return {**DEFAULT_CONFIG, **_valid_entries(data)}
 
+def _read_sanitized(path: str) -> dict | None:
+    try:
+        with open(path, "r", encoding="utf-8") as f:
+            # Merge with defaults in case of missing or invalid keys
+            return _sanitize(json.load(f))
+    except Exception:
+        return None
+
 def load_config() -> dict:
-    """Loads configuration from disk, creating it with defaults if it doesn't exist."""
+    """
+    Loads configuration from disk. The first start after the settings moved out of git copies
+    the old file's valid values across; with no file at all, the defaults are written.
+    """
     with _lock:
-        if not os.path.exists(CONFIG_PATH):
-            save_config_internal(DEFAULT_CONFIG)
-            return DEFAULT_CONFIG.copy()
-            
-        try:
-            with open(CONFIG_PATH, "r", encoding="utf-8") as f:
-                # Merge with defaults in case of missing or invalid keys
-                return _sanitize(json.load(f))
-        except Exception:
-            return DEFAULT_CONFIG.copy()
+        if os.path.exists(CONFIG_PATH):
+            return _read_sanitized(CONFIG_PATH) or DEFAULT_CONFIG.copy()
+
+        migrated = _read_sanitized(LEGACY_CONFIG_PATH) if os.path.exists(LEGACY_CONFIG_PATH) else None
+        config = migrated or DEFAULT_CONFIG.copy()
+        save_config_internal(config)
+        return config.copy()
 
 def save_config_internal(config_data: dict):
     """Internal function, assumes caller holds the lock."""
+    os.makedirs(os.path.dirname(CONFIG_PATH), exist_ok=True)
     with open(CONFIG_PATH, "w", encoding="utf-8") as f:
         json.dump(config_data, f, indent=4)
 

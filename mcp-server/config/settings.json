@@ -1,7 +1,0 @@
-{
-    "cpu_threshold": 90,
-    "ram_threshold": 90,
-    "disk_threshold": 95,
-    "theme": "dark",
-    "sound_alerts": true
-}

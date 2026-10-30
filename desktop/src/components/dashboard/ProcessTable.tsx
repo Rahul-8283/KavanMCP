@@ -1,5 +1,8 @@
 import { useProcess, Process } from '../../context/ProcessContext';
-import { ChevronDown, ChevronUp, Loader2, RefreshCw, Search, Unplug, X } from 'lucide-react';
+import { ChevronDown, ChevronUp, Loader2, RefreshCw, Search, Shield, Unplug, X } from 'lucide-react';
+import { useConfig } from '../../context/ConfigContext';
+import { useToast } from '../../context/ToastContext';
+import { isListed, normalizeProcessName } from '../../utils/protection';
 import { TierBadge } from './TierBadge';
 import { TIER_NUMBERS, tierInfo } from './tiers';
 import { formatMemoryMb } from './format';
@@ -58,7 +61,11 @@ function Magnitude({ text, ratio }: { text: string; ratio: number }) {
 export function ProcessTable({ onRefresh }: { onRefresh: () => void }) {
   const { processes, isLoading, error, filterTier, setFilterTier, sortConfig, setSortConfig, searchQuery, setSearchQuery } = useProcess();
   const { terminateProcess } = useProcessManager();
+  const { config, updateSetting } = useConfig();
+  const { addToast } = useToast();
   const parentRef = useRef<HTMLDivElement>(null);
+  const neverKill = config?.never_kill ?? [];
+  const neverAlert = config?.never_alert ?? [];
 
   const [menu, setMenu] = useState<MenuState | null>(null);
   const [killTarget, setKillTarget] = useState<Process | null>(null);
@@ -71,6 +78,28 @@ export function ProcessTable({ onRefresh }: { onRefresh: () => void }) {
     setKillTarget(null);
     setKillError(null);
   }, []);
+
+  const toggleProtected = async (proc: Process) => {
+    const name = normalizeProcessName(proc.name);
+    const listed = isListed(name, neverKill);
+    if (!listed && neverKill.length >= 200) {
+      addToast('The protected list is full (200 names). Remove one first.', 'warning');
+      return;
+    }
+    const next = listed ? neverKill.filter((item) => item !== name) : [...neverKill, name];
+    if (!(await updateSetting('never_kill', next))) {
+      addToast('Could not save the protected list. The previous list was restored.', 'warning');
+    }
+  };
+
+  const toggleMuted = async (proc: Process) => {
+    const name = normalizeProcessName(proc.name);
+    const listed = isListed(name, neverAlert);
+    const next = listed ? neverAlert.filter((item) => item !== name) : [...neverAlert, name];
+    if (!(await updateSetting('never_alert', next))) {
+      addToast('Could not save the alert list. The previous list was restored.', 'warning');
+    }
+  };
 
   const clearFilters = () => {
     setFilterTier('ALL');
@@ -236,8 +265,11 @@ export function ProcessTable({ onRefresh }: { onRefresh: () => void }) {
                         transform: `translateY(${virtualRow.start}px)`,
                       }}
                     >
-                      <div className="truncate font-medium text-ink" title={proc.name}>
-                        {proc.name}
+                      <div className="flex min-w-0 items-center gap-1.5 font-medium text-ink">
+                        {isListed(proc.name, neverKill) && (
+                          <Shield size={13} strokeWidth={2} className="shrink-0 text-ok" aria-label="Protected by you" />
+                        )}
+                        <span className="truncate" title={proc.name}>{proc.name}</span>
                       </div>
                       <div className="tnum text-right font-mono text-xs text-ink-soft">
                         {proc.pid}
@@ -322,10 +354,20 @@ export function ProcessTable({ onRefresh }: { onRefresh: () => void }) {
           x={menu.x}
           y={menu.y}
           process={menu.process}
+          isProtected={isListed(menu.process.name, neverKill)}
+          isMuted={isListed(menu.process.name, neverAlert)}
           onClose={closeMenu}
           onTerminate={() => {
             setKillTarget(menu.process);
             setKillError(null);
+            closeMenu();
+          }}
+          onToggleProtected={() => {
+            void toggleProtected(menu.process);
+            closeMenu();
+          }}
+          onToggleMuted={() => {
+            void toggleMuted(menu.process);
             closeMenu();
           }}
         />
@@ -335,6 +377,7 @@ export function ProcessTable({ onRefresh }: { onRefresh: () => void }) {
         target={killTarget}
         isBusy={isKilling}
         error={killError}
+        isProtected={killTarget !== null && isListed(killTarget.name, neverKill)}
         onConfirm={handleConfirmKill}
         onCancel={closeKillModal}
       />

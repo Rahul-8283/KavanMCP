@@ -4,10 +4,10 @@
   <p><strong>AI-Powered System Optimizer · Dual-Interface · Ironclad Safety</strong></p>
   <p>
     <a href="https://github.com/Rahul-8283/KavanMCP/blob/main/LICENSE"><img src="https://img.shields.io/badge/License-MIT-green?style=flat-square" alt="License" /></a>
-    <a href="https://github.com/Rahul-8283/KavanMCP/commit/598af3a"><img src="https://img.shields.io/badge/last%20commit-2026--10--24%20%C2%B7%20598af3a-blue?style=flat-square" alt="Last Commit" /></a>
+    <a href="https://github.com/Rahul-8283/KavanMCP/commit/a59a431"><img src="https://img.shields.io/badge/last%20commit-2026--10--30%20%C2%B7%20a59a431-blue?style=flat-square" alt="Last Commit" /></a>
     <img src="https://img.shields.io/badge/V2-Production%20Grade-blue?style=flat-square" alt="V2 Production Grade" />
     <img src="https://img.shields.io/badge/Platform-Windows-0078D6?style=flat-square&logo=windows" alt="Windows" />
-    <img src="https://img.shields.io/badge/Tests-195%20passing-brightgreen?style=flat-square" alt="Tests" />
+    <img src="https://img.shields.io/badge/Tests-223%20passing-brightgreen?style=flat-square" alt="Tests" />
   </p>
 </div>
 
@@ -90,7 +90,7 @@ graph TB
 
     subgraph Data["Persistence"]
         DB[("SQLite WAL\nprocess.db")]
-        Config["settings.json\nThresholds & Theme"]
+        Config["data/settings.json\nThresholds, theme, protected apps"]
         Whitelist["tier_1_processes.json\nHard-locked Whitelist"]
     end
 
@@ -300,6 +300,7 @@ gantt
     Phase 3 · Performance Graphs      :done, 2026-10-06, 1d
     Phase 4 · Rollback Manager Backend :done, 2026-10-13, 1d
     Phase 5 · Rollback Manager UI      :done, 2026-10-24, 1d
+    Phase 6 · Protected Apps & Startup :done, 2026-10-30, 1d
 ```
 
 ---
@@ -314,7 +315,9 @@ gantt
 | ⚡ **Non-Blocking Backend** | Long-running psutil scans run in worker threads via `asyncio.to_thread` so the event loop never freezes under a heavy process list |
 | 📊 **Real-Time Dashboard** | WebSocket pushes CPU/RAM/Disk metrics every 2 seconds with threshold-triggered alerts and colour-coded gauges |
 | 📋 **Virtualized Process Table** | `@tanstack/react-virtual` renders 800+ processes at 60fps — only visible rows are in the DOM |
-| ⚙️ **Persistent Settings** | Thresholds and the sound toggle persist to `settings.json`, and the UI rolls back on failed saves; the theme is remembered by the app itself |
+| ⚙️ **Persistent Settings** | Thresholds, the sound toggle and the protected lists persist to `mcp-server/data/settings.json`, which git does not track. The UI rolls back on failed saves; the theme is remembered by the app itself |
+| 🛡️ **Protected Apps** | A never-terminate list is enforced in the backend, at the kill gates and in front of the OS call, so neither the app nor Claude can end a listed process. A never-alert list keeps a program's alerts in the history, marked muted, without a toast or sound. Tier 1 system processes are always protected |
+| 🚀 **Start with Windows** | The app can start its own dashboard backend at sign-in, in the tray, and a second launch brings the first window forward |
 | 🔔 **Native Notifications** | Tauri Notification API fires Windows Action Center alerts on CPU/RAM spikes even when the window is hidden |
 | 🗂️ **System Tray** | Left-click restores the window; right-click opens the menu; icon colour reflects the current alert state |
 | ↩️ **Undo (Rollback)** | A killed process is relaunched from the audit log's stored executable path, with its original arguments. `GET /api/kills` lists recent kills with their tier and whether each can still be restored, and `POST /api/rollback` restores one exact kill by its id. A kill is restored once, whether from the API or from the `rollback_last_action` tool. In the app, the **Recently Killed** page lists the last 24 hours or 7 days with a one-click Restore on each row, and the toast after a kill offers **Undo** |
@@ -354,7 +357,7 @@ KavanMCP/
 │   │   └── rollback_tool.py         # Process resurrection
 │   ├── config/
 │   │   ├── whitelist.py             # Tier 1 whitelist loader
-│   │   └── settings_manager.py      # Threshold config (settings.json)
+│   │   └── settings_manager.py      # Threshold and protected-list config (data/settings.json)
 │   ├── database/
 │   │   ├── db.py                    # aiosqlite helpers + WAL init
 │   │   └── models.py                # SQL schema definitions
@@ -374,6 +377,10 @@ KavanMCP/
 │   │   ├── test_monitor.py          # Process scan
 │   │   ├── test_explain_process.py  # explain_process tool
 │   │   ├── test_rollback.py         # Rollback with original arguments, by id, and once
+│   │   ├── test_protection.py       # Never-terminate gates, MCP tools and the protected flag
+│   │   ├── test_never_alert.py      # Muted episodes, held first toasts and failed scans
+│   │   ├── test_settings_storage.py # Settings move, list validation and the settings endpoint
+│   │   ├── test_dashboard_only.py   # main.py --dashboard-only
 │   │   ├── test_kills_api.py        # /api/kills and /api/rollback
 │   │   ├── kill_helpers.py          # Puts kill rows into the test database
 │   │   ├── test_termination_api.py  # Kill flow and API boundary
@@ -388,7 +395,7 @@ KavanMCP/
 │
 ├── desktop/                         # Tauri + React frontend
 │   ├── src-tauri/
-│   │   ├── src/lib.rs               # Tauri commands (quit_app, etc.)
+│   │   ├── src/lib.rs               # Tauri commands, backend start and stop, autostart and single instance
 │   │   ├── capabilities/default.json# ACL permissions
 │   │   └── tauri.conf.json          # Window, tray, icon config
 │   └── src/
@@ -537,7 +544,7 @@ Restart Claude Desktop. KavanMCP tools will appear automatically.
 ```powershell
 cd mcp-server
 python -m pytest -q
-# 195 passed
+# 223 passed
 ```
 
 ---
@@ -617,7 +624,7 @@ All endpoints are on `http://127.0.0.1:8000`. CORS is restricted to Tauri window
 |---|---|---|
 | `GET` | `/api/list_processes` | All running processes with tier classification |
 | `GET` | `/api/get_config` | Current thresholds and UI preferences |
-| `POST` | `/api/update_thresholds` | Partially update config (cpu/ram/disk/theme/sound) |
+| `POST` | `/api/update_thresholds` | Partially update config: thresholds, theme, sound, `never_kill` and `never_alert` (lists of process names) |
 | `POST` | `/api/confirm_termination` | Stage a PID (rejects Tier 1 immediately) |
 | `POST` | `/api/execute_termination` | Execute a staged kill (verifies create\_time). The response carries `audit_id`, the id of the kill's audit row |
 | `GET` | `/api/alerts` | Alert history. Filters: `from`, `to`, `metric`, `level`, `limit` |
@@ -632,6 +639,7 @@ All endpoints are on `http://127.0.0.1:8000`. CORS is restricted to Tauri window
 |---|---|---|
 | `tier1_blocked` | 403 | Tier 1 system process — always rejected |
 | `self_protected` | 403 | The PID is KavanMCP itself or the process that launched it |
+| `user_protected` | 403 | The process is on your never-terminate list. Remove it in Settings to allow the kill |
 | `forbidden_origin` | 403 | The request came from a web origin other than the app |
 | `access_denied` | 403 | Needs Administrator rights |
 | `not_approved` | 409 | PID not staged or approval expired |

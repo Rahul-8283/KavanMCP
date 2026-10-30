@@ -9,6 +9,7 @@ import threading
 
 from handlers.classification_handler import TIER_4_CPU_THRESHOLD, classify_process
 from handlers.history_recorder import Episode, EpisodeChange, level_for
+from handlers.protection import is_alert_muted
 from integrations.monitor import get_all_processes
 
 # One scan costs about 1.5 seconds of one core, so once a minute averages about 2.5% of a core.
@@ -109,7 +110,7 @@ class ProcessWatcher:
             if episode is None:
                 episode = Episode(
                     metric="process", threshold=TIER_4_CPU_THRESHOLD, started_at=now, peak_value=cpu,
-                    level=level_for(cpu), readings=dict(readings),
+                    level=level_for(cpu), readings=dict(readings), muted=is_alert_muted(proc["name"]),
                     top_process={"name": proc["name"], "pid": proc["pid"], "value": cpu},
                 )
                 self._open[key] = episode

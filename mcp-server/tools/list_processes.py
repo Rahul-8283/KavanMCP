@@ -2,6 +2,7 @@ import json
 
 from handlers.alert_handler import evaluate_anomalies
 from handlers.classification_handler import classify_process
+from handlers.protection import is_user_protected
 from integrations.monitor import get_all_processes
 from utils.schemas import ProcessSchema
 
@@ -37,6 +38,8 @@ def list_processes_logic(filter_name: str | None = None, include_tier_1: bool = 
         if not include_tier_1 and proc['tier'] == 1:
             continue
             
+        proc['protected'] = is_user_protected(proc['name'])
+
         # Validate through the Pydantic schema
         schema = ProcessSchema(**proc)
         

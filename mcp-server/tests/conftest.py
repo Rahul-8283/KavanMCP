@@ -1,11 +1,15 @@
 import asyncio
 import os
 import sys
+import tempfile
 from unittest.mock import patch
 
 import pytest
 
 sys.path.insert(0, os.path.dirname(os.path.dirname(os.path.abspath(__file__))))
+
+# Set before config.settings_manager is imported, which loads the settings at import time
+os.environ["KAVAN_SETTINGS_PATH"] = os.path.join(tempfile.mkdtemp(prefix="kavan-settings-"), "settings.json")
 
 from database import db
 
