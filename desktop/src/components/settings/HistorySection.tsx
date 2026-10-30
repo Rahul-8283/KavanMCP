@@ -4,6 +4,7 @@ import { Loader2 } from 'lucide-react';
 import { useConfig, type RetentionDays } from '../../context/ConfigContext';
 import { useToast } from '../../context/ToastContext';
 import { SegmentedControl, type SegmentOption } from '../common/SegmentedControl';
+import { ConfigGate } from './ConfigGate';
 import { SettingsSection } from './SettingsSection';
 
 const RETENTION_OPTIONS: SegmentOption<RetentionDays>[] = [
@@ -96,19 +97,21 @@ export function HistorySection() {
 
   return (
     <SettingsSection title="History" description="How long Kavan remembers.">
-      <div className="flex flex-wrap items-center justify-between gap-x-6 gap-y-3 px-5 py-4">
-        <div>
-          <p className="text-[0.8125rem] font-medium text-ink">Keep alert history for</p>
-          <p className="mt-0.5 text-xs text-ink-soft">Performance graphs always cover the last 7 days.</p>
+      <ConfigGate>
+        <div className="flex flex-wrap items-center justify-between gap-x-6 gap-y-3 px-5 py-4">
+          <div>
+            <p className="text-[0.8125rem] font-medium text-ink">Keep alert history for</p>
+            <p className="mt-0.5 text-xs text-ink-soft">Performance graphs always cover the last 7 days.</p>
+          </div>
+          <SegmentedControl
+            options={RETENTION_OPTIONS}
+            value={current}
+            onChange={choose}
+            ariaLabel="Keep alert history for"
+            disabled={isSaving}
+          />
         </div>
-        <SegmentedControl
-          options={RETENTION_OPTIONS}
-          value={current}
-          onChange={choose}
-          ariaLabel="Keep alert history for"
-          disabled={!config || isSaving}
-        />
-      </div>
+      </ConfigGate>
 
       {pending !== null && (
         <ShortenConfirm days={pending} isBusy={isSaving} onConfirm={confirm} onCancel={() => setPending(null)} />

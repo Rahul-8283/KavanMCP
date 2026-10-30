@@ -4,6 +4,7 @@ import { useConfig, type BackendSetting } from '../../context/ConfigContext';
 import { useToast } from '../../context/ToastContext';
 import { isListed, normalizeProcessName } from '../../utils/protection';
 import { AppPicker } from './AppPicker';
+import { ConfigGate } from './ConfigGate';
 import { SettingsSection } from './SettingsSection';
 
 const MAX_ENTRIES = 200;
@@ -109,9 +110,7 @@ export function ProtectedAppsSection() {
 
   return (
     <SettingsSection title="Protected apps" description="Apps Kavan should leave alone.">
-      {!config ? (
-        <p className="px-5 py-6 text-[0.8125rem] text-ink-soft">Loading protected apps...</p>
-      ) : (
+      <ConfigGate>
         <div className="divide-y divide-line-faint">
           <ProtectedList
             settingKey="never_kill"
@@ -130,7 +129,7 @@ export function ProtectedAppsSection() {
             list={neverAlert}
           />
         </div>
-      )}
+      </ConfigGate>
     </SettingsSection>
   );
 }

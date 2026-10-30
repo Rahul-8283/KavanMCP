@@ -5,6 +5,7 @@ import { useToast } from '../../context/ToastContext';
 import { playAlertSound, SOUND_CHOICES, type SoundChoice } from '../../services/alertSound';
 import { SegmentedControl, type SegmentOption } from '../common/SegmentedControl';
 import { Switch } from '../common/Switch';
+import { ConfigGate } from './ConfigGate';
 import { SettingsSection } from './SettingsSection';
 import { useDebouncedSetting } from './useDebouncedSetting';
 
@@ -36,49 +37,51 @@ export function SoundSection() {
   const controlsOff = !config || !soundAlerts;
 
   return (
-    <SettingsSection title="System Integrations">
-      <div className="divide-y divide-line-faint">
-        <div className="flex items-center justify-between gap-6 px-5 py-4">
-          <div>
-            <p className="text-[0.8125rem] font-medium text-ink">Enable Sound Notifications</p>
-            <p className="mt-0.5 text-xs text-ink-soft">Play an alert sound once when a threshold is breached.</p>
+    <SettingsSection title="System Integrations" description="Alert sounds on this computer.">
+      <ConfigGate>
+        <div className="divide-y divide-line-faint">
+          <div className="flex items-center justify-between gap-6 px-5 py-4">
+            <div>
+              <p className="text-[0.8125rem] font-medium text-ink">Enable Sound Notifications</p>
+              <p className="mt-0.5 text-xs text-ink-soft">Play an alert sound once when a threshold is breached.</p>
+            </div>
+            <Switch checked={soundAlerts} onChange={toggleSound} disabled={!config} label="Enable Sound Notifications" />
           </div>
-          <Switch checked={soundAlerts} onChange={toggleSound} disabled={!config} label="Enable Sound Notifications" />
-        </div>
 
-        <div className={`grid grid-cols-[6.5rem_1fr_3rem] items-center gap-5 px-5 py-4 transition-opacity ${controlsOff ? 'opacity-45' : ''}`}>
-          <label htmlFor="sound_volume" className="text-[0.8125rem] font-medium text-ink">Volume</label>
-          <input
-            id="sound_volume"
-            type="range"
-            min={0}
-            max={100}
-            value={volume}
-            disabled={controlsOff}
-            onChange={(e) => setVolume(Number(e.target.value))}
-            className="range disabled:cursor-not-allowed"
-            style={{ '--fill': `${volume}%` } as CSSProperties}
-          />
-          <span className="tnum text-right font-display text-[0.9375rem] text-ink">{volume}%</span>
-        </div>
+          <div className={`grid grid-cols-[6.5rem_1fr_3rem] items-center gap-5 px-5 py-4 transition-opacity ${controlsOff ? 'opacity-45' : ''}`}>
+            <label htmlFor="sound_volume" className="text-[0.8125rem] font-medium text-ink">Volume</label>
+            <input
+              id="sound_volume"
+              type="range"
+              min={0}
+              max={100}
+              value={volume}
+              disabled={controlsOff}
+              onChange={(e) => setVolume(Number(e.target.value))}
+              className="range disabled:cursor-not-allowed"
+              style={{ '--fill': `${volume}%` } as CSSProperties}
+            />
+            <span className="tnum text-right font-display text-[0.9375rem] text-ink">{volume}%</span>
+          </div>
 
-        <div className="flex flex-wrap items-center gap-x-5 gap-y-3 px-5 py-4">
-          <span className={`w-[6.5rem] text-[0.8125rem] font-medium text-ink transition-opacity ${controlsOff ? 'opacity-45' : ''}`}>
-            Alert sound
-          </span>
-          <SegmentedControl options={SOUND_OPTIONS} value={choice} onChange={chooseSound} ariaLabel="Alert sound" disabled={controlsOff} />
-          {/* Plays the selection at the slider's current position, even before it is saved */}
-          <button
-            type="button"
-            onClick={() => playAlertSound(choice, volume)}
-            className="btn ml-auto"
-            title="Play the selected sound at this volume"
-          >
-            <Play size={13} />
-            Test
-          </button>
+          <div className="flex flex-wrap items-center gap-x-5 gap-y-3 px-5 py-4">
+            <span className={`w-[6.5rem] text-[0.8125rem] font-medium text-ink transition-opacity ${controlsOff ? 'opacity-45' : ''}`}>
+              Alert sound
+            </span>
+            <SegmentedControl options={SOUND_OPTIONS} value={choice} onChange={chooseSound} ariaLabel="Alert sound" disabled={controlsOff} />
+            {/* Plays the selection at the slider's current position, even before it is saved */}
+            <button
+              type="button"
+              onClick={() => playAlertSound(choice, volume)}
+              className="btn ml-auto"
+              title="Play the selected sound at this volume"
+            >
+              <Play size={13} />
+              Test
+            </button>
+          </div>
         </div>
-      </div>
+      </ConfigGate>
     </SettingsSection>
   );
 }

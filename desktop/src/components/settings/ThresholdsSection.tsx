@@ -1,14 +1,15 @@
 import type { CSSProperties } from 'react';
-import { Loader2, RefreshCw, RotateCcw } from 'lucide-react';
+import { RotateCcw } from 'lucide-react';
 import { DEFAULT_THRESHOLDS, useConfig } from '../../context/ConfigContext';
 import { useToast } from '../../context/ToastContext';
+import { ConfigGate } from './ConfigGate';
 import { SettingsSection } from './SettingsSection';
 import { useDebouncedSetting } from './useDebouncedSetting';
 
 type ThresholdKey = 'cpu_threshold' | 'ram_threshold' | 'disk_threshold';
 
 export function ThresholdsSection() {
-  const { config, isLoadingConfig, configError, reloadConfig, resetThresholds } = useConfig();
+  const { config, resetThresholds } = useConfig();
   const { addToast } = useToast();
 
   const [cpu, setCpu] = useDebouncedSetting('cpu_threshold', 'CPU threshold', config?.cpu_threshold, DEFAULT_THRESHOLDS.cpu_threshold);
@@ -41,24 +42,7 @@ export function ThresholdsSection() {
         </button>
       }
     >
-      {isLoadingConfig && !config && (
-        <div className="flex items-center gap-3 px-5 py-6 text-[0.8125rem] text-ink-soft">
-          <Loader2 className="h-4 w-4 animate-spin" />
-          Loading settings from the backend...
-        </div>
-      )}
-
-      {!isLoadingConfig && !config && (
-        <div className="flex items-center justify-between gap-4 px-5 py-6">
-          <p className="text-[0.8125rem] text-crimson-ink">{configError ?? 'Settings are unavailable.'}</p>
-          <button onClick={reloadConfig} className="btn shrink-0">
-            <RefreshCw size={14} />
-            Retry
-          </button>
-        </div>
-      )}
-
-      {config && (
+      <ConfigGate>
         <div className="divide-y divide-line-faint">
           {sliders.map(({ key, label, value, set }) => (
             <div key={key} className="grid grid-cols-[10.5rem_1fr_3rem] items-center gap-5 px-5 py-4">
@@ -77,7 +61,7 @@ export function ThresholdsSection() {
             </div>
           ))}
         </div>
-      )}
+      </ConfigGate>
     </SettingsSection>
   );
 }
