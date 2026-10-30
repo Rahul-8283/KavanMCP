@@ -4,10 +4,10 @@
   <p><strong>AI-Powered System Optimizer · Dual-Interface · Ironclad Safety</strong></p>
   <p>
     <a href="https://github.com/Rahul-8283/KavanMCP/blob/main/LICENSE"><img src="https://img.shields.io/badge/License-MIT-green?style=flat-square" alt="License" /></a>
-    <a href="https://github.com/Rahul-8283/KavanMCP/commit/a59a431"><img src="https://img.shields.io/badge/last%20commit-2026--10--30%20%C2%B7%20a59a431-blue?style=flat-square" alt="Last Commit" /></a>
+    <a href="https://github.com/Rahul-8283/KavanMCP/commit/adca28f"><img src="https://img.shields.io/badge/last%20commit-2026--10--30%20%C2%B7%20adca28f-blue?style=flat-square" alt="Last Commit" /></a>
     <img src="https://img.shields.io/badge/V2-Production%20Grade-blue?style=flat-square" alt="V2 Production Grade" />
     <img src="https://img.shields.io/badge/Platform-Windows-0078D6?style=flat-square&logo=windows" alt="Windows" />
-    <img src="https://img.shields.io/badge/Tests-223%20passing-brightgreen?style=flat-square" alt="Tests" />
+    <img src="https://img.shields.io/badge/Tests-257%20passing-brightgreen?style=flat-square" alt="Tests" />
   </p>
 </div>
 
@@ -301,6 +301,7 @@ gantt
     Phase 4 · Rollback Manager Backend :done, 2026-10-13, 1d
     Phase 5 · Rollback Manager UI      :done, 2026-10-24, 1d
     Phase 6 · Protected Apps & Startup :done, 2026-10-30, 1d
+    Phase 7 · Sound & Retention        :done, 2026-10-30, 1d
 ```
 
 ---
@@ -315,13 +316,14 @@ gantt
 | ⚡ **Non-Blocking Backend** | Long-running psutil scans run in worker threads via `asyncio.to_thread` so the event loop never freezes under a heavy process list |
 | 📊 **Real-Time Dashboard** | WebSocket pushes CPU/RAM/Disk metrics every 2 seconds with threshold-triggered alerts and colour-coded gauges |
 | 📋 **Virtualized Process Table** | `@tanstack/react-virtual` renders 800+ processes at 60fps — only visible rows are in the DOM |
-| ⚙️ **Persistent Settings** | Thresholds, the sound toggle and the protected lists persist to `mcp-server/data/settings.json`, which git does not track. The UI rolls back on failed saves; the theme is remembered by the app itself |
+| ⚙️ **Persistent Settings** | Thresholds, sound, protected lists and alert retention persist to `mcp-server/data/settings.json`, which git does not track. The UI rolls back on failed saves; the theme is remembered by the app itself |
+| 🔊 **Alert Sounds** | Four built-in sounds (chime, pulse, bell, soft) and a volume slider, with a Test button. A breach sounds once when it starts, not on every repeat |
 | 🛡️ **Protected Apps** | A never-terminate list is enforced in the backend, at the kill gates and in front of the OS call, so neither the app nor Claude can end a listed process. A never-alert list keeps a program's alerts in the history, marked muted, without a toast or sound. Tier 1 system processes are always protected |
 | 🚀 **Start with Windows** | The app can start its own dashboard backend at sign-in, in the tray, and a second launch brings the first window forward |
 | 🔔 **Native Notifications** | Tauri Notification API fires Windows Action Center alerts on CPU/RAM spikes even when the window is hidden |
 | 🗂️ **System Tray** | Left-click restores the window; right-click opens the menu; icon colour reflects the current alert state |
 | ↩️ **Undo (Rollback)** | A killed process is relaunched from the audit log's stored executable path, with its original arguments. `GET /api/kills` lists recent kills with their tier and whether each can still be restored, and `POST /api/rollback` restores one exact kill by its id. A kill is restored once, whether from the API or from the `rollback_last_action` tool. In the app, the **Recently Killed** page lists the last 24 hours or 7 days with a one-click Restore on each row, and the toast after a kill offers **Undo** |
-| 🗃️ **Continuous History** | The backend records one row of CPU/RAM/disk per minute and one row per alert episode, whether or not the window is open. Metrics are kept 7 days, alerts 30 |
+| 🗃️ **Continuous History** | The backend records one row of CPU/RAM/disk per minute and one row per alert episode, whether or not the window is open. Metrics are kept 7 days; alerts 7, 14 or 30 days, as chosen in Settings, and a shorter choice applies at once |
 | 📜 **Alert History** | Every alert with when it started and ended, its peak, the readings at that moment and the top process at the time. Filter by date, type and severity; updates live without polling |
 | 📈 **Performance Trends** | CPU, memory and disk over 1 hour to 7 days, with the peak band, threshold line and alert regions. Drag the overview to pan and zoom; zooming loads finer detail. A period with no data is drawn as a gap |
 | 🕵️ **Suspicious-Process Watch** | A scan once a minute raises an alert for any process with no window using over 25% CPU, without the dashboard being open |
@@ -381,6 +383,7 @@ KavanMCP/
 │   │   ├── test_never_alert.py      # Muted episodes, held first toasts and failed scans
 │   │   ├── test_settings_storage.py # Settings move, list validation and the settings endpoint
 │   │   ├── test_dashboard_only.py   # main.py --dashboard-only
+│   │   ├── test_retention.py        # Alert retention, applied at once
 │   │   ├── test_kills_api.py        # /api/kills and /api/rollback
 │   │   ├── kill_helpers.py          # Puts kill rows into the test database
 │   │   ├── test_termination_api.py  # Kill flow and API boundary
@@ -427,6 +430,16 @@ KavanMCP/
 │       │   │   ├── RestoreCell.tsx          # Restore button, spinner, restored time or reason
 │       │   │   ├── rows.ts                  # Pure row updates after a restore
 │       │   │   └── wording.ts               # Restore failure codes to sentences
+│       │   ├── settings/
+│       │   │   ├── ThresholdsSection.tsx    # Alert threshold sliders
+│       │   │   ├── ProtectedAppsSection.tsx # Never terminate and never alert lists
+│       │   │   ├── AppPicker.tsx            # Floating picker of running programs
+│       │   │   ├── HistorySection.tsx       # Alert retention, with a confirm before deleting
+│       │   │   ├── AppearanceSection.tsx    # Theme choice
+│       │   │   ├── SoundSection.tsx         # Sound switch, volume, sound choice, Test
+│       │   │   ├── StartupSection.tsx       # Start with Windows and the backend location
+│       │   │   ├── ConfigGate.tsx           # Loading and could-not-load state for backend settings
+│       │   │   └── SettingsSection.tsx      # Section card
 │       │   ├── common/
 │       │   │   ├── Toast.tsx                # Single alert component
 │       │   │   ├── ToastContainer.tsx        # Toast queue renderer
@@ -447,13 +460,14 @@ KavanMCP/
 │       │   ├── NavigationContext.tsx     # Active page + cross-page target
 │       │   └── ToastContext.tsx          # Toast queue state
 │       ├── hooks/
-│       │   ├── useWebSocketConnection.ts  # Reconnect with exponential backoff
+│       │   ├── useWebSocketConnection.ts  # Reconnect with exponential backoff, one sound per alert
 │       │   ├── useProcessManager.ts       # Kill cascade logic, and Undo after a kill
 │       │   ├── useKillHistory.ts          # Recent kills and restoring them one at a time
 │       │   ├── useTrayIntegration.ts      # Global tray with offline awareness
 │       │   └── useWindowLifecycle.ts      # Hide-on-close behaviour
 │       ├── services/
-│       │   └── api.ts               # Axios client + typed endpoints
+│       │   ├── api.ts               # Axios client + typed endpoints
+│       │   └── alertSound.ts        # One audio context, four sounds, volume curve
 │       ├── utils/
 │       │   ├── time.ts              # Duration and date formatting
 │       │   └── series.ts            # Gap filling and window statistics
@@ -544,7 +558,7 @@ Restart Claude Desktop. KavanMCP tools will appear automatically.
 ```powershell
 cd mcp-server
 python -m pytest -q
-# 223 passed
+# 257 passed
 ```
 
 ---
@@ -624,7 +638,7 @@ All endpoints are on `http://127.0.0.1:8000`. CORS is restricted to Tauri window
 |---|---|---|
 | `GET` | `/api/list_processes` | All running processes with tier classification |
 | `GET` | `/api/get_config` | Current thresholds and UI preferences |
-| `POST` | `/api/update_thresholds` | Partially update config: thresholds, theme, sound, `never_kill` and `never_alert` (lists of process names) |
+| `POST` | `/api/update_thresholds` | Partially update config: thresholds, theme, `sound_alerts`, `sound_volume` (0 to 100), `sound_choice` (`chime`, `pulse`, `bell`, `soft`), `alert_retention_days` (7, 14 or 30, applied at once), `never_kill` and `never_alert` |
 | `POST` | `/api/confirm_termination` | Stage a PID (rejects Tier 1 immediately) |
 | `POST` | `/api/execute_termination` | Execute a staged kill (verifies create\_time). The response carries `audit_id`, the id of the kill's audit row |
 | `GET` | `/api/alerts` | Alert history. Filters: `from`, `to`, `metric`, `level`, `limit` |
