@@ -10,6 +10,22 @@ const RANGE_OPTIONS: SegmentOption<DateRange>[] = [
   { value: 'custom', label: 'Custom' },
 ];
 
+/** How many days each preset reaches back. Custom is any window the user picks. */
+export const PRESET_DAYS: Record<Exclude<DateRange, 'custom'>, number> = { '24h': 1, '7d': 7, '30d': 30 };
+
+/** The presets that fit within the alert history Kavan keeps. Offering more would suggest alerts are missing. */
+export function presetsWithin(retentionDays: number): DateRange[] {
+  return RANGE_OPTIONS.map((option) => option.value)
+    .filter((range) => range === 'custom' || PRESET_DAYS[range] <= retentionDays);
+}
+
+/** The range to show instead, when the current one reaches past what is kept: the longest that fits. */
+export function rangeWithin(range: DateRange, retentionDays: number): DateRange {
+  if (range === 'custom' || PRESET_DAYS[range] <= retentionDays) return range;
+  const fitting = (Object.keys(PRESET_DAYS) as Exclude<DateRange, 'custom'>[]).filter((r) => PRESET_DAYS[r] <= retentionDays);
+  return fitting.reduce((longest, r) => (PRESET_DAYS[r] > PRESET_DAYS[longest] ? r : longest), '24h');
+}
+
 const METRIC_OPTIONS: SegmentOption<AlertMetric | 'all'>[] = [
   { value: 'all', label: 'All' },
   ...(Object.keys(METRIC_LABELS) as AlertMetric[]).map((metric) => ({ value: metric, label: METRIC_LABELS[metric] })),
@@ -24,13 +40,16 @@ const LEVEL_OPTIONS: SegmentOption<AlertLevel | 'all'>[] = [
 interface AlertFiltersProps {
   filters: AlertViewFilters;
   onChange: (filters: AlertViewFilters) => void;
+  /** Days of alert history kept, so no preset reaches further back */
+  retentionDays: number;
 }
 
-export function AlertFilters({ filters, onChange }: AlertFiltersProps) {
+export function AlertFilters({ filters, onChange, retentionDays }: AlertFiltersProps) {
+  const available = presetsWithin(retentionDays);
   return (
     <>
       <SegmentedControl
-        options={RANGE_OPTIONS}
+        options={RANGE_OPTIONS.filter((option) => available.includes(option.value))}
         value={filters.range}
         onChange={(range) => onChange({ ...filters, range })}
         ariaLabel="Date range"

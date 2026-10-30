@@ -2,7 +2,8 @@ import { useEffect, useState } from 'react';
 import { Loader2, RefreshCw, Unplug } from 'lucide-react';
 import { useAlertHistory, ALERT_LIMIT, DEFAULT_ALERT_FILTERS, type DateRange } from '../context/AlertHistoryContext';
 import { useNavigation } from '../context/NavigationContext';
-import { AlertFilters } from '../components/alerts/AlertFilters';
+import { AlertFilters, rangeWithin } from '../components/alerts/AlertFilters';
+import { useConfig } from '../context/ConfigContext';
 import { AlertTable } from '../components/alerts/AlertTable';
 import { EmptyState } from '../components/common/EmptyState';
 
@@ -19,6 +20,14 @@ export function Alerts() {
   const { target, clearTarget } = useNavigation();
   const { alerts, truncated, filters, setFilters, isLoading, error, hasLoaded, reload } = useAlertHistory();
   const [selectedId, setSelectedId] = useState<string | null>(null);
+  const { config } = useConfig();
+  const retentionDays = config?.alert_retention_days ?? 30;
+
+  // A preset longer than the history kept is not offered. If it was selected, the longest that fits is used.
+  useEffect(() => {
+    const fitting = rangeWithin(filters.range, retentionDays);
+    if (fitting !== filters.range) setFilters({ ...filters, range: fitting });
+  }, [filters, retentionDays, setFilters]);
 
   // Opening the page reads the list again, so the relative date presets are measured from now
   useEffect(() => {
@@ -28,10 +37,10 @@ export function Alerts() {
   // Arriving from a marker on the graphs: show that alert, whatever the filters were hiding
   useEffect(() => {
     if (target?.kind !== 'alert') return;
-    setFilters({ ...DEFAULT_ALERT_FILTERS, range: rangeReaching(target.startedAt) });
+    setFilters({ ...DEFAULT_ALERT_FILTERS, range: rangeWithin(rangeReaching(target.startedAt), retentionDays) });
     setSelectedId(target.alertId);
     clearTarget();
-  }, [target, clearTarget, setFilters]);
+  }, [target, clearTarget, setFilters, retentionDays]);
 
   // Escape closes the expanded row
   useEffect(() => {
@@ -88,7 +97,7 @@ export function Alerts() {
           {hasLoaded && <span className="tnum text-xs text-ink-faint">{alerts.length}{truncated ? '+' : ''}</span>}
         </div>
 
-        <AlertFilters filters={filters} onChange={setFilters} />
+        <AlertFilters filters={filters} onChange={setFilters} retentionDays={retentionDays} />
 
         <button
           onClick={reload}
