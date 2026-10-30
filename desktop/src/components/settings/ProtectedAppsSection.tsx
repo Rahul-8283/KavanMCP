@@ -102,7 +102,7 @@ function ProtectedList({ settingKey, title, description, noun, showSystemProcess
   );
 }
 
-export function ProtectedApps() {
+export function ProtectedAppsSection() {
   const { config } = useConfig();
   const neverKill = config?.never_kill ?? [];
   const neverAlert = config?.never_alert ?? [];
