@@ -18,6 +18,7 @@ from database.db import (
     close_alert_event,
     close_orphaned_alert_events,
     get_alert_event,
+    mark_alert_muted,
     open_alert_event,
     prune_history,
     record_metrics_minute,
@@ -36,11 +37,11 @@ from handlers.history_recorder import (
 )
 from handlers.process_watch import (
     PROCESS_WATCH_INTERVAL,
-    TOP_PROCESS_FIELDS,
     ProcessWatcher,
     lookup_top_process,
     scan_processes,
 )
+from handlers.protection import is_alert_muted
 from handlers.termination_handler import execute_approved_termination
 from routes import history, kills
 from routes.history import serialize_alert
@@ -263,18 +264,20 @@ def collect_metrics() -> dict:
     }
 
 def build_alerts(values: dict, config: dict, last_alert_time: dict, now: float,
-                 episode_ids: dict | None = None) -> list[dict]:
+                 episode_ids: dict | None = None, held: set[str] | None = None) -> list[dict]:
     """
-    Phase 6: one threshold_alert per metric over its threshold, rate-limited per metric.
+    One threshold_alert per metric over its threshold, rate-limited per metric.
     episode_ids maps a metric to its open episode, so a client can tell the first alert
-    of an episode from its repeats.
+    of an episode from its repeats. Metrics in `held` are not announced: their first alert
+    waits for the top-process scan, or they are muted.
     """
     alerts = []
     episode_ids = episode_ids or {}
+    held = held or set()
     for metric, config_key, label in ALERT_METRICS:
         threshold = config.get(config_key)
         current = values[metric]
-        if threshold is None or current <= threshold:
+        if threshold is None or current <= threshold or metric in held:
             continue
         if now - last_alert_time.get(metric, 0) < ALERT_COOLDOWN:
             continue
@@ -288,6 +291,17 @@ def build_alerts(values: dict, config: dict, last_alert_time: dict, now: float,
             "episode_id": episode_ids.get(metric),
         })
     return alerts
+
+def build_threshold_alert(metric: str, label: str, threshold: float, current: float, now: float,
+                          episode_id: str | None) -> dict:
+    return {
+        "type": "threshold_alert",
+        "level": "critical" if current >= CRITICAL_LEVEL else "warning",
+        "message": f"{label} exceeded {threshold}% threshold. Current: {current}%.",
+        "timestamp": int(now),
+        "metric": metric,
+        "episode_id": episode_id,
+    }
 
 def build_process_alert(episode: Episode, now: float) -> dict:
     """The one alert a suspicious-process episode raises, when it starts."""
@@ -323,6 +337,8 @@ latest_values = {"cpu": 0.0, "ram": 0.0, "disk": 0.0}
 # Tasks that outlive the cycle which started them. Held here so they are not garbage collected.
 background_tasks: set[asyncio.Task] = set()
 
+last_alert_time: dict = {}
+
 async def announce_alert(event: str, episode: Episode) -> None:
     """
     Tells connected windows that a stored episode changed, so the history page needs no polling.
@@ -338,30 +354,52 @@ async def announce_alert(event: str, episode: Episode) -> None:
     except Exception as e:
         logger.error(f"Failed to announce a {episode.metric} alert: {e}")
 
-async def attach_top_process(episode: Episode) -> None:
-    """Scans for the largest consumer of the episode's metric and stores it on the row."""
+async def resolve_first_alert(episode: Episode) -> None:
+    """
+    Finds the episode's largest consumer, then decides its first alert: muted when that process
+    is on the never-alert list, otherwise announced now. A failed scan still announces it.
+    """
+    top = None
     try:
         top = await lookup_top_process(episode.metric)
         if top:
             episode.top_process = top
-            if await set_alert_top_process(episode.id, top["name"], top["pid"], top["value"]):
+            if episode.id and await set_alert_top_process(episode.id, top["name"], top["pid"], top["value"]):
                 await announce_alert("updated", episode)
     except Exception as e:
         logger.error(f"Failed to find the top process for a {episode.metric} alert: {e}")
 
+    if top and is_alert_muted(top["name"]):
+        episode.muted = True
+        if episode.id and await mark_alert_muted(episode.id):
+            await announce_alert("updated", episode)
+
+    episode.alert_pending = False
+    if not episode.muted and manager.active_connections:
+        label = next(label for metric, _, label in ALERT_METRICS if metric == episode.metric)
+        now = time.time()
+        last_alert_time[episode.metric] = now
+        await manager.broadcast(build_threshold_alert(
+            episode.metric, label, episode.threshold, latest_values[episode.metric], now, episode.id))
+
+def schedule_first_alert(episode: Episode) -> None:
+    if not episode.alert_pending or episode.resolving:
+        return
+    episode.resolving = True
+    # The scan takes over a second. Its own task keeps the 2-second sampling loop on time.
+    task = asyncio.create_task(resolve_first_alert(episode))
+    background_tasks.add(task)
+    task.add_done_callback(background_tasks.discard)
+
 async def store_episode_start(episode: Episode) -> None:
     episode.id = await open_alert_event(
         episode.metric, episode.level, episode.threshold, utc_text(episode.started_at),
-        episode.peak_value, episode.readings, episode.top_process,
+        episode.peak_value, episode.readings, episode.top_process, muted=episode.muted,
     )
     if episode.id:
         episode.peak_changed = False
         await announce_alert("started", episode)
-        if episode.metric in TOP_PROCESS_FIELDS and episode.top_process is None:
-            # The scan takes over a second. Its own task keeps the 2-second sampling loop on time.
-            task = asyncio.create_task(attach_top_process(episode))
-            background_tasks.add(task)
-            task.add_done_callback(background_tasks.discard)
+    schedule_first_alert(episode)
 
 async def store_episode_changes(changes: list[EpisodeChange]) -> None:
     """Writes episode starts and ends as they happen. Higher peaks wait for store_episode_peaks."""
@@ -417,7 +455,7 @@ async def watch_processes_once(now: float) -> None:
     await store_episode_changes(changes)
     await store_episode_peaks(watcher.open_episodes())
     for change in changes:
-        if change.kind == "started":
+        if change.kind == "started" and not change.episode.muted:
             await manager.broadcast(build_process_alert(change.episode, now))
 
 async def history_pruner():
@@ -459,14 +497,15 @@ async def run_cycle(values: dict, now: float, last_alert_time: dict) -> None:
     await record_sample(values, now)
 
     if manager.active_connections:
-        episode_ids = {episode.metric: episode.id for episode in episodes.open_episodes()}
-        for alert in build_alerts(values, ACTIVE_CONFIG, last_alert_time, now, episode_ids):
+        open_episodes = episodes.open_episodes()
+        episode_ids = {episode.metric: episode.id for episode in open_episodes}
+        held = {episode.metric for episode in open_episodes if episode.alert_pending or episode.muted}
+        for alert in build_alerts(values, ACTIVE_CONFIG, last_alert_time, now, episode_ids, held):
             await manager.broadcast(alert)
 
 async def metrics_broadcaster():
     """Background task to poll psutil, record the history and broadcast to WS clients."""
     logger.info("Metrics broadcaster background task started.")
-    last_alert_time: dict = {}
 
     while True:
         try:

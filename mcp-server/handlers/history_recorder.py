@@ -15,6 +15,8 @@ ALERT_METRICS = (
     ("ram", "ram_threshold", "Memory"),
     ("disk", "disk_threshold", "Disk"),
 )
+# Metrics with a largest consumer. Their first alert waits for that scan, so it can be held back.
+TOP_PROCESS_METRICS = ("cpu", "ram")
 
 # How often the metrics are sampled. Coverage of a stored minute is counted against this.
 SAMPLE_INTERVAL_SECONDS = 2.0
@@ -91,6 +93,9 @@ class Episode:
     ended_at: float | None = None
     below_since: float | None = None  # when the value first dropped; the close timer
     peak_changed: bool = False  # the peak or level moved since it was last stored
+    alert_pending: bool = False  # the first toast waits for the top-process scan
+    muted: bool = False  # the top process is on the never-alert list: recorded, not announced
+    resolving: bool = False  # the top-process scan has been started for this episode
 
     def raise_peak(self, value: float) -> bool:
         if value <= self.peak_value:
@@ -148,7 +153,8 @@ class EpisodeTracker:
             if episode is None:
                 if over:
                     episode = Episode(metric=metric, threshold=threshold, started_at=now, peak_value=value,
-                                      level=level_for(value), readings=dict(values))
+                                      level=level_for(value), readings=dict(values),
+                                      alert_pending=metric in TOP_PROCESS_METRICS)
                     self._open[metric] = episode
                     changes.append(EpisodeChange("started", episode))
             elif over:
