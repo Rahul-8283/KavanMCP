@@ -10,6 +10,7 @@ class ProcessSchema(BaseModel):
     tier: int = 3
     is_headless: bool = False
     anomaly_flags: list[str] = []
+    protected: bool = False
 
 class SystemReportSchema(BaseModel):
     total_cpu_percent: float

@@ -159,3 +159,22 @@ def test_no_mcp_tool_can_write_a_setting():
         "analyze_system", "list_processes", "explain_process", "view_audit_log",
         "confirm_termination", "execute_termination", "rollback_last_action",
     }
+
+
+def test_a_protected_process_is_marked_and_keeps_its_real_tier(dummy, protect):
+    from tools.list_processes import list_processes_logic
+
+    protect("python.exe")
+    listed = json.loads(list_processes_logic(filter_name="python.exe"))
+    entry = next(item for item in listed if item["pid"] == dummy.pid)
+
+    assert entry["protected"] is True
+    assert entry["tier"] == 3, "protection is a separate fact, the tier does not change"
+
+
+def test_an_unprotected_process_is_not_marked(dummy):
+    from tools.list_processes import list_processes_logic
+
+    listed = json.loads(list_processes_logic(filter_name="python.exe"))
+
+    assert next(item for item in listed if item["pid"] == dummy.pid)["protected"] is False
