@@ -19,6 +19,10 @@
     "core:window:allow-destroy",
     "core:app:allow-app-hide",
     "core:app:allow-app-show",
-    "core:path:default"
+    "core:path:default",
+    "dialog:default",
+    "autostart:allow-enable",
+    "autostart:allow-disable",
+    "autostart:allow-is-enabled"
   ]
 }

@@ -10,6 +10,7 @@ use tauri::{AppHandle, Manager, State};
 
 const BACKEND_ADDR: &str = "127.0.0.1:8000";
 const BACKEND_CONFIG_FILE: &str = "backend.json";
+const MINIMIZED_ARG: &str = "--minimized";
 #[cfg(windows)]
 const CREATE_NO_WINDOW: u32 = 0x0800_0000;
 
@@ -140,14 +141,31 @@ fn greet(name: &str) -> String {
 #[cfg_attr(mobile, tauri::mobile_entry_point)]
 pub fn run() {
     tauri::Builder::default()
+        .plugin(tauri_plugin_single_instance::init(|app, _args, _cwd| {
+            if let Some(window) = app.get_webview_window("main") {
+                let _ = window.show();
+                let _ = window.unminimize();
+                let _ = window.set_focus();
+            }
+        }))
         .plugin(tauri_plugin_notification::init())
         .plugin(tauri_plugin_opener::init())
         .plugin(tauri_plugin_dialog::init())
+        .plugin(tauri_plugin_autostart::init(
+            tauri_plugin_autostart::MacosLauncher::LaunchAgent,
+            Some(vec![MINIMIZED_ARG]),
+        ))
         .manage(BackendProcess::default())
         .setup(|app| {
             let handle = app.handle().clone();
             std::thread::spawn(move || ensure_backend(&handle));
 
+            let started_quietly = std::env::args().any(|arg| arg == MINIMIZED_ARG);
+            if !started_quietly {
+                if let Some(window) = app.get_webview_window("main") {
+                    let _ = window.show();
+                }
+            }
             Ok(())
         })
         .invoke_handler(tauri::generate_handler![
