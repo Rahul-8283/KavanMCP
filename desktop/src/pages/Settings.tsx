@@ -5,6 +5,7 @@ import { Switch } from '../components/common/Switch';
 import { Loader2, RotateCcw, RefreshCw } from 'lucide-react';
 import { SettingsSection } from '../components/settings/SettingsSection';
 import { ProtectedApps } from '../components/settings/ProtectedApps';
+import { StartupSection } from '../components/settings/StartupSection';
 
 type ThresholdKey = 'cpu_threshold' | 'ram_threshold' | 'disk_threshold';
 
@@ -147,6 +148,8 @@ export function Settings() {
 
           {/* Protected apps: the backend enforces these, the page only edits them */}
           <ProtectedApps />
+
+          <StartupSection />
 
           {/* Card 3: System Integrations */}
           <SettingsSection title="System Integrations">
