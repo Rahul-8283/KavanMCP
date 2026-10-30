@@ -20,6 +20,7 @@ from handlers.approval_handler import (
     take_approval,
 )
 from handlers.classification_handler import classify_process
+from handlers.protection import is_user_protected, protected_message
 from utils.logger import logger
 
 ACCESS_DENIED_MESSAGE = "Permission Denied. Please restart KavanMCP as Administrator."
@@ -43,6 +44,9 @@ def _terminate_blocking(pid: int) -> dict:
                 "status": "tier1_blocked",
                 "error": f"CRITICAL ERROR: {name} (PID: {pid}) is a Tier 1 process. Termination is STRICTLY PROHIBITED."
             }
+        # Phase 6 §3.2: the lowest gate, so a protection added after the confirmation still holds
+        if is_user_protected(name):
+            return {"status": "user_protected", "error": protected_message(name)}
 
         # Snapshot metrics before death
         mem_mb = proc.memory_info().rss / MB

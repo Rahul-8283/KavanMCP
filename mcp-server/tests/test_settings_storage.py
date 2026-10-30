@@ -67,7 +67,7 @@ def test_no_file_at_all_writes_the_defaults(tmp_path, monkeypatch):
 
 def test_protected_lists_keep_only_clean_process_names():
     cleaned = settings_manager._valid_entries({"never_kill": [
-        "  Notepad.EXE ", "notepad.exe", 42, "", "   ", "C:\Windows\notepad.exe", "/usr/bin/x", "a:b",
+        "  Notepad.EXE ", "notepad.exe", 42, "", "   ", r"C:\Windows\notepad.exe", "/usr/bin/x", "a:b",
         "x" * 261, "y" * 260, None, "Code.exe",
     ]})["never_kill"]
 

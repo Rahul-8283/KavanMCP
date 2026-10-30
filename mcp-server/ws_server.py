@@ -215,6 +215,7 @@ class PidRequest(BaseModel):
 KILL_HTTP_STATUS = {
     "tier1_blocked": 403,
     "self_protected": 403,
+    "user_protected": 403,
     "access_denied": 403,
     "not_approved": 409,
     "pid_reused": 409,
