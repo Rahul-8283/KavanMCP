@@ -27,11 +27,13 @@ interface KillConfirmModalProps {
   target: Process | null;
   isBusy: boolean;
   error: string | null;
+  /** On the user's never-kill list. The backend would refuse too: this only explains it up front */
+  isProtected: boolean;
   onConfirm: () => void;
   onCancel: () => void;
 }
 
-export function KillConfirmModal({ target, isBusy, error, onConfirm, onCancel }: KillConfirmModalProps) {
+export function KillConfirmModal({ target, isBusy, error, isProtected, onConfirm, onCancel }: KillConfirmModalProps) {
   useEffect(() => {
     if (!target) return;
     const handleKeyDown = (e: KeyboardEvent) => {
@@ -81,6 +83,11 @@ export function KillConfirmModal({ target, isBusy, error, onConfirm, onCancel }:
 
         <div className="space-y-2.5 px-6 pt-4">
           <p className={`rounded-r-md border-l-2 px-3 py-2 text-[0.8125rem] font-medium ${copy.tone}`}>{copy.text}</p>
+          {isProtected && (
+            <p role="status" className={`rounded-r-md border-l-2 px-3 py-2 text-[0.8125rem] font-medium ${TONE_NEUTRAL}`}>
+              Protected by you. Remove it from the protected list in Settings to terminate it.
+            </p>
+          )}
           {error && (
             <p role="alert" className={`rounded-r-md border-l-2 px-3 py-2 text-[0.8125rem] ${TONE_CRIMSON}`}>
               {error}
@@ -92,7 +99,7 @@ export function KillConfirmModal({ target, isBusy, error, onConfirm, onCancel }:
           <button autoFocus onClick={onCancel} disabled={isBusy} className="btn h-9 px-4">
             Cancel
           </button>
-          <button onClick={onConfirm} disabled={copy.blocked || isBusy} className="btn btn-primary h-9 px-4">
+          <button onClick={onConfirm} disabled={copy.blocked || isProtected || isBusy} className="btn btn-primary h-9 px-4">
             {isBusy && <Loader2 className="h-4 w-4 animate-spin" />}
             Confirm Termination
           </button>

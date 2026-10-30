@@ -1,19 +1,25 @@
 import { useEffect, useLayoutEffect, useRef, useState } from 'react';
 import { createPortal } from 'react-dom';
-import { OctagonX } from 'lucide-react';
+import { Bell, BellOff, OctagonX, Shield, ShieldOff } from 'lucide-react';
 import type { Process } from '../../context/ProcessContext';
 
 interface ProcessContextMenuProps {
   x: number;
   y: number;
   process: Process;
+  isProtected: boolean;
+  isMuted: boolean;
   onTerminate: () => void;
+  onToggleProtected: () => void;
+  onToggleMuted: () => void;
   onClose: () => void;
 }
 
+const ITEM_CLASS = 'flex h-8 w-full items-center gap-2.5 rounded-md px-2 text-left text-[0.8125rem] font-medium transition-colors';
+
 const WINDOW_MARGIN = 8;
 
-export function ProcessContextMenu({ x, y, process, onTerminate, onClose }: ProcessContextMenuProps) {
+export function ProcessContextMenu({ x, y, process, isProtected, isMuted, onTerminate, onToggleProtected, onToggleMuted, onClose }: ProcessContextMenuProps) {
   const menuRef = useRef<HTMLDivElement>(null);
   const [position, setPosition] = useState<{ left: number; top: number } | null>(null);
 
@@ -67,10 +73,27 @@ export function ProcessContextMenu({ x, y, process, onTerminate, onClose }: Proc
         <button
           role="menuitem"
           onClick={onTerminate}
-          className="flex h-8 w-full items-center gap-2.5 rounded-md px-2 text-left text-[0.8125rem] font-medium text-crimson-ink transition-colors hover:bg-crimson-wash"
+          className={`${ITEM_CLASS} text-crimson-ink hover:bg-crimson-wash`}
         >
           <OctagonX size={15} strokeWidth={1.75} />
           Terminate Process
+        </button>
+      </div>
+      <div className="border-t border-line p-1">
+        {process.tier === 1 ? (
+          <p className="flex h-8 items-center gap-2.5 px-2 text-[0.8125rem] text-ink-faint">
+            <Shield size={15} strokeWidth={1.75} />
+            Always protected
+          </p>
+        ) : (
+          <button role="menuitem" onClick={onToggleProtected} className={`${ITEM_CLASS} text-ink hover:bg-hover`}>
+            {isProtected ? <ShieldOff size={15} strokeWidth={1.75} /> : <Shield size={15} strokeWidth={1.75} />}
+            {isProtected ? 'Remove protection' : 'Protect from termination'}
+          </button>
+        )}
+        <button role="menuitem" onClick={onToggleMuted} className={`${ITEM_CLASS} text-ink hover:bg-hover`}>
+          {isMuted ? <Bell size={15} strokeWidth={1.75} /> : <BellOff size={15} strokeWidth={1.75} />}
+          {isMuted ? 'Alert on this app again' : 'Stop alerting on this app'}
         </button>
       </div>
     </div>,
