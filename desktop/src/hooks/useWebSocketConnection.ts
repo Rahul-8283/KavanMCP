@@ -4,6 +4,7 @@ import { useToast } from '../context/ToastContext';
 import { useConfig } from '../context/ConfigContext';
 import { useAlertHistory } from '../context/AlertHistoryContext';
 import { isPermissionGranted, requestPermission, sendNotification } from '@tauri-apps/plugin-notification';
+import { EpisodeSoundGate, playAlertSound, type SoundChoice } from '../services/alertSound';
 
 export enum ConnectionStatus {
   CONNECTING = 'CONNECTING',
@@ -26,38 +27,18 @@ async function triggerNativeAlert(title: string, body: string) {
   }
 }
 
-function playBeep() {
-  try {
-    const AudioContext = window.AudioContext || (window as any).webkitAudioContext;
-    if (!AudioContext) return;
-    const audioCtx = new AudioContext();
-    const oscillator = audioCtx.createOscillator();
-    const gainNode = audioCtx.createGain();
-    
-    oscillator.type = 'sine';
-    oscillator.frequency.setValueAtTime(880, audioCtx.currentTime); // A5 frequency
-    
-    gainNode.gain.setValueAtTime(0.1, audioCtx.currentTime); // 10% volume
-    gainNode.gain.exponentialRampToValueAtTime(0.001, audioCtx.currentTime + 0.5);
-    
-    oscillator.connect(gainNode);
-    gainNode.connect(audioCtx.destination);
-    
-    oscillator.start();
-    oscillator.stop(audioCtx.currentTime + 0.5);
-  } catch (e) {
-    console.error('Failed to play beep', e);
-  }
-}
-
 export function useWebSocketConnection() {
   const { updateMetrics, setStatus } = useMetrics();
   const { addToast } = useToast();
   const { config } = useConfig();
   const { applyEvent } = useAlertHistory();
-  // The socket effect is created once, so it reads the sound setting through a ref
+  // The socket effect is created once, so it reads the sound settings through refs
   const soundEnabledRef = useRef(true);
   soundEnabledRef.current = config?.sound_alerts !== false;
+  const soundRef = useRef<{ choice: SoundChoice; volume: number }>({ choice: 'chime', volume: 50 });
+  soundRef.current = { choice: config?.sound_choice ?? 'chime', volume: config?.sound_volume ?? 50 };
+  // A breach repeats its alert every few seconds. Only the first alert of an episode makes a sound.
+  const soundGateRef = useRef(new EpisodeSoundGate());
   // The socket effect is created once, so it reaches the history through a ref as well
   const applyEventRef = useRef(applyEvent);
   applyEventRef.current = applyEvent;
@@ -113,9 +94,9 @@ export function useWebSocketConnection() {
               triggerNativeAlert('Kavan Alert', payload.message);
             }
             
-            // 5.2 Sound Alerts
-            if (soundEnabledRef.current) {
-              playBeep();
+            // 5.2 Sound Alerts: once per episode, however long the breach lasts
+            if (soundEnabledRef.current && soundGateRef.current.shouldSound(payload.episode_id)) {
+              playAlertSound(soundRef.current.choice, soundRef.current.volume);
             }
           }
         } catch (error) {
