@@ -18,7 +18,24 @@ def print_banner():
     # stdout is the MCP transport; printing there corrupts the protocol stream
     print(banner, file=sys.stderr)
 
+def run_dashboard_only():
+    """
+    The dashboard without the MCP transport, for the desktop app to start in the background.
+    Standard input is not read, so this works with no console. If another instance already
+    serves the port, that instance is the dashboard and this one exits.
+    """
+    from handlers.approval_handler import ttl_sweeper
+    from ws_server import PORT, port_in_use, run_ws_server
+
+    if port_in_use():
+        logger.info(f"Port {PORT} is already served by another KavanMCP instance. Nothing to start.")
+        return
+    import threading
+    threading.Thread(target=lambda: asyncio.run(ttl_sweeper()), daemon=True).start()
+    run_ws_server()
+
 def main():
+    dashboard_only = "--dashboard-only" in sys.argv[1:]
     # 1 & 3. Initialize logger and display banner
     print_banner()
     logger.info("Initializing KavanMCP Server...")
@@ -34,6 +51,10 @@ def main():
     # Initialize SQLite database before starting server
     logger.info("Initializing SQLite database...")
     asyncio.run(init_db())
+
+    if dashboard_only:
+        run_dashboard_only()
+        return
 
     # Start the TTL sweeper background task safely outside the FastMCP event loop
     import threading
