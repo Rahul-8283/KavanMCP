@@ -1,4 +1,5 @@
 import { AppearanceSection } from '../components/settings/AppearanceSection';
+import { HistorySection } from '../components/settings/HistorySection';
 import { ProtectedAppsSection } from '../components/settings/ProtectedAppsSection';
 import { SoundSection } from '../components/settings/SoundSection';
 import { StartupSection } from '../components/settings/StartupSection';
@@ -13,6 +14,7 @@ export function Settings() {
           <ThresholdsSection />
           {/* Protected apps: the backend enforces these, the page only edits them */}
           <ProtectedAppsSection />
+          <HistorySection />
           <StartupSection />
           <SoundSection />
         </div>
