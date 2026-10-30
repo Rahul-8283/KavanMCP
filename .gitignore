@@ -40,3 +40,6 @@ node_modules/
 dist/
 build/
 target/
+
+# Personal settings (thresholds, protected apps, startup). Moved to mcp-server/data/settings.json
+mcp-server/config/settings.json
