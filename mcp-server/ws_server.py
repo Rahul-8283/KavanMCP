@@ -197,6 +197,9 @@ class ConfigUpdate(BaseModel):
     sound_alerts: Optional[bool] = None
     never_kill: Optional[list[str]] = Field(None, max_length=MAX_LIST_ENTRIES * 2)
     never_alert: Optional[list[str]] = Field(None, max_length=MAX_LIST_ENTRIES * 2)
+    sound_volume: Optional[int] = Field(None, ge=0, le=100, strict=True)
+    sound_choice: Optional[Literal["chime", "pulse", "bell", "soft"]] = None
+    alert_retention_days: Optional[Literal[7, 14, 30]] = None
 
 @app.post("/api/update_thresholds")
 async def update_thresholds(payload: ConfigUpdate):
@@ -462,7 +465,7 @@ async def history_pruner():
     """Drops history past its retention, once at start-up and then every hour."""
     while True:
         try:
-            # Phase 7 adds alert_retention_days to the settings; until then this is the default
+            # The user's choice of 7, 14 or 30 days. Metrics keep a fixed window.
             await prune_history(METRICS_RETENTION_DAYS, ACTIVE_CONFIG.get("alert_retention_days", 30))
         except Exception as e:
             logger.error(f"Error in history pruner: {e}")

@@ -14,12 +14,17 @@ DEFAULT_CONFIG = {
     "theme": "dark",
     "sound_alerts": True,
     "never_kill": [],
-    "never_alert": []
+    "never_alert": [],
+    "sound_volume": 50,
+    "sound_choice": "chime",
+    "alert_retention_days": 30
 }
 
 THRESHOLD_KEYS = ("cpu_threshold", "ram_threshold", "disk_threshold")
 THEMES = ("dark", "light")
 LIST_KEYS = ("never_kill", "never_alert")
+SOUND_CHOICES = ("chime", "pulse", "bell", "soft")
+RETENTION_DAYS = (7, 14, 30)
 MAX_LIST_ENTRIES = 200
 MAX_NAME_LENGTH = 260
 _FORBIDDEN_IN_NAME = ("\\", "/", ":")
@@ -59,6 +64,15 @@ def _valid_entries(data: dict) -> dict:
     for key in LIST_KEYS:
         if isinstance(data.get(key), list):
             valid[key] = _clean_names(data[key])
+    volume = data.get("sound_volume")
+    # A boolean is an int in Python, so it is ruled out first, as for the thresholds
+    if isinstance(volume, int) and not isinstance(volume, bool) and 0 <= volume <= 100:
+        valid["sound_volume"] = volume
+    if data.get("sound_choice") in SOUND_CHOICES:
+        valid["sound_choice"] = data["sound_choice"]
+    days = data.get("alert_retention_days")
+    if isinstance(days, int) and not isinstance(days, bool) and days in RETENTION_DAYS:
+        valid["alert_retention_days"] = days
     return valid
 
 def _sanitize(data: dict) -> dict:
