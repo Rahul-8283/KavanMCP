@@ -1,8 +1,10 @@
-import { CSSProperties, ReactNode, useEffect, useState } from 'react';
+import { CSSProperties, useEffect, useState } from 'react';
 import { useConfig, DEFAULT_THRESHOLDS, Theme } from '../context/ConfigContext';
 import { useToast } from '../context/ToastContext';
 import { Switch } from '../components/common/Switch';
 import { Loader2, RotateCcw, RefreshCw } from 'lucide-react';
+import { SettingsSection } from '../components/settings/SettingsSection';
+import { ProtectedApps } from '../components/settings/ProtectedApps';
 
 type ThresholdKey = 'cpu_threshold' | 'ram_threshold' | 'disk_threshold';
 
@@ -34,21 +36,6 @@ function useThresholdSlider(key: ThresholdKey, label: string, saved: number | un
   }, [value, saved, key, label, updateSetting, addToast]);
 
   return [value, setValue] as const;
-}
-
-function SettingsSection({ title, description, action, children }: { title: string; description?: string; action?: ReactNode; children: ReactNode }) {
-  return (
-    <section className="panel overflow-hidden">
-      <div className="flex min-h-[4.25rem] items-center justify-between gap-4 border-b border-line px-5 py-3">
-        <div className="min-w-0">
-          <h2 className="font-display text-[0.9375rem] font-semibold text-ink">{title}</h2>
-          {description && <p className="mt-0.5 text-xs text-ink-soft">{description}</p>}
-        </div>
-        {action}
-      </div>
-      {children}
-    </section>
-  );
 }
 
 // A miniature of the app drawn in the given theme's own palette
@@ -157,6 +144,9 @@ export function Settings() {
               </div>
             )}
           </SettingsSection>
+
+          {/* Protected apps: the backend enforces these, the page only edits them */}
+          <ProtectedApps />
 
           {/* Card 3: System Integrations */}
           <SettingsSection title="System Integrations">
