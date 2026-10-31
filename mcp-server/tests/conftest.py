@@ -35,3 +35,15 @@ def fake_popen():
     with patch.object(termination_handler.subprocess, "Popen") as popen:
         popen.return_value.pid = 4242
         yield popen
+
+
+def pytest_collection_modifyitems(items):
+    """
+    KAVAN_TEST_SHUFFLE=<seed> runs the tests in a random order that the seed reproduces.
+    A suite that only passes in file order has tests leaning on each other's leftovers.
+    """
+    seed = os.environ.get("KAVAN_TEST_SHUFFLE")
+    if seed:
+        import random
+
+        random.Random(seed).shuffle(items)
