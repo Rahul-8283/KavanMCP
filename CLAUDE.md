@@ -488,8 +488,9 @@ Each phase has detailed requirements in `phases_v2/Phase{N}_v2.md`.
 
 ### Remaining Known Issues
 
-1. **No Frontend Tests:** The Python backend has 257 tests. There are no unit/integration tests for
-   React components or hooks; the UI is still verified manually.
+1. **Frontend Tests Cover Logic Only:** The Python backend has 641 tests and the desktop app has 81
+   (Vitest, `npm test`) for pure logic. There are no tests for React components or hooks; the UI is
+   still verified manually.
 2. **Tier 2 List Hardcoded:** `TIER_2_ESSENTIAL` lives in `classification_handler.py`. The TRD
    describes user-defined essential apps, so it should move to JSON config like the Tier 1 list.
 3. **`is_approved()` Unused in Production:** `take_approval()` superseded it; only tests call it now.
@@ -661,6 +662,6 @@ Nothing else goes in this commit.
 
 ---
 
-**Last Updated:** October 30, 2026 (V2.1 Phase 7, Sound and Retention Settings, complete on branch `v2_1_7`)
-**Current Phase:** V2.1 Phase 7 (✅ Complete, PR pending). Plans are in `phase_v2_1/`
-**Next Priority:** V2.1 Phase 8 (Complete Testing)
+**Last Updated:** October 31, 2026 (V2.1 Phase 8, Complete Testing, on branch `v2.1/testing`)
+**Current Phase:** V2.1 Phase 8 (✅ Automated testing complete, manual passes outstanding, PR pending). Plans are in `phase_v2_1/`
+**Next Priority:** The manual passes of Phase 8 (24-hour soak, Claude Desktop, sign-in), then tag v2.1.0
