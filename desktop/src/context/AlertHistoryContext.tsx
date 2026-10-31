@@ -2,6 +2,7 @@ import { createContext, useCallback, useContext, useEffect, useMemo, useRef, use
 import { SystemAPI, type AlertEvent, type AlertFilters, type AlertLevel, type AlertMetric } from '../services/api';
 import { useMetrics } from './MetricsContext';
 import { ConnectionStatus } from '../hooks/useWebSocketConnection';
+import { applyAlertEvent, RANGE_MS, windowFor, type TimeWindow } from '../utils/alertList';
 
 export type DateRange = '24h' | '7d' | '30d' | 'custom';
 
@@ -22,32 +23,11 @@ export const DEFAULT_ALERT_FILTERS: AlertViewFilters = {
   level: 'all',
 };
 
-const RANGE_MS: Record<Exclude<DateRange, 'custom'>, number> = {
-  '24h': 24 * 3600_000,
-  '7d': 7 * 24 * 3600_000,
-  '30d': 30 * 24 * 3600_000,
-};
-
 export const ALERT_LIMIT = 500;
 // Only ongoing episodes are wanted from the seed request, and the API lists those first
 const ONGOING_SEED_LIMIT = 50;
 
-interface Window {
-  from: number;
-  to: number | null;
-}
-
-/** Presets are relative to now and are recomputed on every call. */
-function windowFor(filters: AlertViewFilters, now: number): Window {
-  if (filters.range === 'custom') {
-    const from = filters.customFrom ? new Date(filters.customFrom).getTime() : now - RANGE_MS['24h'];
-    const to = filters.customTo ? new Date(filters.customTo).getTime() : null;
-    return { from, to };
-  }
-  return { from: now - RANGE_MS[filters.range], to: null };
-}
-
-function toApiFilters(filters: AlertViewFilters, window: Window): AlertFilters {
+function toApiFilters(filters: AlertViewFilters, window: TimeWindow): AlertFilters {
   return {
     from: new Date(window.from).toISOString(),
     ...(window.to !== null && { to: new Date(window.to).toISOString() }),
@@ -55,24 +35,6 @@ function toApiFilters(filters: AlertViewFilters, window: Window): AlertFilters {
     ...(filters.level !== 'all' && { level: filters.level }),
     limit: ALERT_LIMIT,
   };
-}
-
-function matches(alert: AlertEvent, filters: AlertViewFilters, window: Window): boolean {
-  const started = new Date(alert.started_at).getTime();
-  return (
-    started >= window.from &&
-    (window.to === null || started < window.to) &&
-    (filters.metric === 'all' || alert.metric === filters.metric) &&
-    (filters.level === 'all' || alert.level === filters.level)
-  );
-}
-
-/** The API's order: ongoing episodes first, then newest first. */
-function inServerOrder(alerts: AlertEvent[]): AlertEvent[] {
-  return [...alerts].sort((a, b) => {
-    const ongoing = Number(b.ended_at === null) - Number(a.ended_at === null);
-    return ongoing || b.started_at.localeCompare(a.started_at);
-  });
 }
 
 function describeError(err: unknown): string {
@@ -148,12 +110,7 @@ export function AlertHistoryProvider({ children }: { children: ReactNode }) {
       return next;
     });
 
-    setAlerts(prev => {
-      const known = prev.some(a => a.id === alert.id);
-      // A listed row is always updated, so an ongoing alert visibly ends. A new one must fit the view.
-      if (!known && !matches(alert, filtersRef.current, windowFor(filtersRef.current, Date.now()))) return prev;
-      return inServerOrder(known ? prev.map(a => (a.id === alert.id ? alert : a)) : [alert, ...prev]);
-    });
+    setAlerts(prev => applyAlertEvent(prev, alert, filtersRef.current, Date.now()));
   }, []);
 
   // On every (re)connection: events sent while disconnected were missed, so the list and the
