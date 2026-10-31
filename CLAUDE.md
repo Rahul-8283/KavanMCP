@@ -488,7 +488,7 @@ Each phase has detailed requirements in `phases_v2/Phase{N}_v2.md`.
 
 ### Remaining Known Issues
 
-1. **No Frontend Tests:** The Python backend has 223 tests. There are no unit/integration tests for
+1. **No Frontend Tests:** The Python backend has 257 tests. There are no unit/integration tests for
    React components or hooks; the UI is still verified manually.
 2. **Tier 2 List Hardcoded:** `TIER_2_ESSENTIAL` lives in `classification_handler.py`. The TRD
    describes user-defined essential apps, so it should move to JSON config like the Tier 1 list.
@@ -661,6 +661,6 @@ Nothing else goes in this commit.
 
 ---
 
-**Last Updated:** October 30, 2026 (V2.1 Phase 6, Protected Apps and Startup, complete on branch `v2_1_6`)
-**Current Phase:** V2.1 Phase 6 (✅ Complete, PR pending). Plans are in `phase_v2_1/`
-**Next Priority:** V2.1 Phase 7 (Sound & Retention Settings)
+**Last Updated:** October 30, 2026 (V2.1 Phase 7, Sound and Retention Settings, complete on branch `v2_1_7`)
+**Current Phase:** V2.1 Phase 7 (✅ Complete, PR pending). Plans are in `phase_v2_1/`
+**Next Priority:** V2.1 Phase 8 (Complete Testing)

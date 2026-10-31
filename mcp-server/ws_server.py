@@ -7,7 +7,7 @@ from typing import Literal, Optional
 
 import psutil
 import uvicorn
-from fastapi import FastAPI, HTTPException, Response, WebSocket, WebSocketDisconnect
+from fastapi import BackgroundTasks, FastAPI, HTTPException, Response, WebSocket, WebSocketDisconnect
 from fastapi.exceptions import RequestValidationError
 from fastapi.middleware.cors import CORSMiddleware
 from fastapi.responses import JSONResponse
@@ -197,16 +197,23 @@ class ConfigUpdate(BaseModel):
     sound_alerts: Optional[bool] = None
     never_kill: Optional[list[str]] = Field(None, max_length=MAX_LIST_ENTRIES * 2)
     never_alert: Optional[list[str]] = Field(None, max_length=MAX_LIST_ENTRIES * 2)
+    sound_volume: Optional[int] = Field(None, ge=0, le=100, strict=True)
+    sound_choice: Optional[Literal["chime", "pulse", "bell", "soft"]] = None
+    alert_retention_days: Optional[Literal[7, 14, 30]] = None
 
 @app.post("/api/update_thresholds")
-async def update_thresholds(payload: ConfigUpdate):
+async def update_thresholds(payload: ConfigUpdate, background: BackgroundTasks):
     """Phase 5 REST Endpoint: Partially updates the active config and persists it."""
     # Only merge fields that were sent with a value; an explicit null means "no change"
     update_data = payload.model_dump(exclude_none=True)
     if not update_data:
         return {"status": "ignored", "message": "No valid data provided."}
-        
+
     new_config = update_config(update_data)
+    if "alert_retention_days" in update_data:
+        # A shorter window is expected to take effect now, not at the next hourly prune.
+        # Background tasks run after the response is sent, so the request does not wait.
+        background.add_task(prune_history, METRICS_RETENTION_DAYS, new_config["alert_retention_days"])
     return {"status": "success", "config": new_config}
 
 class PidRequest(BaseModel):
@@ -462,7 +469,7 @@ async def history_pruner():
     """Drops history past its retention, once at start-up and then every hour."""
     while True:
         try:
-            # Phase 7 adds alert_retention_days to the settings; until then this is the default
+            # The user's choice of 7, 14 or 30 days. Metrics keep a fixed window.
             await prune_history(METRICS_RETENTION_DAYS, ACTIVE_CONFIG.get("alert_retention_days", 30))
         except Exception as e:
             logger.error(f"Error in history pruner: {e}")

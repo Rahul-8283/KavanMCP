@@ -1,5 +1,6 @@
 import React, { createContext, useContext, useState, useEffect, useCallback, useRef } from 'react';
 import { SystemAPI } from '../services/api';
+import type { SoundChoice } from '../services/alertSound';
 
 export interface Config {
   cpu_threshold: number;
@@ -11,13 +12,22 @@ export interface Config {
   never_kill: string[];
   /** Process names Kavan records but does not announce. */
   never_alert: string[];
+  /** 0 to 100 */
+  sound_volume: number;
+  sound_choice: SoundChoice;
+  /** 7, 14 or 30 */
+  alert_retention_days: RetentionDays;
 }
+
+export type RetentionDays = 7 | 14 | 30;
 
 export type Theme = 'dark' | 'light';
 
 // Thresholds and the sound toggle live on the backend (it evaluates alerts).
-export type BackendSetting = 'cpu_threshold' | 'ram_threshold' | 'disk_threshold' | 'sound_alerts' | 'never_kill' | 'never_alert';
-export type BackendSettingValue = number | boolean | string[];
+export type BackendSetting =
+  | 'cpu_threshold' | 'ram_threshold' | 'disk_threshold' | 'sound_alerts' | 'never_kill' | 'never_alert'
+  | 'sound_volume' | 'sound_choice' | 'alert_retention_days';
+export type BackendSettingValue = number | boolean | string | string[];
 
 export const DEFAULT_THRESHOLDS = {
   cpu_threshold: 90,

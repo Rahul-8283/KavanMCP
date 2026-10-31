@@ -3,6 +3,8 @@ import json
 import os
 import sys
 
+import pytest
+
 sys.path.insert(0, os.path.dirname(os.path.dirname(os.path.abspath(__file__))))
 
 from config import settings_manager
@@ -111,3 +113,62 @@ def test_the_settings_endpoint_saves_the_cleaned_lists(monkeypatch, tmp_path):
 
     assert response.status_code == 200
     assert response.json()["config"]["never_kill"] == ["code.exe"]
+
+
+# --- Phase 7: sound and retention ---
+
+@pytest.mark.parametrize("value", [-1, 101, True, "loud", 50.5, None])
+def test_an_invalid_sound_volume_is_not_saved(value):
+    assert "sound_volume" not in settings_manager._valid_entries({"sound_volume": value})
+
+
+@pytest.mark.parametrize("value", [0, 100, 50])
+def test_the_volume_limits_are_saved(value):
+    assert settings_manager._valid_entries({"sound_volume": value})["sound_volume"] == value
+
+
+def test_an_unknown_sound_is_not_saved():
+    assert "sound_choice" not in settings_manager._valid_entries({"sound_choice": "siren"})
+    assert settings_manager._valid_entries({"sound_choice": "bell"})["sound_choice"] == "bell"
+
+
+@pytest.mark.parametrize("value", [10, 0, "7", True, 7.0, 365])
+def test_an_unsupported_retention_is_not_saved(value):
+    assert "alert_retention_days" not in settings_manager._valid_entries({"alert_retention_days": value})
+
+
+@pytest.mark.parametrize("value", [7, 14, 30])
+def test_each_supported_retention_is_saved(value):
+    assert settings_manager._valid_entries({"alert_retention_days": value})["alert_retention_days"] == value
+
+
+@pytest.mark.parametrize("body", [
+    {"sound_volume": -1}, {"sound_volume": 101}, {"sound_volume": True}, {"sound_volume": "loud"},
+    {"sound_volume": "50"}, {"sound_choice": "siren"}, {"alert_retention_days": 10},
+    {"alert_retention_days": 0}, {"alert_retention_days": "7"},
+])
+def test_the_endpoint_refuses_invalid_sound_and_retention_values(body, monkeypatch, tmp_path):
+    from fastapi.testclient import TestClient
+
+    from ws_server import app
+
+    monkeypatch.setattr(settings_manager, "CONFIG_PATH", str(tmp_path / "data" / "settings.json"))
+    monkeypatch.setattr(settings_manager, "ACTIVE_CONFIG", dict(settings_manager.DEFAULT_CONFIG))
+    before = dict(settings_manager.ACTIVE_CONFIG)
+
+    response = TestClient(app, base_url="http://127.0.0.1:8000").post("/api/update_thresholds", json=body)
+
+    assert response.status_code == 400
+    assert settings_manager.ACTIVE_CONFIG == before
+
+
+def test_a_settings_file_from_v2_0_1_gets_the_new_defaults_and_keeps_its_thresholds(tmp_path, monkeypatch):
+    current = tmp_path / "data" / "settings.json"
+    _write(current, {"cpu_threshold": 72, "ram_threshold": 81, "disk_threshold": 93, "theme": "light", "sound_alerts": False})
+    monkeypatch.setattr(settings_manager, "CONFIG_PATH", str(current))
+
+    config = settings_manager.load_config()
+
+    assert (config["cpu_threshold"], config["ram_threshold"], config["disk_threshold"]) == (72, 81, 93)
+    assert config["sound_alerts"] is False
+    assert (config["sound_volume"], config["sound_choice"], config["alert_retention_days"]) == (50, "chime", 30)
