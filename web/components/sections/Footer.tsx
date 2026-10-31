@@ -54,9 +54,6 @@ export function Footer() {
             <p className="tnum mt-3 text-sm text-ink-soft">
               Version {site.version} · {site.licence} licence
             </p>
-            <p className="mt-3 text-sm text-ink-faint">
-              This site sends anonymous visit and page-speed figures to Vercel. Nothing from the Kavan app is sent, and the only thing this page stores in your browser is your theme.
-            </p>
           </div>
 
           <div className="flex gap-14">
