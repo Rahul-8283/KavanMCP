@@ -28,9 +28,8 @@ def restore_settings():
 
 
 def test_websocket_streams_metrics_update():
-    with TestClient(app, base_url="http://127.0.0.1:8000") as client:
-        with client.websocket_connect("ws://127.0.0.1:8000/ws") as ws:
-            message = next_metrics_update(ws)
+    with TestClient(app, base_url="http://127.0.0.1:8000") as client, client.websocket_connect("ws://127.0.0.1:8000/ws") as ws:
+        message = next_metrics_update(ws)
 
     data = message["data"]
     assert 0 <= data["cpu_percent"] <= 100
