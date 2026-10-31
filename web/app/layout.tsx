@@ -1,20 +1,19 @@
 import type { Metadata, Viewport } from "next";
-import { Instrument_Serif, JetBrains_Mono, Manrope } from "next/font/google";
+import { Inter, JetBrains_Mono, Playfair_Display } from "next/font/google";
 import type { ReactNode } from "react";
 import { SmoothScroll } from "@/components/SmoothScroll";
 import { siteUrl } from "@/content/site";
 import "./globals.css";
 
 // Self-hosted by next/font at build time: the page makes no request to a font service.
-// Instrument Serif for the headlines, Manrope for text, JetBrains Mono for checksums and commands.
-const display = Instrument_Serif({
+// Playfair Display for the headlines, Inter for text, JetBrains Mono for checksums and commands.
+const display = Playfair_Display({
   variable: "--font-display-face",
-  weight: "400",
   style: ["normal", "italic"],
   subsets: ["latin"],
   display: "swap",
 });
-const text = Manrope({ variable: "--font-text", subsets: ["latin"], display: "swap" });
+const text = Inter({ variable: "--font-text", subsets: ["latin"], display: "swap" });
 const code = JetBrains_Mono({ variable: "--font-code", subsets: ["latin"], display: "swap" });
 
 const title = "Kavan: find what's slowing your PC, and end it safely";

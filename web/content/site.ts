@@ -67,7 +67,7 @@ export const siteUrl = process.env.NEXT_PUBLIC_SITE_URL ?? "http://localhost:300
 
 export const pitch = "Find what's slowing your PC, and end it safely.";
 export const subline =
-  "KavanMCP watches your Windows system, explains what is using it up, and lets you or Claude close the right program, with a safety engine that can never touch the parts of Windows that keep it running.";
+  "Kavan watches your Windows system, explains what is using it up, and lets you or Claude close the right program, with a safety engine that can never touch the parts of Windows that keep it running.";
 
 /** Anything that points at the repository is hidden until the repository is public. */
 export const repoIsPublic = site.state !== "soon";

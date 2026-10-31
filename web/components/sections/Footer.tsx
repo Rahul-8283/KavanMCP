@@ -66,7 +66,7 @@ export function Footer() {
         </div>
 
         <p className="mt-10 border-t border-line pt-6 text-sm text-ink-faint">
-          KavanMCP is an independent project. Claude is a product of Anthropic.
+          Kavan is an independent project. Claude is a product of Anthropic.
         </p>
       </div>
     </footer>

@@ -20,7 +20,7 @@ export function Hero() {
       />
       <div className="wrap relative">
         <div className="mx-auto max-w-3xl text-center">
-          <p className="caps mb-5 text-crimson-ink">KavanMCP · for Windows</p>
+          <p className="caps mb-5 text-crimson-ink">Kavan · for Windows</p>
           <h1 id="hero-heading" className="text-5xl sm:text-6xl md:text-7xl">
             {lead} <em>{last}</em>
           </h1>
