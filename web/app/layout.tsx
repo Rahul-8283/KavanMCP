@@ -1,4 +1,6 @@
 import type { Metadata, Viewport } from "next";
+import { Analytics } from "@vercel/analytics/next";
+import { SpeedInsights } from "@vercel/speed-insights/next";
 import { Inter, JetBrains_Mono, Playfair_Display } from "next/font/google";
 import type { ReactNode } from "react";
 import { SmoothScroll } from "@/components/SmoothScroll";
@@ -70,6 +72,9 @@ export default function RootLayout({ children }: { children: ReactNode }) {
       <body>
         <SmoothScroll />
         {children}
+        {/* Anonymous visit counts and page-speed figures, reported to Vercel. See the footer. */}
+        <Analytics />
+        <SpeedInsights />
       </body>
     </html>
   );

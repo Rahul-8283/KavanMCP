@@ -349,8 +349,8 @@ The page is part of the product's promise. Every statement is checked against th
 
 ### 11.1 Privacy
 Kavan's headline claim is "no telemetry", so the site must not undermine it.
-- **No analytics by default.** If numbers are wanted, use a cookieless, privacy-first counter and say so in the footer in one line.
-- No third-party scripts, fonts or embeds. Everything is self-hosted.
+- **Analytics (decided).** Vercel Analytics and Speed Insights report anonymous visit and page-speed figures to Vercel. The footer says so in one line. Nothing from the Kavan app is sent. This supersedes the earlier "no analytics" rule.
+- No third-party fonts or embeds. Fonts are self-hosted; the only outside service is the Vercel reporting above.
 - No cookie banner is needed, because nothing is set except the theme in `localStorage`.
 
 ### 11.2 SEO
@@ -429,7 +429,7 @@ The website is ready to publish when all of these hold:
 3. **The download works.** The button, size and checksum match a real, test-installed file, or the page honestly shows the Preview state.
 4. **It looks like the product.** The palette, tier colours and screenshots match the app, in both themes.
 5. **It is fast and accessible.** The Lighthouse and budget targets in §1.2 and §13 are met.
-6. **It respects the promise.** No analytics beyond a cookieless counter, no third-party requests, and no data collected.
+6. **It respects the promise.** Analytics are limited to the Vercel reporting in §11.1, disclosed in the footer, and nothing from the app is collected.
 7. **It is cheap to keep.** A static export on a free host, with release details in one small file.
 
 Once these pass, the site can be deployed and linked from the repository README.

@@ -55,7 +55,7 @@ export function Footer() {
               Version {site.version} · {site.licence} licence
             </p>
             <p className="mt-3 text-sm text-ink-faint">
-              No analytics, no cookies and no third-party requests. The only thing this page remembers is your theme.
+              This site sends anonymous visit and page-speed figures to Vercel. Nothing from the Kavan app is sent, and the only thing this page stores in your browser is your theme.
             </p>
           </div>
 

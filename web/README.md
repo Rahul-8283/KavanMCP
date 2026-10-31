@@ -57,4 +57,4 @@ Then publish the `out/` folder.
   Where an anchor link lands is set in CSS (`scroll-padding-top`, `scroll-margin-top`).
 - **No Cache Components:** `cacheComponents` and `partialPrefetching` are off. A static export has no request-time
   caching, and Cache Components rejects the `force-static` that `robots.ts` and `sitemap.ts` need.
-- **Privacy:** no analytics, no cookies, no third-party requests. The only thing stored is the theme, in `localStorage`.
+- **Privacy:** Vercel Analytics and Speed Insights report anonymous visit and page-speed figures to Vercel (`app/layout.tsx`). Nothing from the Kavan app is sent. The only thing the page stores in the browser is the theme, in `localStorage`. To remove the reporting, delete the two components from `app/layout.tsx` and the two `@vercel` packages.
