@@ -107,7 +107,7 @@ async def stage_termination(pid: int, source: str = "LLM") -> dict:
         info = await asyncio.to_thread(_inspect_process, pid)
     except psutil.NoSuchProcess:
         return {"status": "not_found", "error": f"PID {pid} does not exist or has already closed."}
-    except Exception as e:
+    except Exception as e:  # noqa: BLE001 - a failed inspection is reported to the caller as an error status
         return {"status": "error", "error": f"Could not access PID {pid}: {e}"}
 
     name = info["name"]
@@ -168,10 +168,9 @@ def sweep_expired(now: float | None = None) -> int:
     now = time.time() if now is None else now
     removed = 0
     for pid, entry in list(PENDING_APPROVALS.items()):
-        if now - entry["timestamp"] > APPROVAL_TIMEOUT_SECONDS:
-            # Only drop the entry we inspected; the PID may have been re-staged since
-            if PENDING_APPROVALS.get(pid) is entry and PENDING_APPROVALS.pop(pid, None) is not None:
-                removed += 1
+        # Only drop the entry we inspected; the PID may have been re-staged since
+        if now - entry["timestamp"] > APPROVAL_TIMEOUT_SECONDS and PENDING_APPROVALS.get(pid) is entry                 and PENDING_APPROVALS.pop(pid, None) is not None:
+            removed += 1
     return removed
 
 async def ttl_sweeper():

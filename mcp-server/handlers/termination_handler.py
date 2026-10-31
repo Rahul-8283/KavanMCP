@@ -184,7 +184,8 @@ async def _restore(row: dict) -> dict:
     try:
         # Launch as a completely independent background process
         # DETACHED_PROCESS = 0x00000008
-        relaunched = subprocess.Popen(_relaunch_argv(exe_path, row.get("command_line")), creationflags=0x00000008)
+        # Popen returns at once: the child is detached and is never waited on, so the loop is not blocked
+        relaunched = subprocess.Popen(_relaunch_argv(exe_path, row.get("command_line")), creationflags=0x00000008)  # noqa: ASYNC220 - detached, not waited on
     except (OSError, ValueError, subprocess.SubprocessError) as e:
         logger.error(f"Failed to rollback {name}: {e}")
         try:
@@ -208,7 +209,7 @@ async def rollback_by_id(audit_id: str) -> dict:
     """Restores the exact kill with this audit id. Statuses are those of _restore, plus "not_found"."""
     try:
         row = await get_termination_by_id(audit_id)
-    except Exception as e:
+    except Exception as e:  # noqa: BLE001 - a failed restore is logged and reported as a status, not raised
         logger.error(f"Could not read kill {audit_id}: {e}")
         return {"status": "error", "message": "The audit database could not be read."}
     if row is None:
