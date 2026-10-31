@@ -7,13 +7,25 @@ from typing import Literal, Optional
 
 import psutil
 import uvicorn
-from fastapi import BackgroundTasks, FastAPI, HTTPException, Response, WebSocket, WebSocketDisconnect
+from fastapi import (
+    BackgroundTasks,
+    FastAPI,
+    HTTPException,
+    Response,
+    WebSocket,
+    WebSocketDisconnect,
+)
 from fastapi.exceptions import RequestValidationError
 from fastapi.middleware.cors import CORSMiddleware
 from fastapi.responses import JSONResponse
 from pydantic import BaseModel, Field
 
-from config.settings_manager import ACTIVE_CONFIG, MAX_LIST_ENTRIES, load_config, update_config
+from config.settings_manager import (
+    ACTIVE_CONFIG,
+    MAX_LIST_ENTRIES,
+    load_config,
+    update_config,
+)
 from database.db import (
     close_alert_event,
     close_orphaned_alert_events,
@@ -29,11 +41,11 @@ from handlers.approval_handler import stage_termination
 from handlers.history_recorder import (
     ALERT_METRICS,
     CRITICAL_LEVEL,
+    SAMPLE_INTERVAL_SECONDS,
     Episode,
     EpisodeChange,
     EpisodeTracker,
     MinuteAggregator,
-    SAMPLE_INTERVAL_SECONDS,
 )
 from handlers.process_watch import (
     PROCESS_WATCH_INTERVAL,
@@ -195,11 +207,11 @@ class ConfigUpdate(BaseModel):
     disk_threshold: Optional[int] = Field(None, ge=0, le=100)
     theme: Optional[Literal["dark", "light"]] = None
     sound_alerts: Optional[bool] = None
-    never_kill: Optional[list[str]] = Field(None, max_length=MAX_LIST_ENTRIES * 2)
-    never_alert: Optional[list[str]] = Field(None, max_length=MAX_LIST_ENTRIES * 2)
-    sound_volume: Optional[int] = Field(None, ge=0, le=100, strict=True)
-    sound_choice: Optional[Literal["chime", "pulse", "bell", "soft"]] = None
-    alert_retention_days: Optional[Literal[7, 14, 30]] = None
+    never_kill: list[str] | None = Field(None, max_length=MAX_LIST_ENTRIES * 2)
+    never_alert: list[str] | None = Field(None, max_length=MAX_LIST_ENTRIES * 2)
+    sound_volume: int | None = Field(None, ge=0, le=100, strict=True)
+    sound_choice: Literal["chime", "pulse", "bell", "soft"] | None = None
+    alert_retention_days: Literal[7, 14, 30] | None = None
 
 @app.post("/api/update_thresholds")
 async def update_thresholds(payload: ConfigUpdate, background: BackgroundTasks):
@@ -358,7 +370,7 @@ async def announce_alert(event: str, episode: Episode) -> None:
         row = await get_alert_event(episode.id)
         if row:
             await manager.broadcast({"type": "alert_event", "event": event, "alert": serialize_alert(row)})
-    except Exception as e:
+    except Exception as e:  # noqa: BLE001 - announcing and looking up are best effort: the alert is already stored
         logger.error(f"Failed to announce a {episode.metric} alert: {e}")
 
 async def resolve_first_alert(episode: Episode) -> None:
@@ -373,7 +385,7 @@ async def resolve_first_alert(episode: Episode) -> None:
             episode.top_process = top
             if episode.id and await set_alert_top_process(episode.id, top["name"], top["pid"], top["value"]):
                 await announce_alert("updated", episode)
-    except Exception as e:
+    except Exception as e:  # noqa: BLE001 - announcing and looking up are best effort: the alert is already stored
         logger.error(f"Failed to find the top process for a {episode.metric} alert: {e}")
 
     if top and is_alert_muted(top["name"]):
@@ -442,7 +454,7 @@ async def record_sample(values: dict, now: float) -> None:
         if row:
             await record_metrics_minute(row)
             await store_episode_peaks(episodes.open_episodes())
-    except Exception as e:
+    except Exception as e:  # noqa: BLE001 - recording never raises: a failed write must not stop the gauges
         logger.error(f"Failed to record metrics history: {e}")
 
 async def flush_history() -> None:
@@ -452,7 +464,7 @@ async def flush_history() -> None:
         if row:
             await record_metrics_minute(row)
         await store_episode_peaks(episodes.open_episodes() + watcher.open_episodes())
-    except Exception as e:
+    except Exception as e:  # noqa: BLE001 - recording never raises: a failed write must not stop the gauges
         logger.error(f"Failed to flush metrics history: {e}")
 
 async def watch_processes_once(now: float) -> None:
@@ -471,7 +483,7 @@ async def history_pruner():
         try:
             # The user's choice of 7, 14 or 30 days. Metrics keep a fixed window.
             await prune_history(METRICS_RETENTION_DAYS, ACTIVE_CONFIG.get("alert_retention_days", 30))
-        except Exception as e:
+        except Exception as e:  # noqa: BLE001 - a failed pass must not end the background loop
             logger.error(f"Error in history pruner: {e}")
 
         await asyncio.sleep(PRUNE_INTERVAL)
@@ -486,7 +498,7 @@ async def process_watch():
     while True:
         try:
             await watch_processes_once(time.time())
-        except Exception as e:
+        except Exception as e:  # noqa: BLE001 - a failed pass must not end the background loop
             logger.error(f"Error in process watch: {e}")
 
         await asyncio.sleep(PROCESS_WATCH_INTERVAL)

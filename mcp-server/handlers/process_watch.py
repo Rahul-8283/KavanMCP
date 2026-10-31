@@ -6,6 +6,9 @@ anyone having to open the dashboard.
 import asyncio
 import os
 import threading
+import time
+
+import psutil
 
 from handlers.classification_handler import TIER_4_CPU_THRESHOLD, classify_process
 from handlers.history_recorder import Episode, EpisodeChange, level_for
@@ -26,6 +29,12 @@ TOP_PROCESS_FIELDS = {"cpu": "cpu_percent", "ram": "memory_mb"}
 # running at once would each cut the other's window to nothing.
 _scan_lock = threading.Lock()
 
+# A scan's CPU figure covers the time since the previous scan, which can be a minute ago. That is the
+# wrong window for naming what is using the CPU right now: a program that has just started reads 0,
+# and a long-running one reads its average over the minute. So the lookup for a CPU alert resets every
+# counter, waits this long, and reads again, which measures only the last moments.
+RECENT_CPU_WINDOW_SECONDS = 1.0
+
 
 def _scan_blocking() -> list[dict]:
     with _scan_lock:
@@ -35,6 +44,19 @@ def _scan_blocking() -> list[dict]:
 async def scan_processes() -> list[dict]:
     """One full process scan in a worker thread. It blocks for over a second."""
     return await asyncio.to_thread(_scan_blocking)
+
+
+def _scan_recent_blocking() -> list[dict]:
+    """A scan whose CPU figures cover only the last RECENT_CPU_WINDOW_SECONDS."""
+    with _scan_lock:
+        for _ in psutil.process_iter(["cpu_percent"]):  # resets every counter, and discards the readings
+            pass
+        time.sleep(RECENT_CPU_WINDOW_SECONDS)
+        return get_all_processes()
+
+
+async def scan_processes_recent() -> list[dict]:
+    return await asyncio.to_thread(_scan_recent_blocking)
 
 
 def find_top_process(processes: list[dict], metric: str) -> dict | None:
@@ -55,7 +77,9 @@ def find_top_process(processes: list[dict], metric: str) -> dict | None:
 async def lookup_top_process(metric: str) -> dict | None:
     if metric not in TOP_PROCESS_FIELDS:
         return None
-    return find_top_process(await scan_processes(), metric)
+    # Memory is a level, not an average, so any recent scan names the right process. CPU needs a fresh window.
+    scan = scan_processes_recent if metric == "cpu" else scan_processes
+    return find_top_process(await scan(), metric)
 
 
 class ProcessWatcher:

@@ -4,10 +4,10 @@
   <p><strong>AI-Powered System Optimizer · Dual-Interface · Ironclad Safety</strong></p>
   <p>
     <a href="https://github.com/Rahul-8283/KavanMCP/blob/main/LICENSE"><img src="https://img.shields.io/badge/License-MIT-green?style=flat-square" alt="License" /></a>
-    <a href="https://github.com/Rahul-8283/KavanMCP/commit/adca28f"><img src="https://img.shields.io/badge/last%20commit-2026--10--30%20%C2%B7%20adca28f-blue?style=flat-square" alt="Last Commit" /></a>
+    <a href="https://github.com/Rahul-8283/KavanMCP/commit/1085e47"><img src="https://img.shields.io/badge/last%20commit-2026--10--31%20%C2%B7%201085e47-blue?style=flat-square" alt="Last Commit" /></a>
     <img src="https://img.shields.io/badge/V2-Production%20Grade-blue?style=flat-square" alt="V2 Production Grade" />
     <img src="https://img.shields.io/badge/Platform-Windows-0078D6?style=flat-square&logo=windows" alt="Windows" />
-    <img src="https://img.shields.io/badge/Tests-257%20passing-brightgreen?style=flat-square" alt="Tests" />
+    <img src="https://img.shields.io/badge/Tests-641%20passing-brightgreen?style=flat-square" alt="Tests" />
   </p>
 </div>
 
@@ -302,6 +302,7 @@ gantt
     Phase 5 · Rollback Manager UI      :done, 2026-10-24, 1d
     Phase 6 · Protected Apps & Startup :done, 2026-10-30, 1d
     Phase 7 · Sound & Retention        :done, 2026-10-30, 1d
+    Phase 8 · Complete Testing         :done, 2026-10-31, 1d
 ```
 
 ---
@@ -384,6 +385,13 @@ KavanMCP/
 │   │   ├── test_settings_storage.py # Settings move, list validation and the settings endpoint
 │   │   ├── test_dashboard_only.py   # main.py --dashboard-only
 │   │   ├── test_retention.py        # Alert retention, applied at once
+│   │   ├── test_security.py         # Every route attacked: origins, hosts, rollback ids, hostile input
+│   │   ├── test_upgrade.py          # A V2.0.1 database and settings carry over
+│   │   ├── test_resilience.py       # Sleep, a failing database, time zones, damaged settings
+│   │   ├── test_top_process.py      # A CPU alert names the program using the CPU now
+│   │   ├── test_data_dir.py         # KAVAN_DATA_DIR
+│   │   ├── test_aids.py             # The manual-test aids
+│   │   ├── aids/                    # Burns, memory, seeding, aging, soak and a live check (run by hand)
 │   │   ├── test_kills_api.py        # /api/kills and /api/rollback
 │   │   ├── kill_helpers.py          # Puts kill rows into the test database
 │   │   ├── test_termination_api.py  # Kill flow and API boundary
@@ -558,7 +566,15 @@ Restart Claude Desktop. KavanMCP tools will appear automatically.
 ```powershell
 cd mcp-server
 python -m pytest -q
-# 257 passed
+# 641 passed
+```
+
+The desktop app has its own tests for the logic that needs no DOM:
+
+```powershell
+cd desktop
+npm test
+# 81 passed
 ```
 
 ---

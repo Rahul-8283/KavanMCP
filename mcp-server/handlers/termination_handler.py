@@ -1,6 +1,7 @@
 import asyncio
 import json
 import os
+import sqlite3
 import subprocess
 
 import psutil
@@ -176,7 +177,7 @@ async def _restore(row: dict) -> dict:
     try:
         if not await claim_rollback(audit_id):
             return {"status": "already_restored", "message": f"{name} has already been restored."}
-    except Exception as e:
+    except (sqlite3.Error, OSError) as e:
         logger.error(f"Could not claim rollback {audit_id}: {e}")
         return {"status": "error", "message": "The audit database could not be updated."}
 
@@ -184,11 +185,11 @@ async def _restore(row: dict) -> dict:
         # Launch as a completely independent background process
         # DETACHED_PROCESS = 0x00000008
         relaunched = subprocess.Popen(_relaunch_argv(exe_path, row.get("command_line")), creationflags=0x00000008)
-    except Exception as e:
+    except (OSError, ValueError, subprocess.SubprocessError) as e:
         logger.error(f"Failed to rollback {name}: {e}")
         try:
             await release_rollback(audit_id)
-        except Exception as release_error:
+        except (sqlite3.Error, OSError) as release_error:
             logger.error(f"Could not release rollback {audit_id}: {release_error}")
         return {"status": "launch_failed", "message": f"Failed to relaunch {name}: {e}"}
 

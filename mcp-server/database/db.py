@@ -16,7 +16,9 @@ from utils.logger import logger
 
 # Resolve the absolute path to the data directory
 BASE_DIR = os.path.dirname(os.path.dirname(os.path.abspath(__file__)))
-DATA_DIR = os.path.join(BASE_DIR, "data")
+# KAVAN_DATA_DIR points the audit database, and the settings file, at a scratch folder.
+# Manual testing needs a database it can fill, age and wipe without touching the real one.
+DATA_DIR = os.environ.get("KAVAN_DATA_DIR") or os.path.join(BASE_DIR, "data")
 DB_PATH = os.path.join(DATA_DIR, "process.db")
 
 # How long a writer waits for another connection's lock before giving up. The Tauri backend
@@ -220,7 +222,7 @@ async def record_metrics_minute(row: dict) -> bool:
             await db.execute(RECORD_METRICS_MINUTE, row)
             await db.commit()
         return True
-    except Exception as e:
+    except Exception as e:  # noqa: BLE001 - history writes never raise: alerts and gauges must keep working
         logger.error(f"Failed to record metrics for {row.get('minute')}: {e}")
         return False
 
@@ -243,7 +245,7 @@ async def open_alert_event(metric: str, level: str, threshold: float, started_at
             )
             await db.commit()
         return event_id
-    except Exception as e:
+    except Exception as e:  # noqa: BLE001 - history writes never raise: alerts and gauges must keep working
         logger.error(f"Failed to store the start of a {metric} alert: {e}")
         return None
 
@@ -253,7 +255,7 @@ async def _update_alert_event(event_id: str, assignments: str, params: tuple, ac
             await db.execute(f"UPDATE alert_events SET {assignments} WHERE id = ?", (*params, event_id))
             await db.commit()
         return True
-    except Exception as e:
+    except Exception as e:  # noqa: BLE001 - history writes never raise: alerts and gauges must keep working
         logger.error(f"Failed to {action} for alert {event_id}: {e}")
         return False
 
@@ -293,7 +295,7 @@ async def close_orphaned_alert_events() -> int:
             cursor = await db.execute(CLOSE_ORPHANED_EPISODES)
             await db.commit()
             return cursor.rowcount
-    except Exception as e:
+    except Exception as e:  # noqa: BLE001 - history writes never raise: alerts and gauges must keep working
         logger.error(f"Failed to close orphaned alert episodes: {e}")
         return 0
 
@@ -309,7 +311,7 @@ async def prune_history(metrics_days: int, alert_days: int) -> None:
             await db.execute("DELETE FROM alert_events WHERE ended_at IS NOT NULL AND started_at < datetime('now', ?)",
                              (f"-{alert_days} days",))
             await db.commit()
-    except Exception as e:
+    except Exception as e:  # noqa: BLE001 - history writes never raise: alerts and gauges must keep working
         logger.error(f"Failed to prune history: {e}")
 
 # Every condition is in the WHERE clause, so the limit is applied to rows that already match.
@@ -342,7 +344,7 @@ async def get_alert_event(event_id: str) -> dict | None:
             async with db.execute("SELECT * FROM alert_events WHERE id = ?", (event_id,)) as cursor:
                 row = await cursor.fetchone()
                 return dict(row) if row else None
-    except Exception as e:
+    except Exception as e:  # noqa: BLE001 - history writes never raise: alerts and gauges must keep working
         logger.error(f"Failed to read alert {event_id}: {e}")
         return None
 
@@ -379,7 +381,6 @@ async def get_metrics_history(start: str, end: str, bucket_seconds: int) -> list
 
 async def get_oldest_metrics_minute() -> str | None:
     """The first minute ever recorded, or None while the history is empty."""
-    async with _connect() as db:
-        async with db.execute("SELECT MIN(minute) FROM metrics_history") as cursor:
-            row = await cursor.fetchone()
-            return row[0] if row else None
+    async with _connect() as db, db.execute("SELECT MIN(minute) FROM metrics_history") as cursor:
+        row = await cursor.fetchone()
+        return row[0] if row else None

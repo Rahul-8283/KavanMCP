@@ -10,9 +10,10 @@ from fastapi.testclient import TestClient
 
 sys.path.append(os.path.dirname(os.path.dirname(os.path.abspath(__file__))))
 
+from ws_helpers import next_metrics_update
+
 from config.whitelist import TIER_1_WHITELIST
 from handlers.approval_handler import PENDING_APPROVALS
-from ws_helpers import next_metrics_update
 from ws_server import app
 
 client = TestClient(app, base_url="http://127.0.0.1:8000")
