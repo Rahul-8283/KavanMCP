@@ -31,7 +31,7 @@ Before any design, these are the true constraints of the product today. The page
 | Fact | Where it comes from | What it means for the page |
 |---|---|---|
 | Windows only | Uses `psutil`, `pywin32` and the Windows tray | Say "for Windows 10 and 11" in the hero. Never imply Mac or Linux |
-| The repository is private | The README's static badges exist because shields.io cannot read it | A GitHub Releases link will not work for visitors. See §8 |
+| The repository is private today, and will be made public once the work is finished | The README's static badges exist because shields.io cannot read it | Once it is public, GitHub Releases links work for everyone. Until then they return 404. The plan is built for the public repository, with a fallback for the gap. See §8 |
 | No installer has been produced yet | `npm run tauri build` built the app but the installer step timed out in testing | The download section needs a plan for what it offers on day one. See §8 |
 | The backend needs Python 3.11+ | `mcp-server` runs from a virtual environment; the installer does not bundle Python | A plain-language "Requirements" block, not a footnote |
 | The AI half needs Claude Desktop | Claude connects over MCP | Describe the desktop app as complete on its own, and the Claude link as an extra |
@@ -208,7 +208,7 @@ The most important section, and the one with the most open decisions (§8, §12)
 - A card with: **Kavan 2.1.0 for Windows**, the file name, the size, the release date, and a **SHA-256 checksum** with a copy button.
 - A line before the button: *Windows may warn that the app is from an unknown publisher, because it is not code-signed yet. Choose "More info" then "Run anyway" if you trust the source.* Remove this line only once the installer is signed.
 - Under it, three collapsible steps: **Install**, **Connect Claude Desktop** (the config snippet), **Uninstall**.
-- A secondary link to the source repository, if it is public (§12).
+- A secondary link to the public repository. A star count can be shown if it is read at build time, so the page makes no request at runtime.
 
 ### 6.10 FAQ
 Eight questions, plain answers, in an accessible accordion built from `<details>`:
@@ -223,7 +223,7 @@ Eight questions, plain answers, in an accessible accordion built from `<details>
 8. **Which versions of Windows?** 10 and 11, 64-bit.
 
 ### 6.11 Footer
-Kavan mark, version, licence, a link to the release notes, a link to the repository (if public), contact, and the line *"KavanMCP is an independent project. Claude is a product of Anthropic."* Keep the trademark note, so the page does not suggest an affiliation.
+Kavan mark, version, licence, a link to the release notes, a link to the public repository, contact, and the line *"KavanMCP is an independent project. Claude is a product of Anthropic."* Keep the trademark note, so the page does not suggest an affiliation.
 
 ---
 
@@ -271,29 +271,43 @@ A small set, each used more than once: `Button` (primary, quiet), `Section`, `Ca
 
 This is the one part of the plan that is a decision, not a build task, because today the product cannot simply be linked.
 
-### 8.1 The Problem
-1. The repository is private, so a GitHub Releases link would return "404" to visitors.
+### 8.1 The Situation
+1. The repository will be made public once the work is done. From then on, a GitHub Releases link works for everyone and shows the file size natively. Until then it returns "404" to visitors, so the site must not go live pointing at it.
 2. No installer exists yet. The app builds, but the installer step needs to be run on the maintainer's machine.
 3. What would be downloaded is not self-contained: the backend needs Python and a virtual environment.
+
+**The decision is made:** the public repository is the home of the download. The site and the repository going public are therefore one launch, in the order given in §8.4.
 
 ### 8.2 Options
 | Option | Visitor experience | Cost | Recommended |
 |---|---|---|---|
-| **A. A separate public "releases" repository** that holds only installers and release notes | Normal GitHub download link, checksum shown, no source exposed | One extra repo, a manual upload per release | **Yes, for the first release** |
-| **B. Make the main repository public** | The best credibility signal, and links work | Exposes the code and history | If the maintainer is happy to publish the source |
+| **A. A separate public "releases" repository** that holds only installers and release notes | Normal GitHub download link, no source exposed | One extra repo, a manual upload per release | Only as a stop-gap, if the site must go live before the source is public |
+| **B. The main repository, made public** | The best credibility signal. Releases, checksums, issues and the README are one click away | Exposes the code and its history, so it needs the checks in §8.4 first | **Yes. This is the plan** |
 | **C. Host the installer on the site itself** (static asset or object storage) | One click, no GitHub | Large files in the repo or a bucket, and bandwidth | Only for a small installer |
 | **D. "Request access" form** | Slower for the visitor | Needs a form handler, and it adds friction | Only if the product is meant to be gated |
 
-### 8.3 What the Page Offers on Day One
+### 8.3 What the Page Offers
 Depending on readiness, the download card is in one of three states. The component supports all three through one config value, so the page never has to be rewritten.
 
-| State | Card shows |
-|---|---|
-| **Ready** | Version, size, checksum, **Download** button |
-| **Preview** | *"Kavan 2.1.0 is available as a source build. Setup takes about ten minutes."* with the setup steps and a link to the repository |
-| **Soon** | *"The Windows installer is coming. Leave your email to be told."*, only if an email handler is added (see §12) |
+| State | Card shows | When |
+|---|---|---|
+| **Ready** | Version, size, checksum, a **Download** button linking to the GitHub release, and a link to the repository | The repository is public and the installer is published |
+| **Preview** | *"Kavan 2.1.0 is available as a source build. Setup takes about ten minutes."* with the setup steps and a link to the repository | The repository is public but no installer is published yet |
+| **Soon** | *"Kavan is almost ready. The Windows download is coming."*, with no link that can fail | Before the repository is public. The site can be deployed in this state to share a preview |
 
-### 8.4 Before the "Ready" State
+The button points at the repository's stable `/releases/latest` page, so the link does not change with each release. The file name, size and checksum shown beside it still come from `release.json`.
+
+### 8.4 Before the Repository Goes Public
+Publishing is hard to undo, because a public history stays public even if it is later deleted. Before the switch:
+- **Secrets.** Search the whole history, not only the current files, for keys, tokens, passwords and personal paths (for example with `gitleaks`), and rotate anything found. The project is local-first and has no API keys by design, but check rather than assume.
+- **Personal data.** Screenshots, test fixtures and docs must not show real process names, usernames, machine paths or email addresses.
+- **Licence.** Add a `LICENSE` file that matches the README badge, and settle the product's terms (§12).
+- **README.** It becomes the second landing page. Replace the static last-commit badge with the live one, which works once the repository is public, and link the website.
+- **Private notes.** Read through `docs/`, `phase_v2_1/`, `v2.2/` and the commit messages for anything that should not be published.
+- **Branches.** Delete scratch branches and keep `main` clean.
+- **Release.** Build the installer, install and uninstall it on a clean Windows machine, and publish it as a GitHub Release with the SHA-256 of the exact file.
+
+### 8.5 Before the "Ready" State
 - The installer is built and test-installed on a clean Windows machine, including uninstall.
 - It is either code-signed, or the SmartScreen note in §6.9 stays.
 - The SHA-256 of the exact uploaded file is published on the page.
@@ -353,9 +367,9 @@ Open Graph and Twitter-card tags with the 1200×630 image, so a link in a messag
 
 Each needs an answer before the part that depends on it. A recommended answer is given.
 
-1. **Where does the download live?** (before §6.9) Recommended: a separate public releases repository (§8.2 option A) for the first release.
-2. **Is the source going public?** (before §6.11) It changes the footer and the credibility story. Recommended: decide with the licence below.
-3. **Licence and price.** The README badge says MIT, but the product's pricing and terms need an explicit statement on the page. Recommended: state the licence, and say "Free" only if it is.
+1. **Where does the download live?** *Decided:* GitHub Releases on the main repository, once it is public (§8.2 option B).
+2. **In what order does it all go live?** (before the site is deployed) Recommended: finish §8.4, make the repository public, publish the release, then deploy the site in the **Ready** state. If the site must be shown earlier, deploy it in the **Soon** state.
+3. **Licence and price.** The README badge says MIT, and a public repository needs a real `LICENSE` file that matches. State the licence on the page, and say "Free" only if it is.
 4. **The domain and the product name on the page.** "Kavan" or "KavanMCP". Recommended: **Kavan** as the name, with "KavanMCP" in the download file and the technical sections.
 5. **Code signing.** Recommended: ship unsigned at first, with the honest SmartScreen note, and sign later.
 6. **Email capture for the "Soon" state.** Recommended: skip it. A mailto link is enough, and it adds no service to maintain.
@@ -386,7 +400,7 @@ Each needs an answer before the part that depends on it. A recommended answer is
 | 6 | Requirements, Download (all three states), FAQ | The download card reads from `release.json` |
 | 7 | SEO, sharing and favicons | The preview card renders, and the structured data validates |
 | 8 | Performance and accessibility pass | The budgets in §13 and the Lighthouse targets in §1.2 are met |
-| 9 | Deploy | The production URL serves the exported site |
+| 9 | Make the repository public (§8.4), publish the release, then deploy | The production URL serves the exported site in the **Ready** state, and its download link returns the installer |
 
 ---
 
