@@ -5,7 +5,11 @@ import threading
 _SERVER_DIR = os.path.dirname(os.path.dirname(os.path.abspath(__file__)))
 # The file git used to track. Its values are copied once into CONFIG_PATH, then it is ignored.
 LEGACY_CONFIG_PATH = os.path.join(os.path.dirname(os.path.abspath(__file__)), "settings.json")
-CONFIG_PATH = os.environ.get("KAVAN_SETTINGS_PATH") or os.path.join(_SERVER_DIR, "data", "settings.json")
+# KAVAN_SETTINGS_PATH is the test suite's override. KAVAN_DATA_DIR moves the whole data folder.
+CONFIG_PATH = (
+    os.environ.get("KAVAN_SETTINGS_PATH")
+    or os.path.join(os.environ.get("KAVAN_DATA_DIR") or os.path.join(_SERVER_DIR, "data"), "settings.json")
+)
 
 DEFAULT_CONFIG = {
     "cpu_threshold": 90,

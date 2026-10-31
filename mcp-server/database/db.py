@@ -16,7 +16,9 @@ from utils.logger import logger
 
 # Resolve the absolute path to the data directory
 BASE_DIR = os.path.dirname(os.path.dirname(os.path.abspath(__file__)))
-DATA_DIR = os.path.join(BASE_DIR, "data")
+# KAVAN_DATA_DIR points the audit database, and the settings file, at a scratch folder.
+# Manual testing needs a database it can fill, age and wipe without touching the real one.
+DATA_DIR = os.environ.get("KAVAN_DATA_DIR") or os.path.join(BASE_DIR, "data")
 DB_PATH = os.path.join(DATA_DIR, "process.db")
 
 # How long a writer waits for another connection's lock before giving up. The Tauri backend
