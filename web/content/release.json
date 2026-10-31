@@ -11,9 +11,9 @@
     "linkedin": "https://www.linkedin.com/in/rahul-ls"
   },
   "installer": {
-    "fileName": null,
-    "sizeBytes": null,
-    "sha256": null,
-    "releasedOn": null
+    "fileName": "kavan_2.1.0_x64-setup.exe",
+    "sizeBytes": 2461384,
+    "sha256": "82F042E40AFE60748C3F38BE6CBB0137D8693B4E33F0CEABF5E11B710B6D16EB",
+    "releasedOn": "2026-10-31"
   }
 }
