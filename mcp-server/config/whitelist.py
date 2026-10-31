@@ -55,7 +55,7 @@ def load_tier_1_whitelist() -> set:
 
         logger.info(f"Successfully loaded {len(whitelist)} Tier 1 processes into memory.")
 
-    except Exception as e:
+    except Exception as e:  # noqa: BLE001 - a damaged whitelist file falls back to the built-in list (fail closed)
         logger.critical(f"Failed to parse Tier 1 Whitelist: {e}. Using the built-in list only.")
 
     return whitelist

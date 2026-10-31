@@ -3,7 +3,7 @@ import socket
 import time
 from contextlib import asynccontextmanager
 from datetime import datetime, timezone
-from typing import Literal, Optional
+from typing import Literal
 
 import psutil
 import uvicorn
@@ -167,7 +167,7 @@ class ConnectionManager:
         for connection in self.active_connections:
             try:
                 await connection.send_json(message)
-            except Exception:
+            except Exception:  # noqa: BLE001 - a failed send or background pass is logged, and the connection or loop carries on
                 dead_connections.append(connection)
         
         for dead in dead_connections:
@@ -184,7 +184,7 @@ async def websocket_endpoint(websocket: WebSocket):
             await websocket.receive_text()
     except WebSocketDisconnect:
         manager.disconnect(websocket)
-    except Exception:
+    except Exception:  # noqa: BLE001 - a failed send or background pass is logged, and the connection or loop carries on
         manager.disconnect(websocket)
 
 @app.get("/api/list_processes")
@@ -202,11 +202,11 @@ async def get_config():
     return config_data
 
 class ConfigUpdate(BaseModel):
-    cpu_threshold: Optional[int] = Field(None, ge=0, le=100)
-    ram_threshold: Optional[int] = Field(None, ge=0, le=100)
-    disk_threshold: Optional[int] = Field(None, ge=0, le=100)
-    theme: Optional[Literal["dark", "light"]] = None
-    sound_alerts: Optional[bool] = None
+    cpu_threshold: int | None = Field(None, ge=0, le=100)
+    ram_threshold: int | None = Field(None, ge=0, le=100)
+    disk_threshold: int | None = Field(None, ge=0, le=100)
+    theme: Literal["dark", "light"] | None = None
+    sound_alerts: bool | None = None
     never_kill: list[str] | None = Field(None, max_length=MAX_LIST_ENTRIES * 2)
     never_alert: list[str] | None = Field(None, max_length=MAX_LIST_ENTRIES * 2)
     sound_volume: int | None = Field(None, ge=0, le=100, strict=True)
@@ -532,7 +532,7 @@ async def metrics_broadcaster():
             values = collect_metrics()
             now = time.time()
             await run_cycle(values, now, last_alert_time)
-        except Exception as e:
+        except Exception as e:  # noqa: BLE001 - a failed send or background pass is logged, and the connection or loop carries on
             logger.error(f"Error in metrics broadcaster: {e}")
 
         await asyncio.sleep(BROADCAST_INTERVAL)

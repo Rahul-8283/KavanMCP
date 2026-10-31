@@ -14,7 +14,7 @@ def safe_mcp_tool(func):
     async def wrapper(*args, **kwargs):
         try:
             return await func(*args, **kwargs)
-        except Exception as e:
+        except Exception as e:  # noqa: BLE001 - the MCP tool wrapper turns any error into a structured response, so the stdio connection survives
             # Log the raw stack trace for the developer
             logger.error(f"Error in MCP tool '{func.__name__}': {e!s}")
             logger.error(traceback.format_exc())
