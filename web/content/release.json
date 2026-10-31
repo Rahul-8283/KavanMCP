@@ -1,0 +1,19 @@
+{
+  "_note": "The one file to edit for a release. state is 'soon' (repository not public yet), 'preview' (public, no installer yet) or 'ready' (installer published). The installer fields are used only in the 'ready' state.",
+  "state": "soon",
+  "version": "2.1.5",
+  "repository": "https://github.com/Rahul-8283/KavanMCP",
+  "releaseNotes": "https://github.com/Rahul-8283/KavanMCP/blob/main/docs/RELEASE_NOTES_V2_1.md",
+  "licence": "MIT",
+  "contactEmail": null,
+  "profiles": {
+    "github": "https://github.com/Rahul-8283",
+    "linkedin": "https://www.linkedin.com/in/rahul-ls"
+  },
+  "installer": {
+    "fileName": null,
+    "sizeBytes": null,
+    "sha256": null,
+    "releasedOn": null
+  }
+}

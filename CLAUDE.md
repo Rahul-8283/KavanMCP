@@ -664,4 +664,4 @@ Nothing else goes in this commit.
 
 **Last Updated:** October 31, 2026 (V2.1 Phase 8, Complete Testing, on branch `v2.1/testing`)
 **Current Phase:** V2.1 Phase 8 (✅ Automated testing complete, manual passes outstanding, PR pending). Plans are in `phase_v2_1/`
-**Next Priority:** The manual passes of Phase 8 (24-hour soak, Claude Desktop, sign-in), then tag v2.1.0
+**Next Priority:** The manual passes of Phase 8 (24-hour soak, Claude Desktop, sign-in), then tag v2.1.5

@@ -230,9 +230,8 @@ def test_websocket_rejects_foreign_origin():
     ws_url = "ws://127.0.0.1:8000/ws"
 
     with TestClient(app, base_url="http://127.0.0.1:8000") as live:  # Runs the lifespan, so metrics flow
-        with pytest.raises(WebSocketDisconnect):
-            with live.websocket_connect(ws_url, headers={"Origin": "https://evil.example"}):
-                pass
+        with pytest.raises(WebSocketDisconnect), live.websocket_connect(ws_url, headers={"Origin": "https://evil.example"}):
+            pass
 
         with live.websocket_connect(ws_url, headers={"Origin": "http://localhost:1420"}) as ws:
             assert next_metrics_update(ws)["data"]["cpu_percent"] >= 0

@@ -74,7 +74,7 @@ def main():
     except KeyboardInterrupt:
         logger.info("Server shutdown requested by user. Exiting gracefully.")
         sys.exit(0)
-    except Exception as e:
+    except Exception as e:  # noqa: BLE001 - a fatal start-up error is logged before the process exits
         logger.critical(f"Server encountered a fatal error: {e}", exc_info=True)
         sys.exit(1)
 

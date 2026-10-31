@@ -81,7 +81,7 @@ async def log_termination(process_name: str, pid: int, path: str, mem_mb: float,
             )
             await db.commit()
         return audit_id
-    except Exception as e:
+    except Exception as e:  # noqa: BLE001 - a history or audit write must not raise into the caller: the failure is logged
         logger.error(f"Failed to log termination for {process_name}: {e}")
         return None
 
@@ -95,7 +95,7 @@ async def log_blocked_action(process_name: str, pid: int, reasoning: str) -> Non
                 (str(uuid.uuid4()), process_name, pid, 'BLOCKED', reasoning, False)
             )
             await db.commit()
-    except Exception as e:
+    except Exception as e:  # noqa: BLE001 - a history or audit write must not raise into the caller: the failure is logged
         logger.error(f"Failed to log blocked action for {process_name}: {e}")
 
 async def get_last_terminated_process(pid_or_name: str) -> dict:
@@ -116,7 +116,7 @@ async def get_last_terminated_process(pid_or_name: str) -> dict:
                 row = await cursor.fetchone()
                 if row:
                     return dict(row)
-    except Exception as e:
+    except Exception as e:  # noqa: BLE001 - a history or audit write must not raise into the caller: the failure is logged
         logger.error(f"Failed to query last terminated process for {pid_or_name}: {e}")
     return {}
 
@@ -175,7 +175,7 @@ async def log_rollback(process_name: str, pid: int, executable_path: str) -> Non
                 (str(uuid.uuid4()), process_name, pid, executable_path, 'ROLLBACK', True)
             )
             await db.commit()
-    except Exception as e:
+    except Exception as e:  # noqa: BLE001 - a history or audit write must not raise into the caller: the failure is logged
         logger.error(f"Failed to log rollback for {process_name}: {e}")
 
 async def get_recent_logs(limit: int = 50, hours_back: float | None = None) -> list[dict]:
@@ -197,7 +197,7 @@ async def get_recent_logs(limit: int = 50, hours_back: float | None = None) -> l
             async with db.execute(query, (*params, limit)) as cursor:
                 async for row in cursor:
                     logs.append(dict(row))
-    except Exception as e:
+    except Exception as e:  # noqa: BLE001 - a history or audit write must not raise into the caller: the failure is logged
         logger.error(f"Failed to fetch recent logs: {e}")
     return logs
 
@@ -222,7 +222,7 @@ async def record_metrics_minute(row: dict) -> bool:
             await db.execute(RECORD_METRICS_MINUTE, row)
             await db.commit()
         return True
-    except Exception as e:  # noqa: BLE001 - history writes never raise: alerts and gauges must keep working
+    except Exception as e:  # noqa: BLE001 - a history or audit write must not raise into the caller: the failure is logged
         logger.error(f"Failed to record metrics for {row.get('minute')}: {e}")
         return False
 
@@ -245,7 +245,7 @@ async def open_alert_event(metric: str, level: str, threshold: float, started_at
             )
             await db.commit()
         return event_id
-    except Exception as e:  # noqa: BLE001 - history writes never raise: alerts and gauges must keep working
+    except Exception as e:  # noqa: BLE001 - a history or audit write must not raise into the caller: the failure is logged
         logger.error(f"Failed to store the start of a {metric} alert: {e}")
         return None
 
@@ -255,7 +255,7 @@ async def _update_alert_event(event_id: str, assignments: str, params: tuple, ac
             await db.execute(f"UPDATE alert_events SET {assignments} WHERE id = ?", (*params, event_id))
             await db.commit()
         return True
-    except Exception as e:  # noqa: BLE001 - history writes never raise: alerts and gauges must keep working
+    except Exception as e:  # noqa: BLE001 - a history or audit write must not raise into the caller: the failure is logged
         logger.error(f"Failed to {action} for alert {event_id}: {e}")
         return False
 
@@ -295,7 +295,7 @@ async def close_orphaned_alert_events() -> int:
             cursor = await db.execute(CLOSE_ORPHANED_EPISODES)
             await db.commit()
             return cursor.rowcount
-    except Exception as e:  # noqa: BLE001 - history writes never raise: alerts and gauges must keep working
+    except Exception as e:  # noqa: BLE001 - a history or audit write must not raise into the caller: the failure is logged
         logger.error(f"Failed to close orphaned alert episodes: {e}")
         return 0
 
@@ -311,7 +311,7 @@ async def prune_history(metrics_days: int, alert_days: int) -> None:
             await db.execute("DELETE FROM alert_events WHERE ended_at IS NOT NULL AND started_at < datetime('now', ?)",
                              (f"-{alert_days} days",))
             await db.commit()
-    except Exception as e:  # noqa: BLE001 - history writes never raise: alerts and gauges must keep working
+    except Exception as e:  # noqa: BLE001 - a history or audit write must not raise into the caller: the failure is logged
         logger.error(f"Failed to prune history: {e}")
 
 # Every condition is in the WHERE clause, so the limit is applied to rows that already match.
@@ -344,7 +344,7 @@ async def get_alert_event(event_id: str) -> dict | None:
             async with db.execute("SELECT * FROM alert_events WHERE id = ?", (event_id,)) as cursor:
                 row = await cursor.fetchone()
                 return dict(row) if row else None
-    except Exception as e:  # noqa: BLE001 - history writes never raise: alerts and gauges must keep working
+    except Exception as e:  # noqa: BLE001 - a history or audit write must not raise into the caller: the failure is logged
         logger.error(f"Failed to read alert {event_id}: {e}")
         return None
 

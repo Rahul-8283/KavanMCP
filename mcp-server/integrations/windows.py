@@ -6,6 +6,8 @@ import win32con
 import win32gui
 import win32process
 
+from utils.logger import logger
+
 
 def get_windowed_pids() -> set[int] | None:
     """
@@ -77,8 +79,8 @@ def get_deep_process_info(pid: int) -> dict:
         processes = wmi.ExecQuery(f"Select CommandLine From Win32_Process Where ProcessId = {int(pid)}")
         for process in processes:
             info["CommandLine"] = process.CommandLine
-    except Exception:
-        pass
+    except Exception as e:  # noqa: BLE001 - deep inspection is best effort: a process that cannot be inspected is not an error
+        logger.debug(f"Could not read the command line of PID {pid}: {e}")
     finally:
         pythoncom.CoUninitialize()
         
