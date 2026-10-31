@@ -44,14 +44,14 @@ Then publish the `out/` folder.
 
 ## Screenshots, icons and the sharing image
 
-- `shots-src/` holds the real captures of the 2.1.0 app (1600 px wide, dark and light). `npm run shots` turns them into
+- `shots-src/` holds the real captures of the 2.1.5 app (1600 px wide, dark and light). `npm run shots` turns them into
   the AVIF and WebP files in `public/shots/`. The page never ships a PNG.
 - `npm run icons` rebuilds `app/apple-icon.png` and `app/favicon.ico` from `public/kavan-mark.svg`.
 - `public/og.png` (1200×630) is rendered from `scripts/og.html`. See the comment at the top of that file.
 
 ## Choices worth knowing
 
-- **Fonts:** Instrument Serif (headlines), Manrope (text) and JetBrains Mono (code), all from Google Fonts and
+- **Fonts:** Playfair Display (headlines), Inter (text) and JetBrains Mono (code), all from Google Fonts and
   self-hosted by `next/font` at build time, so the page makes no request to a font service.
 - **Smooth scrolling:** Lenis (`components/SmoothScroll.tsx`). It turns itself off under `prefers-reduced-motion`.
   Where an anchor link lands is set in CSS (`scroll-padding-top`, `scroll-margin-top`).

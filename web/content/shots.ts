@@ -1,5 +1,5 @@
 /**
- * The five screenshots of the real 2.1.0 app. Each exists in dark and light, at two widths, as AVIF and WebP.
+ * The five screenshots of the real 2.1.5 app. Each exists in dark and light, at two widths, as AVIF and WebP.
  * The files are produced by scripts/optimize-screenshots.mjs from the PNGs in shots-src/.
  */
 export interface Shot {

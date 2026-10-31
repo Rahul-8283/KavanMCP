@@ -12,7 +12,7 @@ from tools.rollback_tool import rollback_last_action_logic
 from utils.error_handlers import safe_mcp_tool
 
 # Instantiate the central FastMCP server object
-mcp = FastMCP("KavanMCP", version="2.1.0")
+mcp = FastMCP("KavanMCP", version="2.1.5")
 
 @mcp.tool()
 @safe_mcp_tool

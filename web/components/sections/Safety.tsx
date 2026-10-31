@@ -80,7 +80,7 @@ export function Safety() {
       </ul>
 
       <p className="mt-10 text-sm text-ink-faint">
-        Checked by 641 backend tests and 81 desktop tests at version 2.1.0.
+        Checked by 641 backend tests and 81 desktop tests at version 2.1.5.
       </p>
     </Section>
   );

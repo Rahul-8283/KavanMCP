@@ -36,7 +36,7 @@ Before any design, these are the true constraints of the product today. The page
 | The backend needs Python 3.11+ | `mcp-server` runs from a virtual environment; the installer does not bundle Python | A plain-language "Requirements" block, not a footnote |
 | The AI half needs Claude Desktop | Claude connects over MCP | Describe the desktop app as complete on its own, and the Claude link as an extra |
 | Local only | No cloud, no API keys, no telemetry, the API listens on 127.0.0.1 | This is a headline feature, and must stay true. See §11 |
-| The version is 2.1.0 | All version fields were set together | Show the real version next to the download |
+| The version is 2.1.5 | All version fields were set together | Show the real version next to the download |
 | V2.2 (baselines, auto-kill rules, suggestions) is only a plan | `v2.2/PLAN_V2_2.md` | Never show it as available. At most a small "Planned" strip |
 | An installer that is not code-signed shows a Windows SmartScreen warning | Windows behaviour | Tell people before they see it, in the download section |
 
@@ -124,7 +124,7 @@ A single scroll, with a sticky top bar. Anchors are `#how`, `#features`, `#safet
 ### 6.2 Hero
 - **Headline:** *Find what's slowing your PC, and end it safely.*
 - **Sub-line:** as in §3.2, two lines at most.
-- **Actions:** **Download for Windows** (primary, shows `v2.1.0`), and **See how it works** (a quiet link to `#how`).
+- **Actions:** **Download for Windows** (primary, shows `v2.1.5`), and **See how it works** (a quiet link to `#how`).
 - **Small print under the buttons:** *Windows 10 and 11 · Free · Runs entirely on your PC*. (Edit "Free" to match the licence decision in §12.)
 - **Visual:** the Dashboard screenshot in a window frame, tilted very slightly or flat, with the crimson glow the app itself uses behind it. It must be a real capture, never a mock-up.
 - **Above the fold on a laptop:** headline, sub-line, both buttons and the top half of the screenshot.
@@ -175,7 +175,7 @@ A row of three or four screenshots with captions, switching with simple tabs (no
 3. **Trends** zoomed into a spike.
 4. **Recently Killed** with Restore buttons.
 
-A fifth, **Settings** with protected apps, can sit in the extra-detail row. Every screenshot is from the real 2.1.0 app, in both the dark and the light theme, and the page shows the one that matches the visitor's theme.
+A fifth, **Settings** with protected apps, can sit in the extra-detail row. Every screenshot is from the real 2.1.5 app, in both the dark and the light theme, and the page shows the one that matches the visitor's theme.
 
 ### 6.7 With Claude
 Heading: **Or just ask.** A chat-style panel showing an example exchange:
@@ -205,7 +205,7 @@ The honest status of setup belongs here, not hidden in the FAQ. If setup is not 
 ### 6.9 Download
 The most important section, and the one with the most open decisions (§8, §12).
 
-- A card with: **Kavan 2.1.0 for Windows**, the file name, the size, the release date, and a **SHA-256 checksum** with a copy button.
+- A card with: **Kavan 2.1.5 for Windows**, the file name, the size, the release date, and a **SHA-256 checksum** with a copy button.
 - A line before the button: *Windows may warn that the app is from an unknown publisher, because it is not code-signed yet. Choose "More info" then "Run anyway" if you trust the source.* Remove this line only once the installer is signed.
 - Under it, three collapsible steps: **Install**, **Connect Claude Desktop** (the config snippet), **Uninstall**.
 - A secondary link to the public repository. A star count can be shown if it is read at build time, so the page makes no request at runtime.
@@ -292,7 +292,7 @@ Depending on readiness, the download card is in one of three states. The compone
 | State | Card shows | When |
 |---|---|---|
 | **Ready** | Version, size, checksum, a **Download** button linking to the GitHub release, and a link to the repository | The repository is public and the installer is published |
-| **Preview** | *"Kavan 2.1.0 is available as a source build. Setup takes about ten minutes."* with the setup steps and a link to the repository | The repository is public but no installer is published yet |
+| **Preview** | *"Kavan 2.1.5 is available as a source build. Setup takes about ten minutes."* with the setup steps and a link to the repository | The repository is public but no installer is published yet |
 | **Soon** | *"Kavan is almost ready. The Windows download is coming."*, with no link that can fail | Before the repository is public. The site can be deployed in this state to share a preview |
 
 The button points at the repository's stable `/releases/latest` page, so the link does not change with each release. The file name, size and checksum shown beside it still come from `release.json`.
@@ -320,7 +320,7 @@ Publishing is hard to undo, because a public history stays public even if it is 
 | Asset | Source | Notes |
 |---|---|---|
 | Logo / mark | `desktop/public/kavan_logo.svg` | Use the SVG. Provide a light and a dark variant |
-| Screenshots (5) | A fresh capture of the real 2.1.0 app | 1600 px wide, dark and light, with realistic but harmless data. Never show real process names that could identify the user |
+| Screenshots (5) | A fresh capture of the real 2.1.5 app | 1600 px wide, dark and light, with realistic but harmless data. Never show real process names that could identify the user |
 | Open Graph image | Designed once, 1200×630 | Logo, headline, one screenshot |
 | Favicon set | From the mark | SVG favicon, 32 px PNG, and an Apple touch icon |
 | Tier badges | Redrawn as inline SVG | So they follow the theme and stay sharp |
@@ -335,7 +335,7 @@ The page is part of the product's promise. Every statement is checked against th
 
 **May say**
 - "Windows 10 and 11", "no cloud, no account, no API key, no telemetry", "Tier 1 processes cannot be ended", "every kill needs your confirmation", "every kill, block and restore is logged", "restores the program, not unsaved work".
-- Counts and figures, **if** they are current: 641 backend tests and 81 desktop tests at 2.1.0, one process scan a minute, a two-second refresh. Re-check each at every release.
+- Counts and figures, **if** they are current: 641 backend tests and 81 desktop tests at 2.1.5, one process scan a minute, a two-second refresh. Re-check each at every release.
 
 **May not say**
 - Anything about V2.2 as if it existed: automatic kills, learned baselines, suggestions, schedules. If a roadmap strip is added, it is labelled **Planned** and kept small.
@@ -425,7 +425,7 @@ Each needs an answer before the part that depends on it. A recommended answer is
 The website is ready to publish when all of these hold:
 
 1. **One page tells the whole story.** Hero to FAQ, in the order of §3.3, with one clear download action.
-2. **Every claim is true.** Checked against §10 and the shipped 2.1.0 product, with nothing from V2.2 presented as available.
+2. **Every claim is true.** Checked against §10 and the shipped 2.1.5 product, with nothing from V2.2 presented as available.
 3. **The download works.** The button, size and checksum match a real, test-installed file, or the page honestly shows the Preview state.
 4. **It looks like the product.** The palette, tier colours and screenshots match the app, in both themes.
 5. **It is fast and accessible.** The Lighthouse and budget targets in §1.2 and §13 are met.
