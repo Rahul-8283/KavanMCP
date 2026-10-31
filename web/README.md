@@ -1,36 +1,60 @@
-This is a [Next.js](https://nextjs.org) project bootstrapped with [`create-next-app`](https://nextjs.org/docs/app/api-reference/cli/create-next-app).
+# Kavan website
 
-## Getting Started
-
-First, run the development server:
+The one-page pitch site for KavanMCP. Next.js (App Router, TypeScript), Tailwind CSS 4, a static export with no server.
+The plan it follows is `docs/WEBSITE_PLAN.md`.
 
 ```bash
-npm run dev
-# or
-yarn dev
-# or
-pnpm dev
-# or
-bun dev
+npm install
+npm run dev        # http://localhost:3000
+npm run build      # writes the whole site to out/, ready for any static host
+npm run lint
+npm run typecheck
 ```
 
-Open [http://localhost:3000](http://localhost:3000) with your browser to see the result.
+## What to edit
 
-You can start editing the page by modifying `app/page.tsx`. The page auto-updates as you edit the file.
+| To change | Edit |
+|---|---|
+| The download state, version, installer file, size, checksum, licence, repository, GitHub and LinkedIn | `content/release.json` |
+| Screenshot captions and alt text | `content/shots.ts` |
+| Page copy | the matching file in `components/sections/` |
+| Colours (shared with the desktop app) | `app/globals.css` |
 
-This project uses [`next/font`](https://nextjs.org/docs/app/building-your-application/optimizing/fonts) to automatically optimize and load [Geist](https://vercel.com/font), a new font family for Vercel.
+### The download card has three states
 
-## Learn More
+Set `state` in `content/release.json`:
 
-To learn more about Next.js, take a look at the following resources:
+- `soon`: the repository is not public yet. The card says the download is coming and links nowhere that can fail.
+- `preview`: the repository is public but there is no installer. The card shows the source-build steps.
+- `ready`: the installer is published. Fill in `installer.fileName`, `sizeBytes`, `sha256` and `releasedOn`; if any is
+  missing the page falls back to `preview` instead of showing a half-empty card.
 
-- [Next.js Documentation](https://nextjs.org/docs) - learn about Next.js features and API.
-- [Learn Next.js](https://nextjs.org/learn) - an interactive Next.js tutorial.
+Check the "Install" and "Uninstall" steps in `components/sections/Download.tsx` against the real installer before
+switching to `ready`; they could not be tested because no installer exists yet.
 
-You can check out [the Next.js GitHub repository](https://github.com/vercel/next.js) - your feedback and contributions are welcome!
+## Deploying
 
-## Deploy on Vercel
+Set `NEXT_PUBLIC_SITE_URL` to the site's address when building, so the canonical link, sitemap and sharing tags are right:
 
-The easiest way to deploy your Next.js app is to use the [Vercel Platform](https://vercel.com/new?utm_medium=default-template&filter=next.js&utm_source=create-next-app&utm_campaign=create-next-app-readme) from the creators of Next.js.
+```bash
+NEXT_PUBLIC_SITE_URL=https://example.com npm run build
+```
 
-Check out our [Next.js deployment documentation](https://nextjs.org/docs/app/building-your-application/deploying) for more details.
+Then publish the `out/` folder.
+
+## Screenshots, icons and the sharing image
+
+- `shots-src/` holds the real captures of the 2.1.0 app (1600 px wide, dark and light). `npm run shots` turns them into
+  the AVIF and WebP files in `public/shots/`. The page never ships a PNG.
+- `npm run icons` rebuilds `app/apple-icon.png` and `app/favicon.ico` from `public/kavan-mark.svg`.
+- `public/og.png` (1200×630) is rendered from `scripts/og.html`. See the comment at the top of that file.
+
+## Choices worth knowing
+
+- **Fonts:** Instrument Serif (headlines), Manrope (text) and JetBrains Mono (code), all from Google Fonts and
+  self-hosted by `next/font` at build time, so the page makes no request to a font service.
+- **Smooth scrolling:** Lenis (`components/SmoothScroll.tsx`). It turns itself off under `prefers-reduced-motion`.
+  Where an anchor link lands is set in CSS (`scroll-padding-top`, `scroll-margin-top`).
+- **No Cache Components:** `cacheComponents` and `partialPrefetching` are off. A static export has no request-time
+  caching, and Cache Components rejects the `force-static` that `robots.ts` and `sitemap.ts` need.
+- **Privacy:** no analytics, no cookies, no third-party requests. The only thing stored is the theme, in `localStorage`.
