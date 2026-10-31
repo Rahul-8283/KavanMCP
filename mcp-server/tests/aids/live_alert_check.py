@@ -124,7 +124,15 @@ def main() -> int:
         subprocess.run([sys.executable, os.path.join(AIDS, "cpu_burn.py"), "--seconds", "200", "--cores", "2", "--windowless",
                         "--log", windowless_log], check=False, creationflags=subprocess.CREATE_NO_WINDOW)
         print("a windowless burn for 200s, waiting for the process watch to notice it...", flush=True)
-        time.sleep(260)
+        # A process episode closes only after two process scans in a row miss it, and scans run once a minute,
+        # so the stored end can arrive up to about two minutes after the burn stops. Wait for it, with a limit.
+        deadline = time.time() + 240
+        while time.time() < deadline:
+            suspicious = rows(data_dir, "SELECT * FROM alert_events WHERE metric = 'process' ORDER BY started_at")
+            burn_rows = [r for r in suspicious if (r["top_process"] or "").lower() == "python.exe"]
+            if burn_rows and all(r["ended_at"] is not None for r in burn_rows):
+                break
+            time.sleep(10)
         suspicious = rows(data_dir, "SELECT * FROM alert_events WHERE metric = 'process' ORDER BY started_at")
         check("4: the windowless burn raised a suspicious-process alert", len(suspicious) > before, f"{len(suspicious)} rows")
         if len(suspicious) > before:
