@@ -4,16 +4,16 @@
   "version": "2.1.5",
   "repository": "https://github.com/Rahul-8283/KavanMCP",
   "releaseNotes": "https://github.com/Rahul-8283/KavanMCP/blob/main/docs/RELEASE_NOTES_V2_1.md",
-  "licence": "MIT",
+  "licence": "Apache-2.0",
   "contactEmail": null,
   "profiles": {
     "github": "https://github.com/Rahul-8283",
     "linkedin": "https://www.linkedin.com/in/rahul-ls"
   },
   "installer": {
-    "fileName": null,
-    "sizeBytes": null,
-    "sha256": null,
-    "releasedOn": null
+    "fileName": "kavan_2.1.5_x64-setup.exe",
+    "sizeBytes": 2461927,
+    "sha256": "BC2F4CD74C890721705AA7B8FFB31E6AC73867350A528DD347A69643A724C8FA",
+    "releasedOn": "2026-10-31"
   }
 }

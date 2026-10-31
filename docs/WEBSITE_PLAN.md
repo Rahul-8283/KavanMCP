@@ -369,7 +369,7 @@ Each needs an answer before the part that depends on it. A recommended answer is
 
 1. **Where does the download live?** *Decided:* GitHub Releases on the main repository, once it is public (§8.2 option B).
 2. **In what order does it all go live?** (before the site is deployed) Recommended: finish §8.4, make the repository public, publish the release, then deploy the site in the **Ready** state. If the site must be shown earlier, deploy it in the **Soon** state.
-3. **Licence and price.** The README badge says MIT, and a public repository needs a real `LICENSE` file that matches. State the licence on the page, and say "Free" only if it is.
+3. **Licence and price.** The repository's `LICENSE` file is Apache-2.0, and the README badge says so. State the licence on the page, and say "Free" only if it is.
 4. **The domain and the product name on the page.** "Kavan" or "KavanMCP". Recommended: **Kavan** as the name, with "KavanMCP" in the download file and the technical sections.
 5. **Code signing.** Recommended: ship unsigned at first, with the honest SmartScreen note, and sign later.
 6. **Email capture for the "Soon" state.** Recommended: skip it. A mailto link is enough, and it adds no service to maintain.
