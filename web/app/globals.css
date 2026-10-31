@@ -1,26 +1,513 @@
 @import "tailwindcss";
 
-:root {
-  --background: #ffffff;
-  --foreground: #171717;
-}
+/*
+  Kavan design tokens, copied from desktop/src/styles/index.css so the site and the app share one palette
+  and the screenshots look native on the page.
 
+  Dark is "lacquer" (warm near-black) and is the default. Light is "paper" (parchment, never white).
+  The theme is the data-theme attribute on <html>. With no attribute (no JavaScript yet) the system setting decides.
+*/
 @theme inline {
-  --color-background: var(--background);
-  --color-foreground: var(--foreground);
-  --font-sans: var(--font-geist-sans);
-  --font-mono: var(--font-geist-mono);
+  --font-sans: var(--font-text), "Segoe UI Variable Text", "Segoe UI", system-ui, -apple-system, sans-serif;
+  --font-display: var(--font-display-face), "Iowan Old Style", Georgia, "Times New Roman", serif;
+  --font-mono: var(--font-code), "Cascadia Mono", "Cascadia Code", Consolas, ui-monospace, monospace;
+
+  --color-canvas: var(--canvas);
+  --color-surface: var(--surface);
+  --color-raised: var(--raised);
+  --color-sunken: var(--sunken);
+
+  --color-line: var(--line);
+  --color-line-strong: var(--line-strong);
+  --color-line-faint: var(--line-faint);
+
+  --color-ink: var(--ink);
+  --color-ink-soft: var(--ink-soft);
+  --color-ink-faint: var(--ink-faint);
+
+  --color-crimson: var(--crimson);
+  --color-crimson-bright: var(--crimson-bright);
+  --color-crimson-ink: var(--crimson-ink);
+  --color-crimson-wash: var(--crimson-wash);
+
+  --color-warn: var(--warn);
+  --color-warn-wash: var(--warn-wash);
+  --color-ok: var(--ok);
+  --color-ok-wash: var(--ok-wash);
+
+  --color-hover: var(--hover);
+  --color-scrim: var(--scrim);
+
+  --shadow-pop: var(--pop-shadow);
 }
 
-@media (prefers-color-scheme: dark) {
-  :root {
-    --background: #0a0a0a;
-    --foreground: #ededed;
+/* Dark: the default */
+:root,
+:root[data-theme="dark"] {
+  --canvas: #0c0a0a;
+  --surface: #141111;
+  --raised: #1b1717;
+  --sunken: #0e0b0b;
+
+  --line: rgba(255, 236, 228, 0.085);
+  --line-strong: rgba(255, 236, 228, 0.17);
+  --line-faint: rgba(255, 236, 228, 0.05);
+
+  --ink: #f2ebe7;
+  --ink-soft: #aba29e;
+  --ink-faint: #7b726e;
+
+  --crimson: #d41b2c;
+  --crimson-bright: #f42032;
+  --crimson-ink: #f2505f;
+  --crimson-wash: rgba(228, 32, 50, 0.13);
+
+  --warn: #ddaa4e;
+  --warn-wash: rgba(221, 170, 78, 0.12);
+  --ok: #7fbe98;
+  --ok-wash: rgba(127, 190, 152, 0.12);
+
+  --hover: rgba(255, 236, 228, 0.05);
+  --focus: #f2505f;
+  --scrim: rgba(4, 3, 3, 0.66);
+
+  --pop-shadow: 0 28px 64px -18px rgba(0, 0, 0, 0.8), 0 2px 8px rgba(0, 0, 0, 0.4);
+  --canvas-glow: radial-gradient(64rem 30rem at 12% -12rem, rgba(168, 20, 34, 0.13), transparent 68%);
+  --hero-glow: radial-gradient(46rem 24rem at 50% 62%, rgba(168, 20, 34, 0.24), transparent 70%);
+
+  color-scheme: dark;
+}
+
+/* Light */
+:root[data-theme="light"] {
+  --canvas: #eae3d7;
+  --surface: #f3eee4;
+  --raised: #f8f4ec;
+  --sunken: #e8e1d4;
+
+  --line: rgba(62, 34, 24, 0.14);
+  --line-strong: rgba(62, 34, 24, 0.26);
+  --line-faint: rgba(62, 34, 24, 0.075);
+
+  --ink: #1e1816;
+  --ink-soft: #5c534d;
+  --ink-faint: #857a72;
+
+  --crimson: #b4121f;
+  --crimson-bright: #cc1020;
+  --crimson-ink: #a60f1b;
+  --crimson-wash: rgba(180, 18, 31, 0.09);
+
+  --warn: #8c5a06;
+  --warn-wash: rgba(160, 104, 10, 0.13);
+  --ok: #2d6a4a;
+  --ok-wash: rgba(45, 106, 74, 0.12);
+
+  --hover: rgba(62, 34, 24, 0.055);
+  --focus: #b4121f;
+  --scrim: rgba(40, 26, 20, 0.42);
+
+  --pop-shadow: 0 28px 64px -22px rgba(62, 34, 24, 0.38), 0 2px 8px rgba(62, 34, 24, 0.1);
+  --canvas-glow: radial-gradient(64rem 30rem at 12% -12rem, rgba(180, 18, 31, 0.055), transparent 68%);
+  --hero-glow: radial-gradient(46rem 24rem at 50% 62%, rgba(180, 18, 31, 0.16), transparent 70%);
+
+  color-scheme: light;
+}
+
+/* Before the theme script has run, or with no JavaScript, follow the system setting */
+@media (prefers-color-scheme: light) {
+  :root:not([data-theme]) {
+    --canvas: #eae3d7;
+    --surface: #f3eee4;
+    --raised: #f8f4ec;
+    --sunken: #e8e1d4;
+
+    --line: rgba(62, 34, 24, 0.14);
+    --line-strong: rgba(62, 34, 24, 0.26);
+    --line-faint: rgba(62, 34, 24, 0.075);
+
+    --ink: #1e1816;
+    --ink-soft: #5c534d;
+    --ink-faint: #857a72;
+
+    --crimson: #b4121f;
+    --crimson-bright: #cc1020;
+    --crimson-ink: #a60f1b;
+    --crimson-wash: rgba(180, 18, 31, 0.09);
+
+    --warn: #8c5a06;
+    --warn-wash: rgba(160, 104, 10, 0.13);
+    --ok: #2d6a4a;
+    --ok-wash: rgba(45, 106, 74, 0.12);
+
+    --hover: rgba(62, 34, 24, 0.055);
+    --focus: #b4121f;
+    --scrim: rgba(40, 26, 20, 0.42);
+
+    --pop-shadow: 0 28px 64px -22px rgba(62, 34, 24, 0.38), 0 2px 8px rgba(62, 34, 24, 0.1);
+    --canvas-glow: radial-gradient(64rem 30rem at 12% -12rem, rgba(180, 18, 31, 0.055), transparent 68%);
+    --hero-glow: radial-gradient(46rem 24rem at 50% 62%, rgba(180, 18, 31, 0.16), transparent 70%);
+
+    color-scheme: light;
   }
 }
 
-body {
-  background: var(--background);
-  color: var(--foreground);
-  font-family: Arial, Helvetica, sans-serif;
+@layer base {
+  html {
+    background-color: var(--canvas);
+    /* Where an anchor link lands: the 4rem sticky bar, then the section with most of its top padding scrolled away,
+       so the heading sits just under the bar. Native jumps and Lenis (SmoothScroll.tsx) both read these. */
+    scroll-padding-top: 4rem;
+  }
+
+  section[id] {
+    scroll-margin-top: -2.5rem;
+  }
+  @media (min-width: 900px) {
+    section[id] {
+      scroll-margin-top: -5rem;
+    }
+  }
+
+  body {
+    background-color: var(--canvas);
+    background-image: var(--canvas-glow);
+    background-repeat: no-repeat;
+    color: var(--ink);
+    font-family: var(--font-sans);
+    font-size: 1.0625rem;
+    line-height: 1.65;
+    -webkit-font-smoothing: antialiased;
+    text-rendering: optimizeLegibility;
+  }
+
+  /* Headlines are Instrument Serif, which has one weight: never make it bold, the browser would fake it */
+  h1,
+  h2 {
+    font-family: var(--font-display);
+    font-weight: 400;
+    letter-spacing: -0.012em;
+    line-height: 1.05;
+    text-wrap: balance;
+  }
+
+  h3 {
+    letter-spacing: -0.01em;
+    line-height: 1.25;
+    text-wrap: balance;
+  }
+
+  h1 em,
+  h2 em {
+    font-style: italic;
+    color: var(--crimson-ink);
+  }
+
+  p {
+    text-wrap: pretty;
+  }
+
+  ::selection {
+    background-color: var(--crimson);
+    color: #fff;
+  }
+
+  :focus-visible {
+    outline: 2px solid var(--focus);
+    outline-offset: 3px;
+    border-radius: 0.25rem;
+  }
+
+  button {
+    cursor: pointer;
+  }
+
+  /* Scrollbar: a slim pill in the theme's own colours, no arrow buttons. The thumb turns crimson when you reach for it. */
+  ::-webkit-scrollbar {
+    width: 12px;
+    height: 12px;
+  }
+  ::-webkit-scrollbar-track {
+    background-color: var(--canvas);
+    border-left: 1px solid var(--line-faint);
+  }
+  ::-webkit-scrollbar-button {
+    display: none;
+    width: 0;
+    height: 0;
+  }
+  ::-webkit-scrollbar-thumb {
+    background-color: var(--line-strong);
+    /* The transparent border insets the thumb from the track, so it reads as a pill */
+    background-clip: padding-box;
+    border: 3px solid transparent;
+    border-radius: 6px;
+    min-height: 3rem;
+    transition: background-color 0.15s ease;
+  }
+  ::-webkit-scrollbar-thumb:hover {
+    background-color: var(--crimson);
+  }
+  ::-webkit-scrollbar-thumb:active {
+    background-color: var(--crimson-bright);
+  }
+  ::-webkit-scrollbar-corner {
+    background: transparent;
+  }
+
+  /* Firefox has no ::-webkit-scrollbar, so it gets the standard properties */
+  @supports not selector(::-webkit-scrollbar) {
+    html {
+      scrollbar-width: thin;
+      scrollbar-color: var(--line-strong) var(--canvas);
+    }
+  }
+
+  code,
+  kbd,
+  pre {
+    font-family: var(--font-mono);
+  }
+}
+
+@layer components {
+  /* Content width 1120 px with a 16 px gutter on small screens */
+  .wrap {
+    width: min(100% - 2rem, 70rem);
+    margin-inline: auto;
+  }
+
+  .section-pad {
+    padding-block: 4rem;
+  }
+  @media (min-width: 900px) {
+    .section-pad {
+      padding-block: 7rem;
+    }
+  }
+
+  /* Small-caps label, the same one the app uses for column headers */
+  .caps {
+    font-size: 0.75rem;
+    font-weight: 600;
+    letter-spacing: 0.09em;
+    text-transform: uppercase;
+    color: var(--ink-faint);
+  }
+
+  .tnum {
+    font-variant-numeric: tabular-nums;
+  }
+
+  .panel {
+    background-color: var(--surface);
+    border: 1px solid var(--line);
+    border-radius: 0.625rem;
+  }
+
+  .btn {
+    display: inline-flex;
+    align-items: center;
+    justify-content: center;
+    gap: 0.5rem;
+    min-height: 2.75rem;
+    padding: 0 1.25rem;
+    border: 1px solid var(--line-strong);
+    border-radius: 0.375rem;
+    color: var(--ink);
+    font-size: 0.9375rem;
+    font-weight: 600;
+    line-height: 1;
+    white-space: nowrap;
+    text-decoration: none;
+    transition: background-color 0.15s ease, border-color 0.15s ease, color 0.15s ease;
+  }
+  .btn:hover {
+    background-color: var(--hover);
+  }
+
+  .btn-primary {
+    background-color: var(--crimson);
+    border-color: transparent;
+    color: #fff;
+  }
+  .btn-primary:hover {
+    background-color: var(--crimson-bright);
+  }
+
+  .btn-quiet {
+    border-color: transparent;
+    color: var(--ink-soft);
+  }
+  .btn-quiet:hover {
+    color: var(--ink);
+  }
+
+  .btn-sm {
+    min-height: 2.25rem;
+    padding: 0 0.875rem;
+    font-size: 0.875rem;
+  }
+
+  .btn-icon {
+    width: 2.25rem;
+    min-height: 2.25rem;
+    padding: 0;
+  }
+
+  /* Skip link: first focusable element, visible only when focused */
+  .skip-link {
+    position: absolute;
+    left: 1rem;
+    top: -4rem;
+    z-index: 100;
+    padding: 0.625rem 1rem;
+    background-color: var(--crimson);
+    color: #fff;
+    border-radius: 0.375rem;
+    font-weight: 600;
+    text-decoration: none;
+  }
+  .skip-link:focus {
+    top: 1rem;
+  }
+
+  /* Theme toggle shows the icon of the theme you would switch to */
+  .theme-sun {
+    display: none;
+  }
+  :root[data-theme="light"] .theme-sun {
+    display: none;
+  }
+  :root[data-theme="light"] .theme-moon {
+    display: block;
+  }
+  :root[data-theme="dark"] .theme-sun {
+    display: block;
+  }
+  :root[data-theme="dark"] .theme-moon {
+    display: none;
+  }
+  :root:not([data-theme]) .theme-sun {
+    display: block;
+  }
+  :root:not([data-theme]) .theme-moon {
+    display: none;
+  }
+  @media (prefers-color-scheme: light) {
+    :root:not([data-theme]) .theme-sun {
+      display: none;
+    }
+    :root:not([data-theme]) .theme-moon {
+      display: block;
+    }
+  }
+
+  /* A screenshot exists in both themes; only the visitor's theme is shown, so only that one is downloaded */
+  .shot-light {
+    display: none;
+  }
+  :root[data-theme="light"] .shot-dark {
+    display: none;
+  }
+  :root[data-theme="light"] .shot-light {
+    display: block;
+  }
+  @media (prefers-color-scheme: light) {
+    :root:not([data-theme]) .shot-dark {
+      display: none;
+    }
+    :root:not([data-theme]) .shot-light {
+      display: block;
+    }
+  }
+
+  /* FAQ and install steps: native <details> */
+  details > summary {
+    list-style: none;
+    cursor: pointer;
+  }
+  details > summary::-webkit-details-marker {
+    display: none;
+  }
+  details[open] > summary .chev {
+    transform: rotate(180deg);
+  }
+  .chev {
+    transition: transform 0.2s ease;
+  }
+}
+
+/* Motion: CSS only, off under prefers-reduced-motion, and content is fully visible where it is unsupported */
+@keyframes reveal-up {
+  from {
+    opacity: 0;
+    transform: translateY(12px);
+  }
+  to {
+    opacity: 1;
+    transform: translateY(0);
+  }
+}
+
+@keyframes parallax-drift {
+  from {
+    transform: translateY(0);
+  }
+  to {
+    transform: translateY(2.25rem);
+  }
+}
+
+@keyframes bar-in {
+  from {
+    opacity: 0.55;
+  }
+  to {
+    opacity: 1;
+  }
+}
+
+@keyframes line-in {
+  from {
+    opacity: 0;
+  }
+  to {
+    opacity: 1;
+  }
+}
+
+@media (prefers-reduced-motion: no-preference) {
+  @supports (animation-timeline: view()) {
+    .reveal {
+      animation: reveal-up linear both;
+      animation-timeline: view();
+      animation-range: entry 0% entry 30%;
+    }
+    .parallax {
+      animation: parallax-drift linear both;
+      animation-timeline: scroll(root);
+      animation-range: 0 70vh;
+    }
+    .nav-bar {
+      animation: bar-in linear both;
+      animation-timeline: scroll(root);
+      animation-range: 0 96px;
+    }
+    .nav-line {
+      animation: line-in linear both;
+      animation-timeline: scroll(root);
+      animation-range: 0 96px;
+    }
+  }
+}
+
+@media (prefers-reduced-motion: reduce) {
+  *,
+  *::before,
+  *::after {
+    animation-duration: 0.01ms !important;
+    animation-iteration-count: 1 !important;
+    transition-duration: 0.01ms !important;
+  }
 }
