@@ -91,7 +91,7 @@ def _read_sanitized(path: str) -> dict | None:
         with open(path, "r", encoding="utf-8") as f:
             # Merge with defaults in case of missing or invalid keys
             return _sanitize(json.load(f))
-    except Exception:
+    except (OSError, ValueError):  # unreadable, or not valid JSON (JSONDecodeError is a ValueError)
         return None
 
 def load_config() -> dict:
